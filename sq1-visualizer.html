@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQ1 — Square-1 Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── Reset & tokens ──────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0b0c0f;
+      --surface:   #111318;
+      --surface2:  #181b22;
+      --border:    #22262f;
+      --border2:   #2c3140;
+      --text:      #d8dce8;
+      --muted:     #555d72;
+      --accent:    #4fffb0;
+      --accent-dim:#1a4d38;
+      --danger:    #ff5c5c;
+      --font-ui:   'Syne', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --radius:    10px;
+      --transition: 140ms ease;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── Header ──────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      height: 54px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      flex-shrink: 0;
+    }
+
+    .logo {
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #fff;
+    }
+    .logo em {
+      color: var(--accent);
+      font-style: normal;
+    }
+
+    .header-meta {
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      color: var(--muted);
+      letter-spacing: .06em;
+    }
+
+    /* ─── App shell ───────────────────────────────────────── */
+    .app {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ─── Sidebar ─────────────────────────────────────────── */
+    .sidebar {
+      width: 300px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    .section {
+      padding: 1.25rem 1.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title {
+      font-size: .62rem;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    /* ─── Form elements ───────────────────────────────────── */
+    label.field-label {
+      display: block;
+      font-size: .7rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: .45rem;
+    }
+
+    textarea, select, input[type="text"], input[type="number"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: .82rem;
+      padding: .6rem .75rem;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+    textarea:focus, select:focus, input:focus {
+      border-color: var(--accent);
+    }
+    select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23555d72' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right .75rem center;
+      padding-right: 2.2rem;
+    }
+
+    .field { margin-bottom: .9rem; }
+    .field:last-child { margin-bottom: 0; }
+
+    /* ─── Slider + number combo ───────────────────────────── */
+    .slider-combo {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+    }
+    .slider-combo input[type=range] {
+      flex: 1;
+      padding: 0;
+      height: 4px;
+      appearance: none;
+      background: var(--border2);
+      border: none;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    .slider-combo input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      transition: transform var(--transition);
+    }
+    .slider-combo input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.3);
+    }
+    .slider-combo input[type=number] {
+      width: 64px;
+      flex-shrink: 0;
+      text-align: right;
+      padding: .45rem .5rem;
+      font-size: .78rem;
+    }
+    /* hide number input spinners */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+    /* ─── Toggle row (checkbox) ───────────────────────────── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .6rem;
+      padding: .55rem 0;
+    }
+    .toggle-row + .toggle-row {
+      border-top: 1px solid var(--border);
+    }
+    .toggle-label {
+      font-size: .78rem;
+      color: var(--text);
+      letter-spacing: .02em;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    /* custom toggle switch */
+    .toggle-switch {
+      position: relative;
+      width: 34px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--border2);
+      border-radius: 9px;
+      cursor: pointer;
+      transition: background var(--transition);
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--muted);
+      top: 3px; left: 3px;
+      transition: transform var(--transition), background var(--transition);
+    }
+    .toggle-switch input:checked + .toggle-track {
+      background: var(--accent-dim);
+    }
+    .toggle-switch input:checked + .toggle-track::after {
+      transform: translateX(16px);
+      background: var(--accent);
+    }
+
+    /* ─── Segmented control (orientation) ────────────────── */
+    .seg-control {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .seg-control label {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .4rem;
+      padding: .55rem .5rem;
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+      user-select: none;
+    }
+    .seg-control input[type=radio] { display: none; }
+    .seg-control input:checked + span,
+    .seg-control label:has(input:checked) {
+      color: var(--accent);
+    }
+    .seg-control label:has(input:checked) {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+    .seg-control label + label {
+      border-left: 1px solid var(--border);
+    }
+    .seg-icon { font-size: .9rem; line-height: 1; }
+
+    /* ─── Color palette picker ────────────────────────────── */
+    .color-section-note {
+      font-size: .72rem;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: .85rem;
+    }
+
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: .5rem;
+      margin-bottom: 1rem;
+    }
+    .palette-swatch {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform var(--transition), border-color var(--transition);
+      position: relative;
+    }
+    .palette-swatch:hover { transform: scale(1.1); }
+    .palette-swatch.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-dim);
+    }
+    .palette-swatch.active::after {
+      content: '✓';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .65rem;
+      color: rgba(0,0,0,.7);
+      font-weight: 800;
+    }
+
+    .color-mode-hint {
+      font-family: var(--font-mono);
+      font-size: .68rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+    }
+    .color-cursor-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: inline-block;
+      animation: pulse 1.5s ease infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .3; }
+    }
+
+    /* ─── Export buttons ──────────────────────────────────── */
+    .export-group {
+      display: flex;
+      flex-direction: column;
+      gap: .55rem;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      width: 100%;
+      padding: .6rem 1rem;
+      border-radius: var(--radius);
+      font-family: var(--font-ui);
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .05em;
+      cursor: pointer;
+      border: none;
+      transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+      text-transform: uppercase;
+    }
+    .btn:active { transform: scale(.97); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0b0c0f;
+    }
+    .btn-primary:hover {
+      background: #6fffbf;
+      box-shadow: 0 0 16px rgba(79,255,176,.2);
+    }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border2);
+    }
+    .btn-secondary:hover {
+      background: var(--border);
+      border-color: var(--muted);
+    }
+
+    .btn-icon { font-size: 1rem; }
+
+    /* ─── Viewport ────────────────────────────────────────── */
+    .viewport {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .viewport-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: .7rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+
+    .hex-chip {
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      color: var(--muted);
+      letter-spacing: .06em;
+      padding: .25rem .6rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    .spacer { flex: 1; }
+
+    .viewport-canvas {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem;
+      position: relative;
+    }
+
+    /* dot grid bg */
+    .viewport-canvas::before {
+      content: '';
+      position: fixed;
+      inset: 54px 0 0 300px;
+      background-image: radial-gradient(circle, #22262f 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .canvas-inner {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .canvas-inner.vertical {
+      flex-direction: column;
+    }
+
+    .placeholder {
+      text-align: center;
+      color: var(--muted);
+    }
+    .placeholder-icon {
+      font-size: 3rem;
+      margin-bottom: .75rem;
+      opacity: .3;
+    }
+    .placeholder-text {
+      font-size: .85rem;
+      line-height: 1.6;
+    }
+
+    /* error */
+    .error-banner {
+      background: rgba(255,92,92,.08);
+      border: 1px solid rgba(255,92,92,.3);
+      border-radius: var(--radius);
+      padding: .7rem 1rem;
+      font-family: var(--font-mono);
+      font-size: .78rem;
+      color: var(--danger);
+      margin: 1rem;
+    }
+
+    /* ─── Export Modal ────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.65);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms ease;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      padding: 2rem;
+      width: 380px;
+      max-width: calc(100vw - 2rem);
+      box-shadow: 0 32px 80px rgba(0,0,0,.6);
+      transform: translateY(12px) scale(.97);
+      transition: transform 200ms ease;
+    }
+    .modal-overlay.open .modal {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: .4rem;
+    }
+    .modal-sub {
+      font-size: .77rem;
+      color: var(--muted);
+      margin-bottom: 1.4rem;
+      line-height: 1.5;
+    }
+
+    .format-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: .5rem;
+      margin-bottom: 1.3rem;
+    }
+    .format-btn {
+      padding: .65rem .3rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: .72rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: all var(--transition);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .format-btn:hover {
+      border-color: var(--border2);
+      color: var(--text);
+      background: var(--border);
+    }
+    .format-btn.selected {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .modal-remember {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      margin-bottom: 1.4rem;
+      font-size: .75rem;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .modal-remember input[type=checkbox] {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: .6rem;
+    }
+    .modal-actions .btn { flex: 1; }
+
+    /* ─── Scrollbar global ────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    /* ─── Responsive ──────────────────────────────────────── */
+    @media (max-width: 700px) {
+      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+      .app { flex-direction: column; }
+      .viewport-canvas::before { inset: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ HEADER ═══ -->
+  <header>
+    <div class="logo">SQ<em>-1</em> Vis</div>
+    <div class="header-meta">Square-1 Scramble Visualizer</div>
+  </header>
+
+  <!-- ═══ APP SHELL ═══ -->
+  <div class="app">
+
+    <!-- ══ SIDEBAR ══ -->
+    <aside class="sidebar">
+
+      <!-- INPUT -->
+      <div class="section">
+        <div class="section-title">Input</div>
+
+        <div class="field">
+          <label class="field-label">Mode</label>
+          <select id="input-mode">
+            <option value="scramble">Scramble</option>
+            <option value="inverse">Inverse Scramble</option>
+            <option value="hex">Hex Code</option>
+            <option value="karn">Karn</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Input</label>
+          <textarea id="scramble-input" placeholder="(1,0) / (3,3) / (0,-3) / ...">0,0</textarea>
+        </div>
+      </div>
+
+      <!-- DISPLAY -->
+      <div class="section">
+        <div class="section-title">Display</div>
+
+        <div class="field">
+          <label class="field-label">Image Size</label>
+          <div class="slider-combo">
+            <input type="range" id="size-slider" min="50" max="400" step="5" value="220" />
+            <input type="number" id="size-input" min="50" max="400" value="220" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Layer Distance</label>
+          <div class="slider-combo">
+            <input type="range" id="gap-slider" min="0" max="200" step="1" value="100" />
+            <input type="number" id="gap-input" min="0" max="200" value="100" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Orientation</label>
+          <div class="seg-control">
+            <label>
+              <input type="radio" name="orientation" value="horizontal" checked />
+              <span class="seg-icon">⇔</span> Horizontal
+            </label>
+            <label>
+              <input type="radio" name="orientation" value="vertical" />
+              <span class="seg-icon">⇕</span> Vertical
+            </label>
+          </div>
+        </div>
+
+        <div class="toggle-row">
+          <span class="toggle-label">Hide slice indicator</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="hide-slice" />
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- COLOR FILL -->
+      <div class="section">
+        <div class="section-title">Color Fill</div>
+        <p class="color-section-note">Select a color, then click any piece on the diagram to repaint it.</p>
+
+        <div class="palette-grid" id="palette-grid">
+          <!-- swatches injected by JS -->
+        </div>
+
+        <div class="color-mode-hint">
+          <span class="color-cursor-dot" id="color-dot"></span>
+          <span id="color-hint-text">No color selected</span>
+        </div>
+      </div>
+
+      <!-- EXPORT -->
+      <div class="section">
+        <div class="section-title">Export</div>
+        <div class="export-group">
+          <button class="btn btn-primary" id="export-both" onclick="openExportModal('both')">
+            <span class="btn-icon">⬡</span> Export Both Layers
+          </button>
+          <button class="btn btn-secondary" id="export-top" onclick="openExportModal('top')">
+            <span class="btn-icon">△</span> Export Top Layer
+          </button>
+          <button class="btn btn-secondary" id="export-bottom" onclick="openExportModal('bottom')">
+            <span class="btn-icon">▽</span> Export Bottom Layer
+          </button>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ══ VIEWPORT ══ -->
+    <main class="viewport">
+      <div class="viewport-toolbar">
+        <div class="hex-chip" id="hex-display">—</div>
+        <div class="spacer"></div>
+      </div>
+      <div class="viewport-canvas" id="viewport-canvas">
+        <div class="canvas-inner" id="canvas-inner">
+          <div class="placeholder" id="placeholder">
+            <div class="placeholder-icon">◈</div>
+            <div class="placeholder-text">Enter a scramble in the sidebar<br>to render the state.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ═══ EXPORT MODAL ═══ -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModalOnOverlay(event)">
+    <div class="modal">
+      <div class="modal-title" id="modal-title">Export</div>
+      <div class="modal-sub" id="modal-sub">Choose a format to export as.</div>
+
+      <div class="format-grid">
+        <button class="format-btn selected" data-fmt="svg" onclick="selectFormat('svg')">SVG</button>
+        <button class="format-btn" data-fmt="png" onclick="selectFormat('png')">PNG</button>
+        <button class="format-btn" data-fmt="jpg" onclick="selectFormat('jpg')">JPG</button>
+        <button class="format-btn" data-fmt="bmp" onclick="selectFormat('bmp')">Bitmap</button>
+      </div>
+
+      <label class="modal-remember">
+        <input type="checkbox" id="remember-format" />
+        Remember this choice
+      </label>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmExport()">
+          <span class="btn-icon">↓</span> Export
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ drawScramble.js ═══ -->
+  <script src="drawScramble.js"></script>
+
+  <script>
+    /* ─── Palette config ──────────────────────────────── */
+    const PALETTE = [
+      { name: 'Top',    color: '#4d4d4d' },
+      { name: 'Bottom', color: '#FFFFFF' },
+      { name: 'Front',  color: '#CC0000' },
+      { name: 'Right',  color: '#00AA00' },
+      { name: 'Back',   color: '#FF8C00' },
+      { name: 'Left',   color: '#0066CC' },
+      { name: 'Custom', color: '#e040fb' },
+      { name: 'Clear',  color: '#0b0c0f', border: '#333' },
+    ];
+
+    let activeColor = null;
+    let exportTarget = 'both';
+    let selectedFormat = 'svg';
+    let rememberedFormat = localStorage.getItem('sq1-export-fmt') || null;
+
+    /* ─── Build palette ───────────────────────────────── */
+    const paletteGrid = document.getElementById('palette-grid');
+    PALETTE.forEach((p, i) => {
+      const sw = document.createElement('div');
+      sw.className = 'palette-swatch';
+      sw.title = p.name;
+      sw.style.background = p.color;
+      if (p.border) sw.style.border = `2px solid ${p.border}`;
+      sw.dataset.index = i;
+      sw.addEventListener('click', () => toggleColor(sw, p));
+      paletteGrid.appendChild(sw);
+    });
+
+    function toggleColor(el, p) {
+      const wasActive = el.classList.contains('active');
+      document.querySelectorAll('.palette-swatch').forEach(s => s.classList.remove('active'));
+      if (!wasActive) {
+        el.classList.add('active');
+        activeColor = p.color;
+        document.getElementById('color-dot').style.background = p.color;
+        document.getElementById('color-hint-text').textContent = `Painting with: ${p.name}`;
+      } else {
+        activeColor = null;
+        document.getElementById('color-dot').style.background = 'var(--accent)';
+        document.getElementById('color-hint-text').textContent = 'No color selected';
+      }
+    }
+
+    /* ─── Sync sliders ↔ number inputs ───────────────── */
+    function syncPair(sliderId, inputId, onChange) {
+      const slider = document.getElementById(sliderId);
+      const input  = document.getElementById(inputId);
+      slider.addEventListener('input', () => { input.value = slider.value; onChange(); });
+      input.addEventListener('input',  () => { slider.value = input.value; onChange(); });
+    }
+    syncPair('size-slider', 'size-input', draw);
+    syncPair('gap-slider',  'gap-input',  draw);
+
+    /* ─── Orientation ─────────────────────────────────── */
+    document.querySelectorAll('input[name=orientation]').forEach(r =>
+      r.addEventListener('change', draw));
+
+    /* ─── Hide-slice toggle ───────────────────────────── */
+    document.getElementById('hide-slice').addEventListener('change', draw);
+
+    /* ─── Input reactive ──────────────────────────────── */
+    document.getElementById('scramble-input').addEventListener('input', draw);
+    document.getElementById('input-mode').addEventListener('change', draw);
+
+    /* ─── Draw ────────────────────────────────────────── */
+    function draw() {
+      const scramble = document.getElementById('scramble-input').value.trim();
+      const size     = parseInt(document.getElementById('size-input').value, 10);
+      const gap      = parseInt(document.getElementById('gap-input').value, 10);
+      const mode     = document.getElementById('input-mode').value;
+      const hexDisplay = document.getElementById('hex-display');
+      const canvasInner = document.getElementById('canvas-inner');
+
+      const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
+      canvasInner.className = 'canvas-inner' + (isVertical ? ' vertical' : '');
+
+      if (!scramble) {
+        canvasInner.innerHTML = `<div class="placeholder">
+          <div class="placeholder-icon">◈</div>
+          <div class="placeholder-text">Enter a scramble in the sidebar<br>to render the state.</div>
+        </div>`;
+        hexDisplay.textContent = '—';
+        return;
+      }
+
+      try {
+        let hex;
+        if (mode === 'hex') {
+          hex = scramble;
+        } else if (mode === 'inverse') {
+          const inv = sq1vis.invertScramble(scramble);
+          const { tlHex, blHex } = sq1vis.algToHex(inv);
+          hex = `${tlHex}|${blHex}`;
+        } else {
+          // scramble and karn treated as-is for now
+          const { tlHex, blHex } = sq1vis.algToHex(scramble);
+          hex = `${tlHex}|${blHex}`;
+        }
+
+        hexDisplay.textContent = 'hex: ' + hex;
+        const html = sq1vis.fromHex(hex, size, gap);
+        canvasInner.innerHTML = html;
+
+      } catch (err) {
+        canvasInner.innerHTML = `<div class="error-banner">⚠ ${err.message}</div>`;
+        hexDisplay.textContent = '—';
+        console.error(err);
+      }
+    }
+
+    /* ─── Export modal ────────────────────────────────── */
+    function openExportModal(target) {
+      exportTarget = target;
+      const titles = { both: 'Export Both Layers', top: 'Export Top Layer', bottom: 'Export Bottom Layer' };
+      document.getElementById('modal-title').textContent = titles[target];
+      document.getElementById('modal-sub').textContent =
+        `Choose a file format for the export.`;
+
+      if (rememberedFormat) {
+        selectFormat(rememberedFormat);
+        document.getElementById('remember-format').checked = true;
+      }
+      document.getElementById('modal-overlay').classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('open');
+    }
+
+    function closeModalOnOverlay(e) {
+      if (e.target === document.getElementById('modal-overlay')) closeModal();
+    }
+
+    function selectFormat(fmt) {
+      selectedFormat = fmt;
+      document.querySelectorAll('.format-btn').forEach(b => {
+        b.classList.toggle('selected', b.dataset.fmt === fmt);
+      });
+    }
+
+    function confirmExport() {
+      const remember = document.getElementById('remember-format').checked;
+      if (remember) localStorage.setItem('sq1-export-fmt', selectedFormat);
+      else localStorage.removeItem('sq1-export-fmt');
+      rememberedFormat = remember ? selectedFormat : null;
+      // Export logic goes here
+      alert(`[Stub] Exporting "${exportTarget}" as .${selectedFormat}`);
+      closeModal();
+    }
+
+    /* ─── Escape key closes modal ─────────────────────── */
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    /* ─── Init ────────────────────────────────────────── */
+    if (rememberedFormat) selectFormat(rememberedFormat);
+    draw();
+  </script>
+</body>
+</html>
