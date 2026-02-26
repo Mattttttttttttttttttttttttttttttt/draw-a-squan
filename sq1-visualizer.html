@@ -1044,8 +1044,8 @@
           ? `translate(${PAD_OTHER}, ${PAD_TOP + s + margin})`
           : `translate(${PAD_OTHER + s + margin}, ${PAD_TOP})`;
 
-        const totalW = isVertical ? vbW : vbW * 2 + margin;
-        const totalH = isVertical ? vbH * 2 + margin : vbH;
+        const totalW = isVertical ? vbW : PAD_OTHER + s + margin + s + PAD_OTHER;
+        const totalH = isVertical ? PAD_TOP + s + margin + s + PAD_OTHER : vbH;
 
         return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">` +
           `<g transform="${g0shift}">${inner0}</g><g transform="${g1shift}">${inner1}</g></svg>`;
