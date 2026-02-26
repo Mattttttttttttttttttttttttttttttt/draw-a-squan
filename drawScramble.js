@@ -65,25 +65,27 @@ const Square1Visualizer = (() => {
         // Parse the scramble string
         const moves = parseScramble(scramble);
 
+/*
         // Apply each move
         console.log('--- Parsed moves ---');
         console.log(moves);
         console.log('Start:', tlHex, '|', blHex);
+*/
 
         for (const move of moves) {
             if (move.type === 'twist') {
                 const result = twist(tlHex, blHex);
                 tlHex = result.tlHex;
                 blHex = result.blHex;
-                console.log('twist →', tlHex, '|', blHex);
+                //console.log('twist →', tlHex, '|', blHex);
             } else if (move.type === 'turn') {
                 tlHex = cycleLeft(tlHex, move.top);
                 blHex = cycleLeft(blHex, move.bottom);
-                console.log(`turn (${move.top},${move.bottom}) →`, tlHex, '|', blHex);
+                //console.log(`turn (${move.top},${move.bottom}) →`, tlHex, '|', blHex);
             }
         }
 
-        console.log('Final:', tlHex, '|', blHex);
+        //console.log('Final:', tlHex, '|', blHex);
         return { tlHex, blHex };
     }
 
@@ -381,7 +383,7 @@ const Square1Visualizer = (() => {
                 }
             }
         }
-        console.log(scramble);
+        //console.log(scramble);
         scramble = scramble.replaceAll(/ *\/ */g, "/").replaceAll(/\/\//g, "/0,0/").replaceAll(/\//g, " ");
         return dictReplace(" "+scramble+" ", karnToWCA).slice(1,-1).replaceAll(" ", "/"); // unkarnify the shorthands
     }

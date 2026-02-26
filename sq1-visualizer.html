@@ -1071,7 +1071,7 @@
         canvas.height = img.naturalHeight || img.height;
         // For JPEG/BMP fill white bg
         const ctx = canvas.getContext('2d');
-        if (exportFmt !== 'png') {
+        if (exportFmt === 'jpeg') {
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
@@ -1083,7 +1083,17 @@
         const mime    = mimeMap[exportFmt] || 'image/png';
         const ext     = extMap[exportFmt]  || 'png';
 
-        if (method === 'clipboard') {
+        if (exportFmt === 'bmp') {
+          const blob = createBMP32(canvas);
+          if (method === 'clipboard') {
+            try {
+              await navigator.clipboard.write([new ClipboardItem({ 'image/bmp': blob })]);
+              flashBtn('Copied!');
+            } catch { alert('Clipboard BMP copy failed — try PNG instead.'); }
+          } else {
+            triggerDownload(blob, `${fname}.bmp`);
+          }
+        } else if (method === 'clipboard') {
           canvas.toBlob(async blob => {
             try {
               await navigator.clipboard.write([new ClipboardItem({ [mime]: blob })]);
@@ -1095,6 +1105,65 @@
         }
       };
       img.src = url;
+    }
+
+    function createBMP32(canvas) {
+      const w = canvas.width, h = canvas.height;
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.getImageData(0, 0, w, h).data;
+
+      const fileHeaderSize = 14;
+      const dibHeaderSize  = 108;
+      const pixelDataSize  = w * h * 4;
+      const fileSize       = fileHeaderSize + dibHeaderSize + pixelDataSize;
+      const buf  = new ArrayBuffer(fileSize);
+      const view = new DataView(buf);
+      let o = 0;
+
+      const u8  = (v) => {
+        if (o >= fileSize) { console.error('[BMP] u8 overflow at o=', o, 'fileSize=', fileSize); throw new RangeError('u8 overflow'); }
+        view.setUint8(o++, v);
+      };
+      const u16 = (v) => { view.setUint16(o, v, true); o += 2; };
+      const u32 = (v) => { view.setUint32(o, v, true); o += 4; };
+      const i32 = (v) => { view.setInt32 (o, v, true); o += 4; };
+      const zer = (n) => { for (let i = 0; i < n; i++) { view.setUint8(o, 0); o++; } };
+
+      // ── File header (14 bytes) ──
+      u8(0x42); u8(0x4D);
+      u32(fileSize);
+      u16(0); u16(0);
+      u32(fileHeaderSize + dibHeaderSize);
+
+      // ── BITMAPV4HEADER (108 bytes) ──
+      u32(dibHeaderSize);
+      i32(w);
+      i32(-h);
+      u16(1);
+      u16(32);
+      u32(3);
+      u32(pixelDataSize);
+      i32(2835);
+      i32(2835);
+      u32(0);
+      u32(0);
+      u32(0x00FF0000);
+      u32(0x0000FF00);
+      u32(0x000000FF);
+      u32(0xFF000000);
+      u32(0x57696E20);    // color space 'Win '
+      zer(36);            // CIEXYZTRIPLE — 9 × FXPT2DOT30 (3 endpoints × 3 coords × 4 bytes)
+      zer(12);            // gamma R, G, B (3 × 4 bytes)
+
+      // ── Pixel data (BGRA) ──
+      for (let i = 0; i < w * h; i++) {
+        const base = i * 4;
+        u8(imgData[base + 2]);
+        u8(imgData[base + 1]);
+        u8(imgData[base + 0]);
+        u8(imgData[base + 3]);
+      }
+      return new Blob([buf], { type: 'image/bmp' });
     }
 
     function triggerDownload(blob, filename) {
