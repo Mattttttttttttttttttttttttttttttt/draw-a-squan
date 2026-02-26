@@ -340,6 +340,47 @@
       50% { opacity: .3; }
     }
 
+    /* ─── Color scheme grid ──────────────────────────────── */
+    .scheme-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .38rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .scheme-row:last-child { border-bottom: none; }
+    .scheme-face-label {
+      font-size: .74rem;
+      color: var(--text);
+      letter-spacing: .03em;
+      text-transform: capitalize;
+    }
+    .scheme-swatch-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 2px solid rgba(255,255,255,.1);
+      cursor: pointer;
+      transition: transform var(--transition), border-color var(--transition);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .scheme-swatch-btn:hover {
+      transform: scale(1.15);
+      border-color: var(--accent);
+    }
+    /* hidden native color picker overlaid on swatch */
+    .scheme-color-input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+      border: none;
+      padding: 0;
+    }
+
     /* ─── Export buttons ──────────────────────────────────── */
     .export-group {
       display: flex;
@@ -749,19 +790,11 @@
         </div>
       </div>
 
-      <!-- COLOR FILL -->
+      <!-- COLOR SCHEME -->
       <div class="section">
-        <div class="section-title">Color Fill</div>
-        <p class="color-section-note">Select a color, then click any piece on the diagram to repaint it.</p>
-
-        <div class="palette-grid" id="palette-grid">
-          <!-- swatches injected by JS -->
-        </div>
-
-        <div class="color-mode-hint">
-          <span class="color-cursor-dot" id="color-dot"></span>
-          <span id="color-hint-text">No color selected</span>
-        </div>
+        <div class="section-title">Color Scheme</div>
+        <p class="color-section-note">Click any swatch to change the color for that face.</p>
+        <div id="scheme-grid"></div>
       </div>
 
       <!-- EXPORT -->
@@ -795,7 +828,7 @@
             <div class="mode-dropdown-item" data-mode="karn">Karn</div>
           </div>
         </div>
-        <input type="text" class="topbar-input" id="scramble-input" placeholder="(1,0) / (3,3) / (0,-3) / ..." value="0,0" />
+        <input type="text" class="topbar-input" id="scramble-input" placeholder="(1,0) / (3,3) / (0,-3) / ..." />
       </div>
       <div class="viewport-canvas" id="viewport-canvas">
         <div class="canvas-inner" id="canvas-inner">
@@ -840,50 +873,39 @@
   <script src="drawScramble.js"></script>
 
   <script>
-    /* ─── Palette config ──────────────────────────────── */
-    const PALETTE = [
-      { name: 'Top',    color: '#4d4d4d' },
-      { name: 'Bottom', color: '#FFFFFF' },
-      { name: 'Front',  color: '#CC0000' },
-      { name: 'Right',  color: '#00AA00' },
-      { name: 'Back',   color: '#FF8C00' },
-      { name: 'Left',   color: '#0066CC' },
-      { name: 'Custom', color: '#e040fb' },
-      { name: 'Clear',  color: '#0b0c0f', border: '#333' },
-    ];
+    /* ─── Color scheme editor ─────────────────────────── */
+    const SCHEME_FACES = ['top', 'bottom', 'front', 'right', 'back', 'left'];
 
-    let activeColor = null;
     let exportTarget = 'both';
     let selectedFormat = 'svg';
     let rememberedFormat = localStorage.getItem('sq1-export-fmt') || null;
 
-    /* ─── Build palette ───────────────────────────────── */
-    const paletteGrid = document.getElementById('palette-grid');
-    PALETTE.forEach((p, i) => {
-      const sw = document.createElement('div');
-      sw.className = 'palette-swatch';
-      sw.title = p.name;
-      sw.style.background = p.color;
-      if (p.border) sw.style.border = `2px solid ${p.border}`;
-      sw.dataset.index = i;
-      sw.addEventListener('click', () => toggleColor(sw, p));
-      paletteGrid.appendChild(sw);
-    });
-
-    function toggleColor(el, p) {
-      const wasActive = el.classList.contains('active');
-      document.querySelectorAll('.palette-swatch').forEach(s => s.classList.remove('active'));
-      if (!wasActive) {
-        el.classList.add('active');
-        activeColor = p.color;
-        document.getElementById('color-dot').style.background = p.color;
-        document.getElementById('color-hint-text').textContent = `Painting with: ${p.name}`;
-      } else {
-        activeColor = null;
-        document.getElementById('color-dot').style.background = 'var(--accent)';
-        document.getElementById('color-hint-text').textContent = 'No color selected';
-      }
+    function buildSchemeGrid() {
+      const grid = document.getElementById('scheme-grid');
+      grid.innerHTML = '';
+      const scheme = sq1vis.getColorScheme();
+      SCHEME_FACES.forEach(face => {
+        const row = document.createElement('div');
+        row.className = 'scheme-row';
+        row.innerHTML = `
+          <span class="scheme-face-label">${face}</span>
+          <div class="scheme-swatch-btn" id="swatch-${face}" style="background:${scheme[face]}">
+            <input class="scheme-color-input" type="color" value="${scheme[face]}" data-face="${face}" />
+          </div>`;
+        grid.appendChild(row);
+      });
+      grid.querySelectorAll('.scheme-color-input').forEach(inp => {
+        inp.addEventListener('input', e => {
+          const face = e.target.dataset.face;
+          const color = e.target.value;
+          document.getElementById(`swatch-${face}`).style.background = color;
+          sq1vis.setColorScheme({ [face]: color });
+          draw();
+        });
+      });
     }
+
+    buildSchemeGrid();
 
     /* ─── Sync sliders ↔ number inputs ───────────────── */
     function syncPair(sliderId, inputId, onChange) {
@@ -948,22 +970,33 @@
     /* ─── Input reactive ──────────────────────────────────── */
     document.getElementById('scramble-input').addEventListener('input', draw);
 
-    /* ─── Draw ────────────────────────────────────────── */
+    const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
+    const PLACEHOLDER_SCHEME = {
+      top:    '#2a2a2a',
+      bottom: '#2a2a2a',
+      front:  '#2a2a2a',
+      right:  '#2a2a2a',
+      back:   '#2a2a2a',
+      left:   '#2a2a2a',
+      slice:  '#666666',
+    };
+
     function draw() {
       const input = document.getElementById('scramble-input').value;
       const size = parseInt(document.getElementById('size-input').value, 10);
       const gap = parseInt(document.getElementById('gap-input').value, 10);
       const mode = MODES[currentModeIndex].value;
       const canvasInner = document.getElementById('canvas-inner');
-
       const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
       const showSlice = !document.getElementById("hide-slice").checked;
 
       if (!input) {
-        canvasInner.innerHTML = `<div class="placeholder">
-          <div class="placeholder-icon">◈</div>
-          <div class="placeholder-text">Enter a scramble in the sidebar<br>to render the state.</div>
-        </div>`;
+        // Draw placeholder cube with muted gray scheme
+        const realScheme = sq1vis.getColorScheme();
+        sq1vis.setColorScheme(PLACEHOLDER_SCHEME);
+        const html = sq1vis.getSVG(PLACEHOLDER_HEX, size, gap, isVertical, showSlice);
+        sq1vis.setColorScheme({ ...realScheme, slice: null });
+        canvasInner.innerHTML = html;
         return;
       }
 
@@ -991,7 +1024,7 @@
         console.error(err);
       }
     }
-    
+
     /* ─── Export modal ────────────────────────────────── */
     function openExportModal(target) {
       exportTarget = target;
@@ -1023,6 +1056,11 @@
     }
 
     function confirmExport() {
+      if (!document.getElementById('scramble-input').value.trim()) {
+        alert('Nothing to export — enter a scramble first.');
+        closeModal();
+        return;
+      }
       const remember = document.getElementById('remember-format').checked;
       if (remember) localStorage.setItem('sq1-export-fmt', selectedFormat);
       else localStorage.removeItem('sq1-export-fmt');

@@ -10,7 +10,7 @@ const Square1Visualizer = (() => {
 
     // === CONSTANTS ===
 
-    const COLOR_SCHEME = {
+    let COLOR_SCHEME = {
         top: '#4d4d4d',
         bottom: '#FFFFFF',
         front: '#CC0000',
@@ -18,14 +18,11 @@ const Square1Visualizer = (() => {
         back: '#FF8C00',
         left: '#0066CC',
         divider: '#7a0000',
-        circle: 'transparent'
+        circle: 'transparent',
+        slice: null
     };
 
     const CORNER_HEX_VALUES = ['1', '3', '5', '7', '9', 'b', 'd', 'f'];
-
-    const modeEl = document.querySelector("input-mode");
-    const inputEl = document.querySelector("scramble-input");
-
 
     // === COLOR LOOKUPS ===
 
@@ -485,23 +482,23 @@ const Square1Visualizer = (() => {
      * @param {number} size
      */
     function getSliceSVG(layer, cx, cy, size = 220) {
-        // At the reference size of 220, relativeScale=1 reproduces the original scale=0.89.
-        // Scaling linearly with size means the indicator grows/shrinks with the rest of the image.
         const scale = (size / 220) * 1.965;
+        const topCol  = COLOR_SCHEME.slice || COLOR_SCHEME.top;
+        const botCol  = COLOR_SCHEME.slice || COLOR_SCHEME.bottom;
         if (layer === "top") {
             return `<g transform="translate(${cx.toFixed(2) - 42/220*size},${cy.toFixed(2) - 123.5/220*size}) scale(${scale.toFixed(4)})">
                 <path d="M42.56,3.6c-.16-.97-.86-1.73-1.81-1.99L35.06.09c-.21-.06-.43-.09-.65-.09-.86,0-1.64.44-2.1,1.17-.46.73-.5,1.63-.13,2.4l1.97,4.05c.42.86,1.28,1.4,2.24,1.4.5,0,.98-.15,1.39-.43l3.73-2.53c.82-.55,1.22-1.5,1.06-2.47Z"/>
                 <path d="M8.45,116.55c-.42-.86-1.28-1.4-2.24-1.4-.5,0-.98.15-1.39.43l-3.73,2.53c-.82.55-1.22,1.5-1.06,2.47.16.97.86,1.73,1.81,1.99l5.7,1.53c.21.06.43.09.65.09.86,0,1.64-.44,2.1-1.17.46-.73.5-1.63.13-2.4l-1.97-4.05Z"/>
-                <path fill="${COLOR_SCHEME.top}" d="M40.37,3.06l-5.7-1.53c-.09-.02-.18-.04-.26-.04-.69,0-1.21.74-.88,1.42l1.97,4.05c.17.35.52.55.89.55.19,0,.38-.05.55-.17l3.73-2.53c.7-.47.52-1.55-.3-1.77Z"/>
-                <path fill="${COLOR_SCHEME.top}" d="M7.1,117.2c-.17-.35-.52-.55-.89-.55-.19,0-.38.05-.55.17l-3.73,2.53c-.7.47-.52,1.55.3,1.77l5.7,1.53c.09.02.18.04.26.04.69,0,1.21-.74.88-1.42l-1.97-4.05Z"/>
+                <path fill="${topCol}" d="M40.37,3.06l-5.7-1.53c-.09-.02-.18-.04-.26-.04-.69,0-1.21.74-.88,1.42l1.97,4.05c.17.35.52.55.89.55.19,0,.38-.05.55-.17l3.73-2.53c.7-.47.52-1.55-.3-1.77Z"/>
+                <path fill="${topCol}" d="M7.1,117.2c-.17-.35-.52-.55-.89-.55-.19,0-.38.05-.55.17l-3.73,2.53c-.7.47-.52,1.55.3,1.77l5.7,1.53c.09.02.18.04.26.04.69,0,1.21-.74.88-1.42l-1.97-4.05Z"/>
             </g>`
         }
         else if (layer === "bottom") {
             return `<g transform="translate(${cx.toFixed(2) - 98/220*size},${cy.toFixed(2) - 86/220*size}) scale(${scale.toFixed(4)}) rotate(-30)">
                 <path d="M42.56,3.6c-.16-.97-.86-1.73-1.81-1.99L35.06.09c-.21-.06-.43-.09-.65-.09-.86,0-1.64.44-2.1,1.17-.46.73-.5,1.63-.13,2.4l1.97,4.05c.42.86,1.28,1.4,2.24,1.4.5,0,.98-.15,1.39-.43l3.73-2.53c.82-.55,1.22-1.5,1.06-2.47Z"/>
                 <path d="M8.45,116.55c-.42-.86-1.28-1.4-2.24-1.4-.5,0-.98.15-1.39.43l-3.73,2.53c-.82.55-1.22,1.5-1.06,2.47.16.97.86,1.73,1.81,1.99l5.7,1.53c.21.06.43.09.65.09.86,0,1.64-.44,2.1-1.17.46-.73.5-1.63.13-2.4l-1.97-4.05Z"/>
-                <path fill="${COLOR_SCHEME.bottom}" d="M40.37,3.06l-5.7-1.53c-.09-.02-.18-.04-.26-.04-.69,0-1.21.74-.88,1.42l1.97,4.05c.17.35.52.55.89.55.19,0,.38-.05.55-.17l3.73-2.53c.7-.47.52-1.55-.3-1.77Z"/>
-                <path fill="${COLOR_SCHEME.bottom}" d="M7.1,117.2c-.17-.35-.52-.55-.89-.55-.19,0-.38.05-.55.17l-3.73,2.53c-.7.47-.52,1.55.3,1.77l5.7,1.53c.09.02.18.04.26.04.69,0,1.21-.74.88-1.42l-1.97-4.05Z"/>
+                <path fill="${botCol}" d="M40.37,3.06l-5.7-1.53c-.09-.02-.18-.04-.26-.04-.69,0-1.21.74-.88,1.42l1.97,4.05c.17.35.52.55.89.55.19,0,.38-.05.55-.17l3.73-2.53c.7-.47.52-1.55-.3-1.77Z"/>
+                <path fill="${botCol}" d="M7.1,117.2c-.17-.35-.52-.55-.89-.55-.19,0,.38.05-.55.17l-3.73,2.53c-.7.47-.52,1.55.3,1.77l5.7,1.53c.09.02.18.04.26.04.69,0,1.21-.74.88-1.42l-1.97-4.05Z"/>
             </g>`
         }
         throw new Error("what layer do you wanna draw bruh")
@@ -639,7 +636,14 @@ const Square1Visualizer = (() => {
         return html;
     }
 
-    return { getSVG, parseHex, algToHex, invertScramble, unkarnify };
+    function setColorScheme(scheme) {
+        COLOR_SCHEME = { ...COLOR_SCHEME, ...scheme };
+    }
+    function getColorScheme() {
+        return { ...COLOR_SCHEME };
+    }
+
+    return { getSVG, parseHex, algToHex, invertScramble, unkarnify, setColorScheme, getColorScheme };
 
 })();
 
