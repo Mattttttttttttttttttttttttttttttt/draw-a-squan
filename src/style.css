@@ -1,39 +1,50 @@
 /* ─── Fonts ──────────────────────────────────── */
+/* ===== SYNE ===== */
 @font-face {
   font-family: 'Syne';
-  src: url('../fonts/JetBrains_Mono,Syne/Syne/static/Syne-Regular.ttf') format('truetype');
+  src: url('../fonts/Syne/static/Syne-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Syne';
-  src: url('../fonts/JetBrains_Mono,Syne/Syne/static/Syne-SemiBold.ttf') format('truetype');
+  src: url('../fonts/Syne/static/Syne-SemiBold.ttf') format('truetype');
   font-weight: 600;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Syne';
-  src: url('../fonts/JetBrains_Mono,Syne/Syne/static/Syne-Bold.ttf') format('truetype');
+  src: url('../fonts/Syne/static/Syne-Bold.ttf') format('truetype');
   font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Syne';
+  src: url('../fonts/Syne/static/Syne-ExtraBold.ttf') format('truetype');
+  font-weight: 800;
   font-style: normal;
 }
 
 /* ===== JETBRAINS MONO ===== */
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('../fonts/JetBrains_Mono,Syne/JetBrains_Mono/static/JetBrainsMono-Regular.ttf') format('truetype');
+  src: url('../fonts/JetBrains_Mono/static/JetBrainsMono-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('../fonts/JetBrains_Mono,Syne/JetBrains_Mono/static/JetBrainsMono-Medium.ttf') format('truetype');
+  src: url('../fonts/JetBrains_Mono/static/JetBrainsMono-Medium.ttf') format('truetype');
   font-weight: 500;
   font-style: normal;
 }
+
+
+
 
 /* ─── Reset & tokens ──────────────────────────────────── */
 *,
