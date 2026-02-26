@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQ1 — Square-1 Visualizer</title>
+  <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+
+  <!-- ═══ HEADER ═══ -->
+  <header>
+    <div class="logo">SQ<em>-1</em> Vis</div>
+    <div class="header-meta">Square-1 Scramble Visualizer</div>
+  </header>
+
+  <!-- ═══ APP SHELL ═══ -->
+  <div class="app">
+
+    <!-- ══ SIDEBAR ══ -->
+    <aside class="sidebar">
+
+      <!-- DISPLAY -->
+      <div class="section">
+        <div class="section-title">Display</div>
+
+        <div class="field">
+          <label class="field-label">Image Size</label>
+          <div class="slider-combo">
+            <input type="range" id="size-slider" min="100" max="750" step="5" value="400" />
+            <input type="number" id="size-input" min="100" max="750" value="400" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Layer Distance</label>
+          <div class="slider-combo">
+            <input type="range" id="gap-slider" min="0" max="200" step="1" value="100" />
+            <input type="number" id="gap-input" min="0" max="200" value="100" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Orientation</label>
+          <div class="seg-control">
+            <label>
+              <input type="radio" name="orientation" value="horizontal" checked />
+              <span class="seg-icon">⇔</span> Horizontal
+            </label>
+            <label>
+              <input type="radio" name="orientation" value="vertical" />
+              <span class="seg-icon">⇕</span> Vertical
+            </label>
+          </div>
+        </div>
+
+        <div class="toggle-row">
+          <span class="toggle-label">Hide slice indicator</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="hide-slice" />
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- COLOR SCHEME -->
+      <div class="section">
+        <div class="section-title">Color Scheme</div>
+        <p class="color-section-note">Click any swatch to change the color for that face.</p>
+        <div id="scheme-grid"></div>
+      </div>
+
+      <!-- EXPORT -->
+      <div class="section">
+        <div class="section-title">Export</div>
+
+        <div class="export-tab-group">
+          <div class="export-tab-label">Layers</div>
+          <div class="export-tab-row">
+            <button class="export-tab active" data-group="layer" data-val="both">Both</button>
+            <button class="export-tab" data-group="layer" data-val="top">Top</button>
+            <button class="export-tab" data-group="layer" data-val="bottom">Bottom</button>
+          </div>
+        </div>
+
+        <div class="export-tab-group">
+          <div class="export-tab-label">Format</div>
+          <div class="export-tab-row">
+            <button class="export-tab active" data-group="fmt" data-val="svg">SVG</button>
+            <button class="export-tab" data-group="fmt" data-val="png">PNG</button>
+            <button class="export-tab" data-group="fmt" data-val="jpeg">JPEG</button>
+            <button class="export-tab" data-group="fmt" data-val="bmp">BMP</button>
+          </div>
+        </div>
+
+        <div class="export-tab-group">
+          <div class="export-tab-label">Method</div>
+          <div class="export-tab-row">
+            <button class="export-tab active" data-group="method" data-val="download">Download</button>
+            <button class="export-tab" data-group="method" data-val="clipboard">Clipboard</button>
+          </div>
+        </div>
+
+        <div class="export-action-row">
+          <button class="btn btn-primary" id="do-export" style="flex:1;">
+            <span class="btn-icon" id="export-btn-icon">↓</span>
+            <span id="export-btn-label">Download</span>
+          </button>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:.62rem;color:var(--muted);margin-top:.6rem;line-height:1.7;">
+          <span style="color:var(--border2);">⌨</span> Ctrl+S → Download<br>
+          <span style="color:var(--border2);">⌨</span> Ctrl+C → Copy
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ══ VIEWPORT ══ -->
+    <main class="viewport">
+      <div class="input-bar">
+        <div class="mode-toggle-wrap" id="mode-toggle-wrap">
+          <button class="mode-toggle-btn" id="mode-toggle-btn" title="Left-click: next mode | Right-click: previous mode">SCRAMBLE</button>
+          <button class="mode-dropdown-btn" id="mode-dropdown-btn">▾</button>
+          <div class="mode-dropdown-menu" id="mode-dropdown-menu">
+            <div class="mode-dropdown-item active" data-mode="scramble">Scramble</div>
+            <div class="mode-dropdown-item" data-mode="inverse">Alg</div>
+            <div class="mode-dropdown-item" data-mode="hex">Hex</div>
+            <div class="mode-dropdown-item" data-mode="karn">Karn</div>
+          </div>
+        </div>
+        <input type="text" class="topbar-input" id="scramble-input" placeholder="(1,0) / (3,3) / (0,-3) / ..." />
+      </div>
+      <div class="viewport-canvas" id="viewport-canvas">
+        <div class="canvas-inner" id="canvas-inner">
+          <div class="placeholder" id="placeholder">
+            <div class="placeholder-icon">◈</div>
+            <div class="placeholder-text">Enter a scramble in the sidebar<br>to render the state.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ═══ drawScramble.js ═══ -->
+  <script src="drawScramble.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
