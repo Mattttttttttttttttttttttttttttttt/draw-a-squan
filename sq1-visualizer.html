@@ -814,13 +814,14 @@
     /* ─── Draw ────────────────────────────────────────── */
     function draw() {
       const input = document.getElementById('scramble-input').value;
-      const size     = parseInt(document.getElementById('size-input').value, 10);
-      const gap      = parseInt(document.getElementById('gap-input').value, 10);
-      const mode     = document.getElementById('input-mode').value;
+      const size = parseInt(document.getElementById('size-input').value, 10);
+      const gap = parseInt(document.getElementById('gap-input').value, 10);
+      const mode = document.getElementById('input-mode').value;
       const hexDisplay = document.getElementById('hex-display');
       const canvasInner = document.getElementById('canvas-inner');
 
       const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
+      const showSlice = !document.getElementById("hide-slice").checked;
 
       if (!input) {
         canvasInner.innerHTML = `<div class="placeholder">
@@ -850,7 +851,7 @@
 
         hexDisplay.textContent = 'hex: ' + hex;
         // check if hex is legal here
-        const html = sq1vis.getSVG(hex, size, gap, isVertical);
+        const html = sq1vis.getSVG(hex, size, gap, isVertical, showSlice);
         canvasInner.innerHTML = html;
 
       } catch (err) {

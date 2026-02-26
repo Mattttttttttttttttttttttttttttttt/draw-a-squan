@@ -607,7 +607,7 @@ const Square1Visualizer = (() => {
 
     // === MAIN SVG BUILDER ===
 
-    function getSVG(rawHex, size = 400, ringDistance = 5, isVert) {
+    function getSVG(rawHex, size = 400, ringDistance = 5, isVert, showSlice) {
         // Normalise to 24 raw chars
         let hex = rawHex.replace(/[|/]/, '');
         if (hex.length !== 24) throw new Error('Hex must be 24 data characters (plus optional | separator).');
@@ -626,14 +626,14 @@ const Square1Visualizer = (() => {
         // --- TOP LAYER ---
         html += `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="overflow:visible;">`;
         html += drawLayer(parsed.top, false, cx, cy, size);
-        html += getSliceSVG("top", cx, cy, size);
+        if (showSlice) html += getSliceSVG("top", cx, cy, size);
         html += `</svg>`;
 
         // --- BOTTOM LAYER ---
         html += `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="overflow:visible;${isVert ?
             "margin-top:" : "margin-left:"}${margin.toFixed(1)}px;">`;
         html += drawLayer(parsed.bottom, true, cx, cy, size);
-        html += getSliceSVG("bottom", cx, cy, size);
+        if (showSlice) html += getSliceSVG("bottom", cx, cy, size);
         html += `</svg></div>`;
 
         return html;
