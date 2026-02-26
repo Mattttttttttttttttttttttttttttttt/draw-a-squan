@@ -1015,24 +1015,40 @@
       }
 
       // Render to a temp div so we can grab individual SVGs
+      const scaledSize = size * (220/400);
+      const PAD = Math.round(scaledSize * 0.28);
       const tmp = document.createElement('div');
-      tmp.innerHTML = sq1vis.getSVG(hex, size, gap, isVertical, showSlice);
+      tmp.innerHTML = sq1vis.getSVG(hex, size, gap, isVertical, showSlice, PAD);
       const svgs = tmp.querySelectorAll('svg');
 
       let svgEl;
       if (layer === 'both') {
-        // Wrap both into one SVG side by side / stacked
-        const s = parseInt(size * (220/400));
-        const marginVal = parseFloat(tmp.querySelector('svg:nth-child(2)').style.marginLeft || tmp.querySelector('svg:nth-child(2)').style.marginTop || '0');
-        const w = isVertical ? s : s * 2 + marginVal;
-        const h = isVertical ? s * 2 + marginVal : s;
-        const inner0 = svgs[0].innerHTML;
-        const inner1 = svgs[1].innerHTML;
-        const g1offset = isVertical
-          ? `translate(0, ${s + marginVal})`
-          : `translate(${s + marginVal}, 0)`;
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="overflow:visible;">` +
-          `<g>${inner0}</g><g transform="${g1offset}">${inner1}</g></svg>`;
+        const svg0 = svgs[0], svg1 = svgs[1];
+        const vb   = svg0.getAttribute('viewBox').split(' ').map(parseFloat);
+        const vbX  = vb[0], vbY = vb[1], vbW = vb[2], vbH = vb[3];
+
+        // The logical (content) size before padding — matches what getSVG uses internally
+        const s = Math.round(size * (220/400));
+        const PAD_TOP   = -vbY;           // how far viewBox extends above 0
+        const PAD_OTHER = -vbX;           // how far it extends left/right/bottom
+
+        // Recompute margin the same way getSVG does so it matches the preview exactly
+        const margin = s * (0.44 * (2 + gap / 100) - 1);
+
+        const inner0 = svg0.innerHTML;
+        const inner1 = svg1.innerHTML;
+
+        // Shift content so negative viewBox space becomes positive canvas space
+        const g0shift = `translate(${PAD_OTHER}, ${PAD_TOP})`;
+        const g1shift = isVertical
+          ? `translate(${PAD_OTHER}, ${PAD_TOP + s + margin})`
+          : `translate(${PAD_OTHER + s + margin}, ${PAD_TOP})`;
+
+        const totalW = isVertical ? vbW : vbW * 2 + margin;
+        const totalH = isVertical ? vbH * 2 + margin : vbH;
+
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">` +
+          `<g transform="${g0shift}">${inner0}</g><g transform="${g1shift}">${inner1}</g></svg>`;
       } else {
         const idx = layer === 'top' ? 0 : 1;
         svgEl = svgs[idx];
@@ -1130,27 +1146,27 @@
       const zer = (n) => { for (let i = 0; i < n; i++) { view.setUint8(o, 0); o++; } };
 
       // ── File header (14 bytes) ──
-      u8(0x42); u8(0x4D);
+      u8(0x42); u8(0x4D); // 'BM'
       u32(fileSize);
-      u16(0); u16(0);
+      u16(0); u16(0);     // reserved
       u32(fileHeaderSize + dibHeaderSize);
 
       // ── BITMAPV4HEADER (108 bytes) ──
       u32(dibHeaderSize);
       i32(w);
-      i32(-h);
-      u16(1);
-      u16(32);
-      u32(3);
+      i32(-h);            // negative = top-down row order
+      u16(1);             // color planes
+      u16(32);            // bits per pixel
+      u32(3);             // BI_BITFIELDS
       u32(pixelDataSize);
-      i32(2835);
-      i32(2835);
-      u32(0);
-      u32(0);
-      u32(0x00FF0000);
-      u32(0x0000FF00);
-      u32(0x000000FF);
-      u32(0xFF000000);
+      i32(2835);          // X pixels/meter
+      i32(2835);          // Y pixels/meter
+      u32(0);             // colors in table
+      u32(0);             // important colors
+      u32(0x00FF0000);    // R mask
+      u32(0x0000FF00);    // G mask
+      u32(0x000000FF);    // B mask
+      u32(0xFF000000);    // A mask
       u32(0x57696E20);    // color space 'Win '
       zer(36);            // CIEXYZTRIPLE — 9 × FXPT2DOT30 (3 endpoints × 3 coords × 4 bytes)
       zer(12);            // gamma R, G, B (3 × 4 bytes)
@@ -1158,11 +1174,12 @@
       // ── Pixel data (BGRA) ──
       for (let i = 0; i < w * h; i++) {
         const base = i * 4;
-        u8(imgData[base + 2]);
-        u8(imgData[base + 1]);
-        u8(imgData[base + 0]);
-        u8(imgData[base + 3]);
+        u8(imgData[base + 2]); // B
+        u8(imgData[base + 1]); // G
+        u8(imgData[base + 0]); // R
+        u8(imgData[base + 3]); // A
       }
+
       return new Blob([buf], { type: 'image/bmp' });
     }
 

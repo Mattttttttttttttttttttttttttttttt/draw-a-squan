@@ -606,30 +606,41 @@ const Square1Visualizer = (() => {
 
     // === MAIN SVG BUILDER ===
 
-    function getSVG(rawHex, size = 400, ringDistance = 5, isVert, showSlice) {
-        // Normalise to 24 raw chars
+    function getSVG(rawHex, size = 400, ringDistance = 5, isVert, showSlice, exportPad = 0) {
         let hex = rawHex.replace(/[|/]/, '');
         if (hex.length !== 24) throw new Error('Hex must be 24 data characters (plus optional | separator).');
 
         const parsed = parseHex(rawHex);
 
-        size = size * (220/400) // conversion factor
+        size = size * (220/400);
 
         const cx = size / 2, cy = size / 2;
         const margin = size * (0.44 * (2 + ringDistance / 100) - 1);
+
+        // Slice indicator bleeds outside the natural [0,size] box.
+        // Top indicator apex is at roughly cy - 123.5/220*size above origin,
+        // plus the indicator shape itself is ~122px tall at size=220.
+        // We compute how far above y=0 and below y=size it can reach.
+        const sliceH   = (122 / 220) * size;   // indicator height scaled
+        const topApexY = cy - (123.5 / 220) * size; // where top indicator starts
+        const padTop   = exportPad + Math.max(0, Math.ceil(-topApexY + sliceH * 0.05));
+        const padOther = exportPad;
+
+        const vbX = -padOther;
+        const vbY = -padTop;
+        const vbW = size + padOther * 2;
+        const vbH = size + padTop + padOther;
 
         let html = `<div style="display:flex;align-items:center;overflow:visible;padding:2rem;
             ${isVert ? "flex-direction: column;" : "flex-direction: row;"}
         ">`;
 
-        // --- TOP LAYER ---
-        html += `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="overflow:visible;">`;
+        html += `<svg width="${vbW}" height="${vbH}" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" style="overflow:visible;">`;
         html += drawLayer(parsed.top, false, cx, cy, size);
         if (showSlice) html += getSliceSVG("top", cx, cy, size);
         html += `</svg>`;
 
-        // --- BOTTOM LAYER ---
-        html += `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="overflow:visible;${isVert ?
+        html += `<svg width="${vbW}" height="${vbH}" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" style="overflow:visible;${isVert ?
             "margin-top:" : "margin-left:"}${margin.toFixed(1)}px;">`;
         html += drawLayer(parsed.bottom, true, cx, cy, size);
         if (showSlice) html += getSliceSVG("bottom", cx, cy, size);
