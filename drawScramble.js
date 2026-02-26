@@ -23,6 +23,10 @@ const Square1Visualizer = (() => {
 
     const CORNER_HEX_VALUES = ['1', '3', '5', '7', '9', 'b', 'd', 'f'];
 
+    const modeEl = document.querySelector("input-mode");
+    const inputEl = document.querySelector("scramble-input");
+
+
     // === COLOR LOOKUPS ===
 
     function edgeColors(hexChar) {
@@ -55,7 +59,7 @@ const Square1Visualizer = (() => {
         }
     }
 
-    // === SCRAM TO HEX ===
+    // === SCRAM OPERATORS ===
     function algToHex(scramble) {
         // Initial solved state
         let tlHex = '011233455677';
@@ -128,7 +132,6 @@ const Square1Visualizer = (() => {
         return hex.slice(normalized) + hex.slice(0, normalized);
     }
 
-    // === INVERT SCRAMBLE (for solution visualization) ===
     function invertScramble(scrambleString) {
         if (!scrambleString) return scrambleString;
         let str = String(scrambleString).trim();
@@ -164,6 +167,265 @@ const Square1Visualizer = (() => {
         });
 
         return inverted.join('/');
+    }
+    
+    function dictReplace(str, dict) {
+        // keys are already sorted longest → shortest
+        const pattern = new RegExp(Object.keys(dict).join("|"), "g");
+        while (str.replace(pattern, match => dict[match]) !== str)
+            str = str.replace(pattern, match => dict[match]);
+        return str;
+    }
+
+    const karnToWCA = {
+        " U4 ": " U U' U U' ",
+        " U4' ": " U' U U' U ",
+        " D4 ": " D D' D D' ",
+        " D4' ": " D' D D' D ",
+        " u4 ": " u u' u u' ",
+        " u4' ": " u' u u' u ",
+        " d4 ": " d d' d d' ",
+        " d4' ": " d' d d' d ",
+        " U3 ": " U U' U ",
+        " U3' ": " U' U U' ",
+        " D3 ": " D D' D ",
+        " D3' ": " D' D D' ",
+        " u3 ": " u u' u ",
+        " u3' ": " u' u u' ",
+        " d3 ": " d d' d ",
+        " d3' ": " d' d d' ",
+        " F3 ": " F F' F ",
+        " F3' ": " F' F F' ",
+        " f3 ": " f f' f ",
+        " f3' ": " f' f f' ",
+        " W ": " U U' ",
+        " W' ": " U' U ",
+        " B ": " D D' ",
+        " B' ": " D' D ",
+        " w ": " u u' ",
+        " w' ": " u' u ",
+        " b ": " d d' ",
+        " b' ": " d' d ",
+        " F2 ": " F F' ",
+        " F2' ": " F' F ",
+        " f2 ": " f f' ",
+        " f2' ": " f' f ",
+        " UU ": " U U ",
+        " UU' ": " U' U' ",
+        " DD ": " D D ",
+        " DD' ": " D' D' ",
+        " U2 ": " 6,0 ",
+        " U2D ": " 6,3 ",
+        " U2D' ": " 6,-3 ",
+        " U2D2 ": " 6,6 ",
+        " D2 ": " 0,6 ",
+        " UD2 ": " 3,6 ",
+        " U'D2 ": " -3,6 ",
+        " U ": " 3,0 ",
+        " U' ": " -3,0 ",
+        " D ": " 0,3 ",
+        " D' ": " 0,-3 ",
+        " E ": " 3,-3 ",
+        " E' ": " -3,3 ",
+        " e ": " 3,3 ",
+        " e' ": " -3,-3 ",
+        " u ": " 2,-1 ",
+        " u' ": " -2,1 ",
+        " d ": " -1,2 ",
+        " d' ": " 1,-2 ",
+        " F' ": " -4,-1 ",
+        " F ": " 4,1 ",
+        " f' ": " -1,-4 ",
+        " f ": " 1,4 ",
+        " T ": " 2,-4 ",
+        " T' ": " -2,4 ",
+        " t' ": " -4,2 ",
+        " t ": " 4,-2 ",
+        " m ": " 2,2 ",
+        " m' ": " -2,-2 ",
+        " M' ": " -1,-1 ",
+        " M ": " 1,1 ",
+        " u2 ": " 5,-1 ",
+        " u2' ": " -5,1 ",
+        " d2 ": " -1,5 ",
+        " d2' ": " 1,-5 ",
+        " K' ": " -5,-2 ",
+        " K ": " 5,2 ",
+        " k ": " 2,5 ",
+        " k' ": " -2,-5 ",
+    };
+
+    const shorthandToKarn = {
+        // case insensitive. do .toLowerCase()
+        // slashes to enforce slices
+        "bjj": "/U' e D'/",
+        "fjj": "/U e' D/",
+
+        "bpj10": "/d m' U/",
+        "bpj0-1": "/u' m D'/",
+        "fpj10": "/u m' D/",
+        "fpj0-1": "/d' m U'/",
+
+        "nn": "/E E'/",
+
+        "aa10": "/u m' u T'/",
+        "aa0-1": "/U m' U t'/",
+
+        "fadj10": "/D M' d'/",
+        "dadj10": "/D M' d'/",
+        "fadj0-1": "/U' M u/",
+        "u'adj0-1": "/U' M u/",
+        "badj10": "/U M u'/",
+        "uadj10": "/U M u'/",
+        "badj0-1": "/D' M d/",
+        "d'adj0-1": "/D' M d/",
+
+        "bb10": "/T u' e U'/",
+        "bb0-1": "/t d e' D/",
+        
+        "fdd10": "/D e' d t/",
+        "fdd0-1": "/U' e u' T/",
+        "bdd10": "/U e' u T'/",
+        "bdd0-1": "/D' e d' t'/",
+
+        "ff10": "/d m' d M E/",
+
+        "fv10": "/d4/",
+        "fv0-1": "/d4'/",
+        "vf10": "/u4/",
+        "vf0-1": "/u4'/",
+
+        "jf10": "/w D' u T'/",
+        "jf0-1": "/w' D u' T/",
+        "fj10": "/b U' d t/",
+        "fj0-1": "/b' U d' t'/",
+
+        "jr00": "/e' w e/",
+        "jr10": "/e' b e/",
+        "jr0-1": "/e' w' e/",
+        "jr1-1": "/e' b' e/",
+        "rj00": "/e b' e'/",
+        "rj10": "/e w e'/",
+        "rj0-1": "/e b' e'/",
+        "rj1-1": "/e w e'/",
+
+        "jv10": "/b D d d2'/",
+        "jv0-1": "/b' D' d' d2/",
+        "vj10": "/w U u u2'/",
+        "vj0-1": "/w' U' u' u2/",
+
+        "kk10": "/u m' U E'/",
+        "kk0-1": "/U m' u E'/",
+
+        "opp10": "/u2 u2'/",
+        "opp0-1": "/u2' u2/",
+
+        "pn10": "/T T'/",
+        "pn0-1": "/t t'/",
+
+        "px10": "/f' d3' f'/",
+        "px0-1": "/f d3 f/",
+        "xp10": "/F' u3' F'/",
+        "xp0-1": "/F u3 F/",
+
+        "tt10": "/d m' F' u2'/",
+
+        "fss10": "/u M D' E'/",
+        "fss0-1": "/D' M u E'/",
+        "bss10": "/D' M' u' E/",
+        "bss0-1": "/U' M d E/",
+
+        "vv10": "/u M u m' E'/",
+
+        "zz10": "/u M t' M D'/",
+        "zz0-1": "/D' M t' M u/"
+    };
+
+    function unkarnify(scramble) {
+        // scramble is a string that contains the starting 10 or 0-1 and the end alignment, etc.
+        // downslice and upslice to a space; remove parentheses; condense spaces
+        scramble = scramble.replaceAll(/\/|\\/g, " ").replaceAll(/\(|\)/g, "").replaceAll(/ +/g, " ");
+        scramble = addCommas(scramble);
+        return replaceShorthands(dictReplace(" "+scramble+" ", karnToWCA).slice(1,-1));
+    }
+
+    function replaceShorthands(scramble) {
+        // scramble: e.g. "1,0 bJJ -3,0 2,-1 1,1 2,-1 -5,1 -1,0"
+        // gonna assume the scramble is valid.
+        let moves = scramble.split(" ");
+        // check if the scramble doesn't actually have shorthands
+        let good = true;
+        for (let move of moves)
+            if (move && isNaN(Number(move.charAt(0))) && !(" "+move+" " in karnToWCA)) good = false;
+        if (good) return dictReplace(" "+scramble+" ", karnToWCA).slice(1,-1).replaceAll(" ", "/");
+
+        // main logic
+        let topA = false;
+        let bottomA = false;
+        for (let move of moves) {
+            if (!move) continue;
+            else if (move.includes(",")) {
+                // it's a move, not a shorthand
+                let [u, d] = move.split(",");
+                if (parseInt(u, 10) % 3 !== 0) topA = !topA;
+                if (parseInt(d, 10) % 3 !== 0) bottomA = !bottomA;
+            } else {
+                // it's a shorthand
+                let replacement;
+                if (["bjj", "fjj", "nn"].includes(move.toLowerCase()))
+                    replacement = shorthandToKarn[move.toLowerCase()];
+                else replacement = shorthandToKarn[move.toLowerCase()+getAlignment(topA, bottomA)];
+                if (replacement === undefined) throw new Error(`${move} with ${getAlignment(topA, bottomA)} alignment is not a thing.`)
+                scramble = scramble.replace(move, replacement);
+                for (let submove of dictReplace(" "+replacement+" ", karnToWCA).split(" ")) {
+                    let [u, d] = submove.split(",");
+                    if (parseInt(u, 10) % 3 !== 0) topA = !topA;
+                    if (parseInt(d, 10) % 3 !== 0) bottomA = !bottomA;
+                }
+            }
+        }
+        console.log(scramble);
+        scramble = scramble.replaceAll(/ *\/ */g, "/").replaceAll(/\/\//g, "/0,0/").replaceAll(/\//g, " ");
+        return dictReplace(" "+scramble+" ", karnToWCA).slice(1,-1).replaceAll(" ", "/"); // unkarnify the shorthands
+    }
+
+    function getAlignment(topA, bottomA) {
+        let ret = "";
+        ret += topA ? "1" : "0";
+        ret += bottomA ? "-1" : "0";
+        return ret;
+    }
+
+    function addCommas(scramble) {
+        // assume valid scramble
+        let moves = scramble.split(" ")
+        for (let inx = 0; inx < moves.length; inx++) {
+            if (moves[inx] && !isNaN(Number(moves[inx].replace("-", "")))) {
+                // we have a move like -23 or -10
+                let move = moves[inx];
+                switch (move.length) {
+                    case 1:
+                        moves[inx] = move + ",0"; // we will tolerate this
+                        break;
+                    case 2:
+                        moves[inx] = move.charAt(0) === "-" ?
+                                    move + ",0" :
+                                    move.charAt(0) + "," + move.charAt(1);
+                        break;
+                    case 3:
+                        moves[inx] = move.charAt(0) === "-" ?
+                                    move.slice(0,2) + "," + move.charAt(2) :
+                                    move.charAt(0) + "," + move.slice(1);
+                        break;
+                    case 4:
+                        moves[inx] = move.slice(0,2) + "," + move.slice(2);
+                        break;
+                    default:
+                        throw new Error(`${move} is not a valid move, idk how we got here`);
+                }
+            }
+        }
+        return moves.join(" ");
     }
 
     // === TEMPLATE SHAPE GENERATORS ===
@@ -345,39 +607,31 @@ const Square1Visualizer = (() => {
 
     // === MAIN SVG BUILDER ===
 
-    function buildSVG(rawHex, size, ringDistance) {
+    function getSVG(rawHex, size = 400, ringDistance = 5, isVert) {
         // Normalise to 24 raw chars
         let hex = rawHex.replace(/[|/]/, '');
         if (hex.length !== 24) throw new Error('Hex must be 24 data characters (plus optional | separator).');
 
         const parsed = parseHex(rawHex);
 
+        size = size * (220/400) // conversion factor
+
         const cx = size / 2, cy = size / 2;
-        const unit = size * 0.4;
-        const rOuter = unit * 0.7;
-        const rApex = rOuter * 1.366025404;
-        const ringR = rOuter + unit * 0.4;
+        const margin = size * (0.44 * (2 + ringDistance / 100) - 1);
 
-        const strokeThin = size * 0.003;
-        const strokeMed = size * 0.004;
-        const strokeLine = size * 0.008;
-        const marginLeft = ringR * (2 + ringDistance / 100) - size;
-
-        function polarSVG(cx, cy, r, deg) {
-            const rad = (deg - 90) * Math.PI / 180; // deg from top, CW
-            return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-        }
-
-        let html = `<div style="display:flex;align-items:center;overflow:visible;padding:2rem;">`;
+        let html = `<div style="display:flex;align-items:center;overflow:visible;padding:2rem;
+            ${isVert ? "flex-direction: column;" : "flex-direction: row;"}
+        ">`;
 
         // --- TOP LAYER ---
-        html += `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" overflow="visible" style="overflow:visible;">`;
+        html += `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="overflow:visible;">`;
         html += drawLayer(parsed.top, false, cx, cy, size);
         html += getSliceSVG("top", cx, cy, size);
         html += `</svg>`;
 
         // --- BOTTOM LAYER ---
-        html += `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" overflow="visible" style="overflow:visible;margin-left:${marginLeft.toFixed(1)}px;">`;
+        html += `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="overflow:visible;${isVert ?
+            "margin-top:" : "margin-left:"}${margin.toFixed(1)}px;">`;
         html += drawLayer(parsed.bottom, true, cx, cy, size);
         html += getSliceSVG("bottom", cx, cy, size);
         html += `</svg></div>`;
@@ -385,29 +639,9 @@ const Square1Visualizer = (() => {
         return html;
     }
 
-    // === PUBLIC API ===
-
-    /**
-     * Render a Square-1 state from a hex string.
-     * @param {string} hex  - e.g. "6e0cc804a2a6|0e8c64ee20c4"
-     * @param {number} size - SVG size in pixels (default 200)
-     * @param {number} ringDistance - gap % between layers (default 5)
-     * @returns {string} HTML string
-     */
-    function fromHex(hex, size = 200, ringDistance = 5) {
-        try {
-            return buildSVG(hex, size, ringDistance);
-        } catch (e) {
-            return `<div style="color:#e53e3e;font-family:monospace;padding:1rem;">Error: ${e.message}</div>`;
-        }
-    }
-
-    return { fromHex, parseHex, algToHex, invertScramble };
+    return { getSVG, parseHex, algToHex, invertScramble, unkarnify };
 
 })();
 
 // Browser
 if (typeof window !== 'undefined') window.sq1vis = Square1Visualizer;
-
-// Node / bundlers
-if (typeof module !== 'undefined' && module.exports) module.exports = Square1Visualizer;

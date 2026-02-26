@@ -447,10 +447,6 @@
       justify-content: center;
     }
 
-    .canvas-inner.vertical {
-      flex-direction: column;
-    }
-
     .placeholder {
       text-align: center;
       color: var(--muted);
@@ -631,8 +627,8 @@
         <div class="field">
           <label class="field-label">Image Size</label>
           <div class="slider-combo">
-            <input type="range" id="size-slider" min="50" max="400" step="5" value="220" />
-            <input type="number" id="size-input" min="50" max="400" value="220" />
+            <input type="range" id="size-slider" min="100" max="750" step="5" value="400" />
+            <input type="number" id="size-input" min="100" max="750" value="400" />
           </div>
         </div>
 
@@ -817,7 +813,7 @@
 
     /* ─── Draw ────────────────────────────────────────── */
     function draw() {
-      const scramble = document.getElementById('scramble-input').value.trim();
+      const input = document.getElementById('scramble-input').value;
       const size     = parseInt(document.getElementById('size-input').value, 10);
       const gap      = parseInt(document.getElementById('gap-input').value, 10);
       const mode     = document.getElementById('input-mode').value;
@@ -825,9 +821,8 @@
       const canvasInner = document.getElementById('canvas-inner');
 
       const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
-      canvasInner.className = 'canvas-inner' + (isVertical ? ' vertical' : '');
 
-      if (!scramble) {
+      if (!input) {
         canvasInner.innerHTML = `<div class="placeholder">
           <div class="placeholder-icon">◈</div>
           <div class="placeholder-text">Enter a scramble in the sidebar<br>to render the state.</div>
@@ -839,19 +834,23 @@
       try {
         let hex;
         if (mode === 'hex') {
-          hex = scramble;
+          hex = input.trim();
         } else if (mode === 'inverse') {
-          const inv = sq1vis.invertScramble(scramble);
+          const inv = sq1vis.invertScramble(input.trim());
           const { tlHex, blHex } = sq1vis.algToHex(inv);
           hex = `${tlHex}|${blHex}`;
+        } else if (mode === "karn") {
+          const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
+          hex = `${tlHex}|${blHex}`;
         } else {
-          // scramble and karn treated as-is for now
-          const { tlHex, blHex } = sq1vis.algToHex(scramble);
+          // mode = "scramble"
+          const { tlHex, blHex } = sq1vis.algToHex(input.trim());
           hex = `${tlHex}|${blHex}`;
         }
 
         hexDisplay.textContent = 'hex: ' + hex;
-        const html = sq1vis.fromHex(hex, size, gap);
+        // check if hex is legal here
+        const html = sq1vis.getSVG(hex, size, gap, isVertical);
         canvasInner.innerHTML = html;
 
       } catch (err) {
