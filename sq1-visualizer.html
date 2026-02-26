@@ -381,11 +381,49 @@
       padding: 0;
     }
 
-    /* ─── Export buttons ──────────────────────────────────── */
-    .export-group {
+    /* ─── Export tabs ─────────────────────────────────────── */
+    .export-tab-group {
+      margin-bottom: 1rem;
+    }
+    .export-tab-label {
+      font-size: .62rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .45rem;
+    }
+    .export-tab-row {
       display: flex;
-      flex-direction: column;
-      gap: .55rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .export-tab {
+      flex: 1;
+      padding: .5rem .3rem;
+      background: var(--surface2);
+      border: none;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      font-weight: 600;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+      text-align: center;
+    }
+    .export-tab + .export-tab { border-left: 1px solid var(--border); }
+    .export-tab:hover { background: var(--border); color: var(--text); }
+    .export-tab.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .export-action-row {
+      display: flex;
+      gap: .5rem;
     }
 
     .btn {
@@ -618,107 +656,7 @@
       font-size: .78rem;
       color: var(--danger);
       margin: 1rem;
-    }
-
-    /* ─── Export Modal ────────────────────────────────────── */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,.65);
-      backdrop-filter: blur(4px);
-      z-index: 200;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 200ms ease;
-    }
-    .modal-overlay.open {
-      opacity: 1;
-      pointer-events: all;
-    }
-
-    .modal {
-      background: var(--surface);
-      border: 1px solid var(--border2);
-      border-radius: 16px;
-      padding: 2rem;
-      width: 380px;
-      max-width: calc(100vw - 2rem);
-      box-shadow: 0 32px 80px rgba(0,0,0,.6);
-      transform: translateY(12px) scale(.97);
-      transition: transform 200ms ease;
-    }
-    .modal-overlay.open .modal {
-      transform: translateY(0) scale(1);
-    }
-
-    .modal-title {
-      font-size: 1rem;
-      font-weight: 700;
-      margin-bottom: .4rem;
-    }
-    .modal-sub {
-      font-size: .77rem;
-      color: var(--muted);
-      margin-bottom: 1.4rem;
-      line-height: 1.5;
-    }
-
-    .format-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: .5rem;
-      margin-bottom: 1.3rem;
-    }
-    .format-btn {
-      padding: .65rem .3rem;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--muted);
-      font-family: var(--font-mono);
-      font-size: .72rem;
-      font-weight: 500;
-      cursor: pointer;
-      text-align: center;
-      transition: all var(--transition);
-      letter-spacing: .04em;
-      text-transform: uppercase;
-    }
-    .format-btn:hover {
-      border-color: var(--border2);
-      color: var(--text);
-      background: var(--border);
-    }
-    .format-btn.selected {
-      border-color: var(--accent);
-      background: var(--accent-dim);
-      color: var(--accent);
-    }
-
-    .modal-remember {
-      display: flex;
-      align-items: center;
-      gap: .6rem;
-      margin-bottom: 1.4rem;
-      font-size: .75rem;
-      color: var(--muted);
-      cursor: pointer;
-    }
-    .modal-remember input[type=checkbox] {
-      width: 14px;
-      height: 14px;
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
-
-    .modal-actions {
-      display: flex;
-      gap: .6rem;
-    }
-    .modal-actions .btn { flex: 1; }
+    }  
 
     /* ─── Scrollbar global ────────────────────────────────── */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -800,16 +738,43 @@
       <!-- EXPORT -->
       <div class="section">
         <div class="section-title">Export</div>
-        <div class="export-group">
-          <button class="btn btn-primary" id="export-both" onclick="openExportModal('both')">
-            <span class="btn-icon">⬡</span> Export Both Layers
+
+        <div class="export-tab-group">
+          <div class="export-tab-label">Layers</div>
+          <div class="export-tab-row">
+            <button class="export-tab active" data-group="layer" data-val="both">Both</button>
+            <button class="export-tab" data-group="layer" data-val="top">Top</button>
+            <button class="export-tab" data-group="layer" data-val="bottom">Bottom</button>
+          </div>
+        </div>
+
+        <div class="export-tab-group">
+          <div class="export-tab-label">Format</div>
+          <div class="export-tab-row">
+            <button class="export-tab active" data-group="fmt" data-val="svg">SVG</button>
+            <button class="export-tab" data-group="fmt" data-val="png">PNG</button>
+            <button class="export-tab" data-group="fmt" data-val="jpeg">JPEG</button>
+            <button class="export-tab" data-group="fmt" data-val="bmp">BMP</button>
+          </div>
+        </div>
+
+        <div class="export-tab-group">
+          <div class="export-tab-label">Method</div>
+          <div class="export-tab-row">
+            <button class="export-tab active" data-group="method" data-val="download">Download</button>
+            <button class="export-tab" data-group="method" data-val="clipboard">Clipboard</button>
+          </div>
+        </div>
+
+        <div class="export-action-row">
+          <button class="btn btn-primary" id="do-export" style="flex:1;">
+            <span class="btn-icon" id="export-btn-icon">↓</span>
+            <span id="export-btn-label">Download</span>
           </button>
-          <button class="btn btn-secondary" id="export-top" onclick="openExportModal('top')">
-            <span class="btn-icon">△</span> Export Top Layer
-          </button>
-          <button class="btn btn-secondary" id="export-bottom" onclick="openExportModal('bottom')">
-            <span class="btn-icon">▽</span> Export Bottom Layer
-          </button>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:.62rem;color:var(--muted);margin-top:.6rem;line-height:1.7;">
+          <span style="color:var(--border2);">⌨</span> Ctrl+S → Download<br>
+          <span style="color:var(--border2);">⌨</span> Ctrl+C → Copy
         </div>
       </div>
 
@@ -842,43 +807,12 @@
 
   </div>
 
-  <!-- ═══ EXPORT MODAL ═══ -->
-  <div class="modal-overlay" id="modal-overlay" onclick="closeModalOnOverlay(event)">
-    <div class="modal">
-      <div class="modal-title" id="modal-title">Export</div>
-      <div class="modal-sub" id="modal-sub">Choose a format to export as.</div>
-
-      <div class="format-grid">
-        <button class="format-btn selected" data-fmt="svg" onclick="selectFormat('svg')">SVG</button>
-        <button class="format-btn" data-fmt="png" onclick="selectFormat('png')">PNG</button>
-        <button class="format-btn" data-fmt="jpg" onclick="selectFormat('jpg')">JPG</button>
-        <button class="format-btn" data-fmt="bmp" onclick="selectFormat('bmp')">Bitmap</button>
-      </div>
-
-      <label class="modal-remember">
-        <input type="checkbox" id="remember-format" />
-        Remember this choice
-      </label>
-
-      <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="confirmExport()">
-          <span class="btn-icon">↓</span> Export
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- ═══ drawScramble.js ═══ -->
   <script src="drawScramble.js"></script>
 
   <script>
     /* ─── Color scheme editor ─────────────────────────── */
     const SCHEME_FACES = ['top', 'bottom', 'front', 'right', 'back', 'left'];
-
-    let exportTarget = 'both';
-    let selectedFormat = 'svg';
-    let rememberedFormat = localStorage.getItem('sq1-export-fmt') || null;
 
     function buildSchemeGrid() {
       const grid = document.getElementById('scheme-grid');
@@ -1025,58 +959,160 @@
       }
     }
 
-    /* ─── Export modal ────────────────────────────────── */
-    function openExportModal(target) {
-      exportTarget = target;
-      const titles = { both: 'Export Both Layers', top: 'Export Top Layer', bottom: 'Export Bottom Layer' };
-      document.getElementById('modal-title').textContent = titles[target];
-      document.getElementById('modal-sub').textContent =
-        `Choose a file format for the export.`;
+/* ─── Export state ────────────────────────────────────── */
+    let exportLayer  = 'both';
+    let exportFmt    = 'svg';
+    let exportMethod = 'download';
 
-      if (rememberedFormat) {
-        selectFormat(rememberedFormat);
-        document.getElementById('remember-format').checked = true;
-      }
-      document.getElementById('modal-overlay').classList.add('open');
-    }
-
-    function closeModal() {
-      document.getElementById('modal-overlay').classList.remove('open');
-    }
-
-    function closeModalOnOverlay(e) {
-      if (e.target === document.getElementById('modal-overlay')) closeModal();
-    }
-
-    function selectFormat(fmt) {
-      selectedFormat = fmt;
-      document.querySelectorAll('.format-btn').forEach(b => {
-        b.classList.toggle('selected', b.dataset.fmt === fmt);
+    document.querySelectorAll('.export-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const grp = btn.dataset.group;
+        document.querySelectorAll(`.export-tab[data-group="${grp}"]`).forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (grp === 'layer')  exportLayer  = btn.dataset.val;
+        if (grp === 'fmt')    exportFmt    = btn.dataset.val;
+        if (grp === 'method') {
+          exportMethod = btn.dataset.val;
+          document.getElementById('export-btn-icon').textContent  = exportMethod === 'download' ? '↓' : '⎘';
+          document.getElementById('export-btn-label').textContent = exportMethod === 'download' ? 'Download' : 'Copy';
+        }
       });
-    }
-
-    function confirmExport() {
-      if (!document.getElementById('scramble-input').value.trim()) {
-        alert('Nothing to export — enter a scramble first.');
-        closeModal();
-        return;
-      }
-      const remember = document.getElementById('remember-format').checked;
-      if (remember) localStorage.setItem('sq1-export-fmt', selectedFormat);
-      else localStorage.removeItem('sq1-export-fmt');
-      rememberedFormat = remember ? selectedFormat : null;
-      // Export logic goes here
-      alert(`[Stub] Exporting "${exportTarget}" as .${selectedFormat}`);
-      closeModal();
-    }
-
-    /* ─── Escape key closes modal ─────────────────────── */
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') closeModal();
     });
 
+    document.getElementById('do-export').addEventListener('click', () => doExport());
+
+    /* ─── Keyboard shortcuts ──────────────────────────────── */
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); doExport('download'); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && document.activeElement !== document.getElementById('scramble-input')) {
+        e.preventDefault(); doExport('clipboard');
+      }
+    });
+
+    /* ─── Core export ─────────────────────────────────────── */
+    function getExportSVGString(layer) {
+      const size = parseInt(document.getElementById('size-input').value, 10);
+      const gap  = parseInt(document.getElementById('gap-input').value, 10);
+      const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
+      const showSlice  = !document.getElementById('hide-slice').checked;
+      const input = document.getElementById('scramble-input').value.trim();
+      const mode  = MODES[currentModeIndex].value;
+
+      if (!input) return null;
+
+      let hex;
+      if (mode === 'hex') {
+        hex = input;
+      } else if (mode === 'inverse') {
+        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(input));
+        hex = `${tlHex}|${blHex}`;
+      } else if (mode === 'karn') {
+        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
+        hex = `${tlHex}|${blHex}`;
+      } else {
+        const { tlHex, blHex } = sq1vis.algToHex(input);
+        hex = `${tlHex}|${blHex}`;
+      }
+
+      // Render to a temp div so we can grab individual SVGs
+      const tmp = document.createElement('div');
+      tmp.innerHTML = sq1vis.getSVG(hex, size, gap, isVertical, showSlice);
+      const svgs = tmp.querySelectorAll('svg');
+
+      let svgEl;
+      if (layer === 'both') {
+        // Wrap both into one SVG side by side / stacked
+        const s = parseInt(size * (220/400));
+        const marginVal = parseFloat(tmp.querySelector('svg:nth-child(2)').style.marginLeft || tmp.querySelector('svg:nth-child(2)').style.marginTop || '0');
+        const w = isVertical ? s : s * 2 + marginVal;
+        const h = isVertical ? s * 2 + marginVal : s;
+        const inner0 = svgs[0].innerHTML;
+        const inner1 = svgs[1].innerHTML;
+        const g1offset = isVertical
+          ? `translate(0, ${s + marginVal})`
+          : `translate(${s + marginVal}, 0)`;
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="overflow:visible;">` +
+          `<g>${inner0}</g><g transform="${g1offset}">${inner1}</g></svg>`;
+      } else {
+        const idx = layer === 'top' ? 0 : 1;
+        svgEl = svgs[idx];
+        svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        return svgEl.outerHTML;
+      }
+    }
+
+    async function doExport(methodOverride) {
+      const method = methodOverride || exportMethod;
+      const input  = document.getElementById('scramble-input').value.trim();
+      if (!input) { alert('Enter a scramble first.'); return; }
+
+      const svgStr = getExportSVGString(exportLayer);
+      if (!svgStr) return;
+
+      const fname = `sq1-${exportLayer}`;
+
+      if (exportFmt === 'svg') {
+        const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+        if (method === 'clipboard') {
+          await navigator.clipboard.writeText(svgStr);
+          flashBtn('Copied SVG!');
+        } else {
+          triggerDownload(blob, `${fname}.svg`);
+        }
+        return;
+      }
+
+      // Rasterize for PNG / JPEG / BMP
+      const img = new Image();
+      const url = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width  = img.naturalWidth  || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        // For JPEG/BMP fill white bg
+        const ctx = canvas.getContext('2d');
+        if (exportFmt !== 'png') {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+
+        const mimeMap = { png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/bmp' };
+        const extMap  = { png: 'png', jpeg: 'jpg', bmp: 'bmp' };
+        const mime    = mimeMap[exportFmt] || 'image/png';
+        const ext     = extMap[exportFmt]  || 'png';
+
+        if (method === 'clipboard') {
+          canvas.toBlob(async blob => {
+            try {
+              await navigator.clipboard.write([new ClipboardItem({ [mime]: blob })]);
+              flashBtn('Copied!');
+            } catch { alert('Clipboard write failed — try PNG or SVG copy.'); }
+          }, mime);
+        } else {
+          canvas.toBlob(blob => triggerDownload(blob, `${fname}.${ext}`), mime);
+        }
+      };
+      img.src = url;
+    }
+
+    function triggerDownload(blob, filename) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+
+    function flashBtn(msg) {
+      const lbl = document.getElementById('export-btn-label');
+      const orig = lbl.textContent;
+      lbl.textContent = msg;
+      setTimeout(() => lbl.textContent = orig, 1800);
+    }
+
     /* ─── Init ────────────────────────────────────────── */
-    if (rememberedFormat) selectFormat(rememberedFormat);
     draw();
   </script>
 </body>
