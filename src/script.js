@@ -28,6 +28,72 @@ function buildSchemeGrid() {
 
 buildSchemeGrid();
 
+document.getElementById('color-scheme-toggle').addEventListener('click', () => {
+    const body = document.getElementById('color-scheme-body');
+    const arrow = document.querySelector('#color-scheme-toggle .section-arrow');
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    arrow.textContent = open ? '▲' : '▼';
+});
+
+/* fill piece color stuff */
+const fillModeBtn = document.getElementById('fill-mode-btn');
+const fillResetBtn = document.getElementById('fill-reset-btn');
+const fillColorInput = document.getElementById('fill-color-input');
+const fillColorSwitch = document.getElementById('fill-color-switch');
+
+let fillModeActive = false;
+let fillResetActive = false;
+
+fillModeBtn.addEventListener('click', () => {
+    if (fillResetActive && !fillModeActive) fillResetBtn.click();
+
+    fillModeActive = !fillModeActive;
+    fillModeBtn.classList.toggle('active', fillModeActive);
+
+    const squans = document.querySelectorAll('.squan');
+    if (fillModeActive)
+        squans.forEach(div => {div.style.cursor = 'pointer';});
+    else
+        squans.forEach(div => {div.style.cursor = 'auto';});
+});
+
+fillResetBtn.addEventListener('click', () => {
+    if (fillModeActive && !fillResetActive) fillModeBtn.click();
+
+    fillResetActive = !fillResetActive;
+    fillResetBtn.classList.toggle('active', fillResetActive);
+
+    const squans = document.querySelectorAll('.squan');
+    if (fillResetActive)
+        squans.forEach(div => {div.style.cursor = 'pointer';});
+    else
+        squans.forEach(div => {div.style.cursor = 'auto';});
+});
+
+// Keep switch color in sync with the native picker
+fillColorInput.addEventListener('input', () => {
+    fillColorSwitch.style.background = fillColorInput.value;
+});
+
+document.getElementById('canvas-inner').addEventListener('click', e => {
+    if (fillModeActive) {
+        const piece = e.target.closest('.sticker');
+        if (!piece) return;
+        sq1vis.setPieceColor(piece.id, fillColorInput.value);
+        draw();
+    }
+});
+
+document.getElementById('canvas-inner').addEventListener('click', e => {
+    if (fillResetActive) {
+        const piece = e.target.closest('.sticker');
+        if (!piece) return;
+        sq1vis.resetPieceColor(piece.id);
+        draw();
+    }
+});
+
 /* ─── Sync sliders ↔ number inputs ───────────────── */
 function syncPair(sliderId, inputId, onChange) {
     const slider = document.getElementById(sliderId);
@@ -113,9 +179,11 @@ function draw() {
     if (!input) {
         // Draw placeholder cube with muted gray scheme
         const realScheme = sq1vis.getColorScheme();
+        const realPiecesColors = sq1vis.getPiecesColors();
         sq1vis.setColorScheme(PLACEHOLDER_SCHEME);
         const html = sq1vis.getSVG(PLACEHOLDER_HEX, size, gap, isVertical, showSlice);
         sq1vis.setColorScheme({ ...realScheme, slice: null });
+        sq1vis.setPiecesColors(realPiecesColors);
         canvasInner.innerHTML = html;
         return;
     }
@@ -145,7 +213,6 @@ function draw() {
 /* ─── Export state ────────────────────────────────────── */
 let exportLayer = 'both';
 let exportFmt = 'svg';
-let exportMethod = 'download';
 
 document.querySelectorAll('.export-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -154,15 +221,11 @@ document.querySelectorAll('.export-tab').forEach(btn => {
         btn.classList.add('active');
         if (grp === 'layer') exportLayer = btn.dataset.val;
         if (grp === 'fmt') exportFmt = btn.dataset.val;
-        if (grp === 'method') {
-            exportMethod = btn.dataset.val;
-            document.getElementById('export-btn-icon').textContent = exportMethod === 'download' ? '↓' : '⎘';
-            document.getElementById('export-btn-label').textContent = exportMethod === 'download' ? 'Download' : 'Copy';
-        }
     });
 });
 
-document.getElementById('do-export').addEventListener('click', () => doExport());
+document.getElementById('do-export').addEventListener('click', () => doExport('download'));
+document.getElementById('do-copy').addEventListener('click', () => doExport('clipboard'));
 
 /* ─── Keyboard shortcuts ──────────────────────────────── */
 document.addEventListener('keydown', e => {
@@ -252,7 +315,7 @@ async function doExport(methodOverride) {
         const blob = new Blob([svgStr], { type: 'image/svg+xml' });
         if (method === 'clipboard') {
             await navigator.clipboard.writeText(svgStr);
-            flashBtn('SVG Copied!');
+            flashBtn('Copied to clipboard!');
         } else {
             triggerDownload(blob, `${fname}.svg`);
         }
@@ -285,8 +348,8 @@ async function doExport(methodOverride) {
             if (method === 'clipboard') {
                 try {
                     await navigator.clipboard.write([new ClipboardItem({ 'image/bmp': blob })]);
-                    flashBtn('Copied!');
-                } catch { alert('Clipboard BMP copy failed — try PNG instead.'); }
+                    flashBtn('Copied to clipboard!');
+                } catch { flashBtn('Failed to copy to clipboard'); }
             } else {
                 triggerDownload(blob, `${fname}.bmp`);
             }
@@ -294,8 +357,8 @@ async function doExport(methodOverride) {
             canvas.toBlob(async blob => {
                 try {
                     await navigator.clipboard.write([new ClipboardItem({ [mime]: blob })]);
-                    flashBtn('Copied!');
-                } catch { alert('Clipboard write failed — try PNG or SVG copy.'); }
+                    flashBtn('Copied to clipboard!');
+                } catch { flashBtn('Failed to copy to clipboard'); }
             }, mime);
         } else {
             canvas.toBlob(blob => triggerDownload(blob, `${fname}.${ext}`), mime);
@@ -373,10 +436,11 @@ function triggerDownload(blob, filename) {
 }
 
 function flashBtn(msg) {
-    const lbl = document.getElementById('export-btn-label');
-    const orig = lbl.textContent;
-    lbl.textContent = msg;
-    setTimeout(() => lbl.textContent = orig, 1800);
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(flashBtn._t);
+    flashBtn._t = setTimeout(() => toast.classList.remove('show'), 2200);
 }
 
 /* ─── Init ────────────────────────────────────────── */

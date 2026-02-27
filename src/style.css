@@ -104,22 +104,22 @@ header {
 
 .logo {
     font-size: 1rem;
-    font-weight: 800;
-    letter-spacing: .12em;
+    font-weight: 700;
+    letter-spacing: .08em;
     text-transform: uppercase;
     color: #fff;
-}
-
-.logo em {
-    color: var(--accent);
-    font-style: normal;
-}
-
-.header-meta {
     font-family: var(--font-mono);
-    font-size: .7rem;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.logo-by {
+    font-size: .52rem;
+    font-weight: 400;
     color: var(--muted);
     letter-spacing: .06em;
+    text-transform: none;
 }
 
 /* ─── App shell ───────────────────────────────────────── */
@@ -165,7 +165,7 @@ header {
     font-weight: 700;
     letter-spacing: .14em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: #8892a4;
     margin-bottom: 1rem;
 }
 
@@ -286,11 +286,13 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 .toggle-label {
-    font-size: .78rem;
-    color: var(--text);
+    font-size: .75rem;
+    color: var(--muted);
     letter-spacing: .02em;
     cursor: pointer;
     user-select: none;
+    font-family: var(--font-mono);
+    font-weight: 400;
 }
 
 /* custom toggle switch */
@@ -385,11 +387,27 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 /* ─── Color palette picker ────────────────────────────── */
-.color-section-note {
-    font-size: .72rem;
+.section-title-toggle {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+    margin-bottom: 0;
+}
+
+#color-scheme-body {
+    margin-top: .85rem;
+}
+
+.section-title-toggle:hover {
+    color: var(--text);
+}
+
+.section-arrow {
+    font-size: .6rem;
     color: var(--muted);
-    line-height: 1.5;
-    margin-bottom: .85rem;
+    transition: transform var(--transition);
 }
 
 .palette-grid {
@@ -507,18 +525,96 @@ input[type=number]::-webkit-outer-spin-button {
     padding: 0;
 }
 
+/* ─── Fill mode row ───────────────────────────────────── */
+.fill-mode-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-top: .85rem;
+}
+
+.fill-mode-btn, .fill-reset-btn {
+  flex: 1;
+  gap: .45rem;
+  height: 32px;
+  padding: 0 .8rem;
+  background: var(--surface2);
+  color: var(--muted);
+  border: 1px solid var(--border2);
+  font-size: .72rem;
+  letter-spacing: .06em;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  /* override .btn width:100% */
+  width: auto;
+}
+
+.fill-mode-btn:hover, .fill-reset-btn:hover {
+  background: var(--border);
+  color: var(--text);
+  border-color: var(--muted);
+  box-shadow: none;
+}
+
+.fill-mode-btn.active, .fill-reset-btn.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(79, 255, 176, .12);
+}
+
+.fill-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* switch wraps a colored button over a hidden <input type=color> */
+.fill-color-switch-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.fill-color-switch {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, .1);
+  background: #CC0000;
+  cursor: pointer;
+  display: block;
+  transition: transform var(--transition), border-color var(--transition);
+}
+
+.fill-color-switch:hover {
+  transform: scale(1.1);
+  border-color: var(--accent);
+}
+
+.fill-color-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
 /* ─── Export tabs ─────────────────────────────────────── */
 .export-tab-group {
     margin-bottom: 1rem;
 }
 
 .export-tab-label {
-    font-size: .62rem;
-    font-weight: 700;
-    letter-spacing: .12em;
+    font-size: .6rem;
+    font-weight: 500;
+    letter-spacing: .08em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: #3d4559;
     margin-bottom: .45rem;
+    padding-left: .1rem;
 }
 
 .export-tab-row {
@@ -560,7 +656,28 @@ input[type=number]::-webkit-outer-spin-button {
 
 .export-action-row {
     display: flex;
-    gap: .5rem;
+    flex-direction: column;
+    gap: .6rem;
+    margin-top: 1.4rem;
+}
+
+.btn-export {
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    width: 100%;
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    font-weight: 400;
+    letter-spacing: .04em;
+    text-transform: none;
+}
+
+.btn-export:hover {
+    background: var(--border);
+    border-color: var(--border2);
+    color: var(--text);
+    box-shadow: none;
 }
 
 .btn {
@@ -774,7 +891,7 @@ input[type=number]::-webkit-outer-spin-button {
     flex: 1;
     overflow: auto;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     padding: 3rem;
     position: relative;
@@ -797,6 +914,7 @@ input[type=number]::-webkit-outer-spin-button {
     display: flex;
     align-items: center;
     justify-content: center;
+    margin: auto;
 }
 
 .placeholder {
@@ -843,6 +961,32 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 /* ─── Responsive ──────────────────────────────────────── */
+/* ─── Toast ───────────────────────────────────────────── */
+.toast {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: .75rem;
+    padding: .5rem 1.1rem;
+    border-radius: var(--radius);
+    box-shadow: 0 6px 24px rgba(0,0,0,.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease, transform 200ms ease;
+    z-index: 999;
+    white-space: nowrap;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
 @media (max-width: 700px) {
     .sidebar {
         width: 100%;
