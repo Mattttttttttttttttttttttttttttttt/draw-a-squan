@@ -28,6 +28,64 @@ function buildSchemeGrid() {
 
 buildSchemeGrid();
 
+/* fill piece color stuff */
+const fillModeBtn = document.getElementById('fill-mode-btn');
+const fillResetBtn = document.getElementById('fill-reset-btn');
+const fillColorInput = document.getElementById('fill-color-input');
+const fillColorSwitch = document.getElementById('fill-color-switch');
+
+let fillModeActive = false;
+let fillResetActive = false;
+
+fillModeBtn.addEventListener('click', () => {
+    if (fillResetActive && !fillModeActive) fillResetBtn.click();
+
+    fillModeActive = !fillModeActive;
+    fillModeBtn.classList.toggle('active', fillModeActive);
+
+    const squans = document.querySelectorAll('.squan');
+    if (fillModeActive)
+        squans.forEach(div => {div.style.cursor = 'pointer';});
+    else
+        squans.forEach(div => {div.style.cursor = 'auto';});
+});
+
+fillResetBtn.addEventListener('click', () => {
+    if (fillModeActive && !fillResetActive) fillModeBtn.click();
+
+    fillResetActive = !fillResetActive;
+    fillResetBtn.classList.toggle('active', fillResetActive);
+
+    const squans = document.querySelectorAll('.squan');
+    if (fillResetActive)
+        squans.forEach(div => {div.style.cursor = 'pointer';});
+    else
+        squans.forEach(div => {div.style.cursor = 'auto';});
+});
+
+// Keep switch color in sync with the native picker
+fillColorInput.addEventListener('input', () => {
+    fillColorSwitch.style.background = fillColorInput.value;
+});
+
+document.getElementById('canvas-inner').addEventListener('click', e => {
+    if (fillModeActive) {
+        const piece = e.target.closest('.sticker');
+        if (!piece) return;
+        sq1vis.setPieceColor(piece.id, fillColorInput.value);
+        draw();
+    }
+});
+
+document.getElementById('canvas-inner').addEventListener('click', e => {
+    if (fillResetActive) {
+        const piece = e.target.closest('.sticker');
+        if (!piece) return;
+        sq1vis.resetPieceColor(piece.id);
+        draw();
+    }
+});
+
 /* ─── Sync sliders ↔ number inputs ───────────────── */
 function syncPair(sliderId, inputId, onChange) {
     const slider = document.getElementById(sliderId);
@@ -113,9 +171,11 @@ function draw() {
     if (!input) {
         // Draw placeholder cube with muted gray scheme
         const realScheme = sq1vis.getColorScheme();
+        const realPiecesColors = sq1vis.getPiecesColors();
         sq1vis.setColorScheme(PLACEHOLDER_SCHEME);
         const html = sq1vis.getSVG(PLACEHOLDER_HEX, size, gap, isVertical, showSlice);
         sq1vis.setColorScheme({ ...realScheme, slice: null });
+        sq1vis.setPiecesColors(realPiecesColors);
         canvasInner.innerHTML = html;
         return;
     }

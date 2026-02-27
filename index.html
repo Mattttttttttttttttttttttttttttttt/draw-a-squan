@@ -66,8 +66,31 @@
       <!-- COLOR SCHEME -->
       <div class="section">
         <div class="section-title">Color Scheme</div>
-        <p class="color-section-note">Click any swatch to change the color for that face.</p>
+        <p class="color-section-note">Click any switch to change the color for that face.</p>
         <div id="scheme-grid"></div>
+        <div class="fill-mode-row">
+          <button class="btn fill-mode-btn" id="fill-mode-btn">
+            <svg class="fill-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 12.5L5.5 3L10.5 8L4.5 13.5L2 12.5Z" fill="currentColor" opacity=".25"/>
+              <path d="M2 12.5L5.5 3L10.5 8L4.5 13.5L2 12.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+              <path d="M5.5 3L7.5 1L11.5 5L10.5 8" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+              <circle cx="13.5" cy="12.5" r="1.5" fill="currentColor"/>
+              <path d="M12 11L9 8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+            Fill
+          </button>
+          <button class="btn fill-reset-btn" id="fill-reset-btn" title="Reset the color of a piece">
+            <svg class="fill-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13.5 8A5.5 5.5 0 1 1 10 3.07" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              <path d="M10 1v3.5H13.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Reset
+          </button>
+          <div class="fill-color-switch-wrap">
+            <button class="fill-color-switch" id="fill-color-switch"></button>
+            <input type="color" id="fill-color-input" class="fill-color-input" value="#CC0000" />
+          </div>
+        </div>
       </div>
 
       <!-- EXPORT -->
