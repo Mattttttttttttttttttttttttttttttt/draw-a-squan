@@ -47,10 +47,9 @@ document.getElementById('hide-slice').addEventListener('change', draw);
 
 /* ─── Mode toggle ─────────────────────────────────────── */
 const MODES = [
-    { value: 'scramble', label: 'Scramble', placeholder: '(1,0) / (3,3) / (0,-3) / ...' },
-    { value: 'inverse', label: 'Alg', placeholder: '(3,0) / (-3,-3) / (0,3) / ...' },
-    { value: 'hex', label: 'Hex', placeholder: '6e0cc804a2a6|0e8c64ee20c4' },
-    { value: 'karn', label: 'Karn', placeholder: '10 bJJ -3,0 2,-1 kk 0-1' },
+    { value: 'scramble', label: 'Scramble', placeholder: '1,0 / 3,3 / 0,-3 / ... (supports karn)' },
+    { value: 'inverse', label: 'Alg', placeholder: '1,0 / 3,3 / 0,-3 / ... (supports karn)' },
+    { value: 'hex', label: 'Hex', placeholder: '211033455677|99ebbaddcff8' },
 ];
 let currentModeIndex = 0;
 
@@ -124,16 +123,13 @@ function draw() {
     try {
         let hex;
         if (mode === 'hex') {
-            hex = input.trim();
+            hex = input;
         } else if (mode === 'inverse') {
-            const inv = sq1vis.invertScramble(input.trim());
-            const { tlHex, blHex } = sq1vis.algToHex(inv);
-            hex = `${tlHex}|${blHex}`;
-        } else if (mode === "karn") {
-            const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
+            const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(sq1vis.unkarnify(input)));
             hex = `${tlHex}|${blHex}`;
         } else {
-            const { tlHex, blHex } = sq1vis.algToHex(input.trim());
+            // mode = "scramble"
+            const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
             hex = `${tlHex}|${blHex}`;
         }
 
@@ -191,13 +187,11 @@ function getExportSVGString(layer) {
     if (mode === 'hex') {
         hex = input;
     } else if (mode === 'inverse') {
-        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(input));
-        hex = `${tlHex}|${blHex}`;
-    } else if (mode === 'karn') {
-        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
+        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(sq1vis.unkarnify(input)));
         hex = `${tlHex}|${blHex}`;
     } else {
-        const { tlHex, blHex } = sq1vis.algToHex(input);
+        // mode = "scramble"
+        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
         hex = `${tlHex}|${blHex}`;
     }
 
@@ -258,7 +252,7 @@ async function doExport(methodOverride) {
         const blob = new Blob([svgStr], { type: 'image/svg+xml' });
         if (method === 'clipboard') {
             await navigator.clipboard.writeText(svgStr);
-            flashBtn('Copied SVG!');
+            flashBtn('SVG Copied!');
         } else {
             triggerDownload(blob, `${fname}.svg`);
         }
