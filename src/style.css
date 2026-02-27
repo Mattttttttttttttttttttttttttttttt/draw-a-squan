@@ -663,7 +663,7 @@ input[type=number]::-webkit-outer-spin-button {
 
 .btn-export {
     background: var(--surface2);
-    color: var(--text);
+    color: var(--muted);
     border: 1px solid var(--border);
     width: 100%;
     font-family: var(--font-mono);

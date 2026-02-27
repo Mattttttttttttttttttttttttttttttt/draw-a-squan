@@ -67,6 +67,7 @@
         <div class="section-title section-title-toggle" id="color-scheme-toggle">Color Scheme <span class="section-arrow">▲</span></div>
         <div id="color-scheme-body" style="display:none;">
         <div id="scheme-grid"></div>
+        </div>
         <div class="fill-mode-row">
           <button class="btn fill-mode-btn" id="fill-mode-btn">
             <svg class="fill-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -89,7 +90,6 @@
             <button class="fill-color-switch" id="fill-color-switch"></button>
             <input type="color" id="fill-color-input" class="fill-color-input" value="#CC0000" />
           </div>
-        </div>
         </div>
       </div>
 
@@ -118,17 +118,11 @@
 
         <div class="export-action-row">
           <button class="btn btn-export" id="do-export">
-            <span class="btn-icon">↓</span>
             Download Image
           </button>
           <button class="btn btn-export" id="do-copy">
-            <span class="btn-icon">⎘</span>
             Copy to Clipboard
           </button>
-        </div>
-        <div style="font-family:var(--font-mono);font-size:.62rem;color:var(--muted);margin-top:.6rem;line-height:1.7;">
-          <span style="color:var(--border2);">⌨</span> Ctrl+S → Download<br>
-          <span style="color:var(--border2);">⌨</span> Ctrl+C → Copy
         </div>
       </div>
 
