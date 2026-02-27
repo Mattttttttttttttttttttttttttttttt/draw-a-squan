@@ -1,5 +1,5 @@
 /* ─── Color scheme editor ─────────────────────────── */
-const SCHEME_FACES = ['top', 'bottom', 'front', 'right', 'back', 'left'];
+const SCHEME_FACES = ['top', 'bottom', 'front', 'right', 'back', 'left', 'border'];
 
 function buildSchemeGrid() {
     const grid = document.getElementById('scheme-grid');
@@ -10,7 +10,7 @@ function buildSchemeGrid() {
         row.className = 'scheme-row';
         row.innerHTML = `
           <span class="scheme-face-label">${face}</span>
-          <div class="scheme-swatch-btn" id="swatch-${face}" style="background:${scheme[face]}">
+          <div class="scheme-switch-btn" id="switch-${face}" style="background:${scheme[face]}">
             <input class="scheme-color-input" type="color" value="${scheme[face]}" data-face="${face}" />
           </div>`;
         grid.appendChild(row);
@@ -19,7 +19,7 @@ function buildSchemeGrid() {
         inp.addEventListener('input', e => {
             const face = e.target.dataset.face;
             const color = e.target.value;
-            document.getElementById(`swatch-${face}`).style.background = color;
+            document.getElementById(`switch-${face}`).style.background = color;
             sq1vis.setColorScheme({ [face]: color });
             draw();
         });
