@@ -104,22 +104,22 @@ header {
 
 .logo {
     font-size: 1rem;
-    font-weight: 800;
-    letter-spacing: .12em;
+    font-weight: 700;
+    letter-spacing: .08em;
     text-transform: uppercase;
     color: #fff;
-}
-
-.logo em {
-    color: var(--accent);
-    font-style: normal;
-}
-
-.header-meta {
     font-family: var(--font-mono);
-    font-size: .7rem;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.logo-by {
+    font-size: .52rem;
+    font-weight: 400;
     color: var(--muted);
     letter-spacing: .06em;
+    text-transform: none;
 }
 
 /* ─── App shell ───────────────────────────────────────── */
