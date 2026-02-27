@@ -64,8 +64,8 @@
 
       <!-- COLOR SCHEME -->
       <div class="section">
-        <div class="section-title">Color Scheme</div>
-        <p class="color-section-note">Click any switch to change the color for that face.</p>
+        <div class="section-title section-title-toggle" id="color-scheme-toggle">Color Scheme <span class="section-arrow">▲</span></div>
+        <div id="color-scheme-body" style="display:none;">
         <div id="scheme-grid"></div>
         <div class="fill-mode-row">
           <button class="btn fill-mode-btn" id="fill-mode-btn">
@@ -89,6 +89,7 @@
             <button class="fill-color-switch" id="fill-color-switch"></button>
             <input type="color" id="fill-color-input" class="fill-color-input" value="#CC0000" />
           </div>
+        </div>
         </div>
       </div>
 
@@ -115,18 +116,14 @@
           </div>
         </div>
 
-        <div class="export-tab-group">
-          <div class="export-tab-label">Method</div>
-          <div class="export-tab-row">
-            <button class="export-tab active" data-group="method" data-val="download">Download</button>
-            <button class="export-tab" data-group="method" data-val="clipboard">Clipboard</button>
-          </div>
-        </div>
-
         <div class="export-action-row">
-          <button class="btn btn-primary" id="do-export" style="flex:1;">
-            <span class="btn-icon" id="export-btn-icon">↓</span>
-            <span id="export-btn-label">Download</span>
+          <button class="btn btn-export" id="do-export">
+            <span class="btn-icon">↓</span>
+            Download Image
+          </button>
+          <button class="btn btn-export" id="do-copy">
+            <span class="btn-icon">⎘</span>
+            Copy to Clipboard
           </button>
         </div>
         <div style="font-family:var(--font-mono);font-size:.62rem;color:var(--muted);margin-top:.6rem;line-height:1.7;">
@@ -164,6 +161,7 @@
   </div>
 
   <!-- ═══ drawScramble.js ═══ -->
+  <div id="toast" class="toast"></div>
   <script src="src/drawScramble.js"></script>
   <script src="src/script.js"></script>
 </body>
