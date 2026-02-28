@@ -445,8 +445,9 @@ const Square1Visualizer = (() => {
      * @param {string} innerColor - face colour (top/bottom)
      * @param {string} outerColor - side face colour
      * @param {number} size - size of the image, actually. hardcoded here is for 220px
+     * @param {boolean} showSides - whether to show the side colors
      */
-    function getEdgeSVG(piece, innerColor, outerColor, size) {
+    function getEdgeSVG(piece, innerColor, outerColor, size, showSides) {
         if (innerColor.charAt(0) !== "#") innerColor = COLOR_SCHEME[innerColor];
         if (outerColor.charAt(0) !== "#") outerColor = COLOR_SCHEME[outerColor];
 
@@ -458,7 +459,7 @@ const Square1Visualizer = (() => {
         return `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
             <path fill="${COLOR_SCHEME["border"]}" d="M.11,4.17l2.4,8.97h21.97l2.4-8.97c.56-2.1-1.02-4.17-3.2-4.17H3.31C1.14,0-.45,2.07.11,4.17Z"/>
             <path fill="${COLOR_SCHEME["border"]}" d="M3.05,15.11l6.57,24.52c1.07,3.98,6.71,3.98,7.77,0l6.57-24.52c.56-2.1-1.02-4.17-3.2-4.17H6.24c-2.18,0-3.76,2.07-3.2,4.17Z"/>
-            <path class="sticker" id="${piece} outer" fill="${outerColor}" d="M21.3,10.94c.88,0,1.66-.59,1.88-1.45l.78-2.92.51-1.91c.33-1.24-.6-2.45-1.88-2.45H4.41c-1.28,0-2.22,1.22-1.88,2.45l.51,1.91.78,2.92c.23.85,1,1.45,1.88,1.45h15.6Z"/>
+            ${showSides ? `<path class="sticker" id="${piece} outer" fill="${outerColor}" d="M21.3,10.94c.88,0,1.66-.59,1.88-1.45l.78-2.92.51-1.91c.33-1.24-.6-2.45-1.88-2.45H4.41c-1.28,0-2.22,1.22-1.88,2.45l.51,1.91.78,2.92c.23.85,1,1.45,1.88,1.45h15.6Z"/>` : ""}
             <path class="sticker" id="${piece} inner" fill="${innerColor}" d="M19.67,13.14H7.34c-1.28,0-2.22,1.22-1.88,2.45l6.17,23.01c.52,1.93,3.25,1.93,3.77,0l6.17-23.01c.33-1.24-.6-2.45-1.88-2.45Z"/>
         </g>`;
     }
@@ -471,8 +472,9 @@ const Square1Visualizer = (() => {
      * @param {string} leftColor
      * @param {string} rightColor
      * @param {number} size
+     * @param {boolean} showSides - whether to show the side colors
      */
-    function getCornerSVG(piece, topColor, leftColor, rightColor, size) {
+    function getCornerSVG(piece, topColor, leftColor, rightColor, size, showSides) {
         if (topColor.charAt(0) !== "#") topColor = COLOR_SCHEME[topColor];
         if (leftColor.charAt(0) !== "#") leftColor = COLOR_SCHEME[leftColor];
         if (rightColor.charAt(0) !== "#") rightColor = COLOR_SCHEME[rightColor];
@@ -485,8 +487,8 @@ const Square1Visualizer = (() => {
         return `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)}) rotate(-45,${ox.toFixed(2)},${oy.toFixed(2)})">
             <path fill="${COLOR_SCHEME["border"]}" d="M10.19,2.45l-2.86,10.68h24.73c1.83,0,3.31,1.48,3.31,3.31v24.73l10.68-2.86c1.45-.39,2.45-1.7,2.45-3.2V3.31c0-1.83-1.48-3.31-3.31-3.31H13.39c-1.5,0-2.81,1.01-3.2,2.45Z"/>
             <path fill="${COLOR_SCHEME["border"]}" d="M7.26,13.39L.25,39.56c-1.41,5.28,3.42,10.11,8.7,8.7l26.16-7.01c1.45-.39,2.45-1.7,2.45-3.2V14.25c0-1.83-1.48-3.31-3.31-3.31H10.46c-1.5,0-2.81,1.01-3.2,2.45Z"/>
-            <path class="sticker" id="${piece} right" fill="${rightColor}" d="M35.2,10.94c.52,0,1.01-.21,1.38-.57l.71-.71,5.72-5.72c.64-.64.19-1.73-.72-1.73H14.03c-.88,0-1.66.59-1.88,1.45l-.78,2.92-.51,1.91c-.33,1.24.6,2.45,1.88,2.45h22.47Z"/>
-            <path class="sticker" id="${piece} left" fill="${leftColor}" d="M37.57,35.77c0,1.28,1.22,2.22,2.45,1.88l1.91-.51,2.92-.78c.85-.23,1.45-1,1.45-1.88V6.21c0-.9-1.09-1.36-1.73-.72l-5.72,5.72-.71.71c-.37.37-.57.86-.57,1.38v22.47Z"/>
+            ${showSides ? `<path class="sticker" id="${piece} right" fill="${rightColor}" d="M35.2,10.94c.52,0,1.01-.21,1.38-.57l.71-.71,5.72-5.72c.64-.64.19-1.73-.72-1.73H14.03c-.88,0-1.66.59-1.88,1.45l-.78,2.92-.51,1.91c-.33,1.24.6,2.45,1.88,2.45h22.47Z"/>` : ""}
+            ${showSides ? `<path class="sticker" id="${piece} left" fill="${leftColor}" d="M37.57,35.77c0,1.28,1.22,2.22,2.45,1.88l1.91-.51,2.92-.78c.85-.23,1.45-1,1.45-1.88V6.21c0-.9-1.09-1.36-1.73-.72l-5.72,5.72-.71.71c-.37.37-.57.86-.57,1.38v22.47Z"/>` : ""}
             <path class="sticker" id="${piece} top" fill="${topColor}" d="M33.92,39.28c.85-.23,1.45-1,1.45-1.88V15.09c0-1.08-.87-1.95-1.95-1.95H11.1c-.88,0-1.66.59-1.88,1.45l-7,26.12c-.91,3.39,2.19,6.49,5.58,5.58l26.12-7Z"/>
         </g>`;
     }
@@ -594,9 +596,10 @@ const Square1Visualizer = (() => {
      * @param {number} cx - layer circle centre x
      * @param {number} cy - layer circle centre y
      * @param {number} size - the size of the image
+     * @param {boolean} showSides - whether to show the side colors
      * @returns {string} SVG fragment
      */
-    function drawLayer(tokens, isBottom, cx, cy, size) {
+    function drawLayer(tokens, isBottom, cx, cy, size, showSides) {
         let svg = '';
 
         for (const token of tokens) {
@@ -607,10 +610,10 @@ const Square1Visualizer = (() => {
             let pieceInner = '';
             if (token.type === 'edge') {
                 const { inner, outer } = edgeColors[token.piece];
-                pieceInner = getEdgeSVG(token.piece, inner, outer, size);
+                pieceInner = getEdgeSVG(token.piece, inner, outer, size, showSides);
             } else {
                 const { top, left, right } = cornerColors[token.piece];
-                pieceInner = getCornerSVG(token.piece, top, left, right, size);
+                pieceInner = getCornerSVG(token.piece, top, left, right, size, showSides);
             }
 
             // Wrap in a group: rotate around layer centre by the slot angle
@@ -622,7 +625,7 @@ const Square1Visualizer = (() => {
 
     // === MAIN SVG BUILDER ===
 
-    function getSVG(rawHex, size = 400, ringDistance = 5, isVert, showSlice, exportPad = 0) {
+    function getSVG(rawHex, size = 400, ringDistance = 5, isVert, showSlice, showSides, exportPad = 0) {
         let hex = rawHex.replace(/[|/]/, '');
         if (hex.length !== 24) throw new Error('Hex must be 24 data characters (plus optional | separator).');
 
@@ -652,13 +655,13 @@ const Square1Visualizer = (() => {
         ">`;
 
         html += `<svg width="${vbW}" height="${vbH}" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" style="overflow:visible;" class="squan">`;
-        html += drawLayer(parsed.top, false, cx, cy, size);
+        html += drawLayer(parsed.top, false, cx, cy, size, showSides);
         if (showSlice) html += getSliceSVG("top", cx, cy, size);
         html += `</svg>`;
 
         html += `<svg width="${vbW}" height="${vbH}" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" style="overflow:visible;${isVert ?
             "margin-top:" : "margin-left:"}${margin.toFixed(1)}px;" class="squan">`;
-        html += drawLayer(parsed.bottom, true, cx, cy, size);
+        html += drawLayer(parsed.bottom, true, cx, cy, size, showSides);
         if (showSlice) html += getSliceSVG("bottom", cx, cy, size);
         html += `</svg></div>`;
 

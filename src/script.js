@@ -124,8 +124,9 @@ syncPair('gap-slider', 'gap-input', draw);
 document.querySelectorAll('input[name=orientation]').forEach(r =>
     r.addEventListener('change', draw));
 
-/* ─── Hide-slice toggle ───────────────────────────── */
+/* ─── Hide-slice Hide-side color toggle ───────────────────────────── */
 document.getElementById('hide-slice').addEventListener('change', draw);
+document.getElementById('hide-sides').addEventListener('change', draw);
 
 /* ─── Mode toggle ─────────────────────────────────────── */
 const MODES = [
@@ -191,13 +192,14 @@ function draw() {
     const canvasInner = document.getElementById('canvas-inner');
     const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
     const showSlice = !document.getElementById("hide-slice").checked;
+    const showSides = !document.getElementById("hide-sides").checked;
 
     if (!input) {
         // Draw placeholder cube with muted gray scheme
         const realScheme = sq1vis.getColorScheme();
         const realPiecesColors = sq1vis.getPiecesColors();
         sq1vis.setColorScheme(PLACEHOLDER_SCHEME);
-        const html = sq1vis.getSVG(PLACEHOLDER_HEX, size, gap, isVertical, showSlice);
+        const html = sq1vis.getSVG(PLACEHOLDER_HEX, size, gap, isVertical, showSlice, showSides);
         sq1vis.setColorScheme({ ...realScheme, slice: null });
         sq1vis.setPiecesColors(realPiecesColors);
         canvasInner.innerHTML = html;
@@ -217,7 +219,7 @@ function draw() {
             hex = `${tlHex}|${blHex}`;
         }
 
-        const html = sq1vis.getSVG(hex, size, gap, isVertical, showSlice);
+        const html = sq1vis.getSVG(hex, size, gap, isVertical, showSlice, showSides);
         canvasInner.innerHTML = html;
 
     } catch (err) {
@@ -257,6 +259,7 @@ function getExportSVGString(layer) {
     const gap = parseInt(document.getElementById('gap-input').value, 10);
     const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
     const showSlice = !document.getElementById('hide-slice').checked;
+    const showSides = !document.getElementById("hide-sides").checked;
     const input = document.getElementById('scramble-input').value.trim();
     const mode = MODES[currentModeIndex].value;
 
@@ -278,7 +281,7 @@ function getExportSVGString(layer) {
     const scaledSize = size * (220 / 400);
     const PAD = Math.round(scaledSize * 0.28);
     const tmp = document.createElement('div');
-    tmp.innerHTML = sq1vis.getSVG(hex, size, gap, isVertical, showSlice, PAD);
+    tmp.innerHTML = sq1vis.getSVG(hex, size, gap, isVertical, showSlice, showSides, PAD);
     const svgs = tmp.querySelectorAll('svg');
 
     let svgEl;
