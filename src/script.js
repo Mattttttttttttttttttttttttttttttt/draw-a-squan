@@ -71,10 +71,26 @@ fillResetBtn.addEventListener('click', () => {
         squans.forEach(div => {div.style.cursor = 'auto';});
 });
 
+let lastUsedColors = [];
+
 // Keep switch color in sync with the native picker
 fillColorInput.addEventListener('input', () => {
     fillColorSwitch.style.background = fillColorInput.value;
 });
+
+fillColorInput.addEventListener("blur", () => {
+    let value = fillColorInput.value;
+    if (lastUsedColors.includes(value)) {
+        lastUsedColors.splice(lastUsedColors.indexOf(value), 1);
+        lastUsedColors.unshift(value);
+    } else {
+        lastUsedColors.pop();
+        lastUsedColors.unshift(value);
+    }
+    // update-last-used-colors(); TODO
+})
+
+resetBtn.addEventListener("click", sq1vis.resetPiecesColors)
 
 document.getElementById('canvas-inner').addEventListener('click', e => {
     if (fillModeActive) {

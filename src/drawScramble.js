@@ -702,6 +702,13 @@ const Square1Visualizer = (() => {
             cornerColors = {...cornerColors, [piece]: {...currentScheme, [sticker]: resetColor}};
         }
     }
+
+    function resetPiecesColors() {
+        // name is similar to resetPieceColor
+        let piecesColors = defaultPieceColors();
+        edgeColors = piecesColors.edgeColors;
+        cornerColors = piecesColors.cornerColors;
+    }
     
     function getPiecesColors() {
         return {
@@ -719,7 +726,7 @@ const Square1Visualizer = (() => {
 
     return { 
         getSVG, parseHex, algToHex, invertScramble, unkarnify, setColorScheme, getColorScheme, setPieceColor,
-        getPiecesColors, setPiecesColors, resetPieceColor
+        getPiecesColors, setPiecesColors, resetPieceColor, resetPiecesColors
      };
 
 })();
