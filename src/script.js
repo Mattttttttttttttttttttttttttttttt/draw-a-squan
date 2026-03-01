@@ -37,8 +37,54 @@ document.getElementById('color-scheme-toggle').addEventListener('click', () => {
 });
 
 /* fill piece color stuff */
+// ── Classical / Custom toggle ──────────────────────────
+const classicalBtn = document.getElementById('scheme-mode-classical');
+const customBtn    = document.getElementById('scheme-mode-custom');
+const classicalPanel = document.getElementById('scheme-classical-panel');
+const customPanel    = document.getElementById('scheme-custom-panel');
+const toolbar = document.getElementById('custom-toolbar');
+
+[classicalBtn, customBtn].forEach(btn => {
+  btn.addEventListener('click', () => {
+    const isCustom = btn.dataset.mode === 'custom';
+    classicalBtn.classList.toggle('active', !isCustom);
+    customBtn.classList.toggle('active', isCustom);
+    classicalPanel.style.display = isCustom ? 'none' : '';
+    customPanel.style.display    = isCustom ? '' : 'none';
+    toolbar.style.display     = isCustom ? '' : 'none';
+  });
+});
+
+// Keys 1/2/3 select recent colors
+document.addEventListener('keydown', e => {
+  if (['1','2','3'].includes(e.key) && !e.ctrlKey && !e.metaKey) {
+    const idx = parseInt(e.key) - 1;
+    if (lastUsedColors[idx]) {
+      const slot = document.getElementById(`ctb-recent-${idx}`);
+      selectRecentColor(lastUsedColors[idx], slot);
+    }
+  }
+});
+
+// ── Color picker dot sync ──────────────────────────────
+document.getElementById('fill-color-input').addEventListener('input', e => {
+  document.getElementById('ctb-color-dot').style.background = e.target.value;
+});
+
+// ── Undo / Redo disabled state helpers ────────────────
+function updateUndoRedo(canUndo, canRedo) {
+  document.getElementById('ctb-undo').disabled = !canUndo;
+  document.getElementById('ctb-redo').disabled = !canRedo;
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { /* your undo logic */ }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'y') { /* your redo logic */ }
+}); 
+
 const fillModeBtn = document.getElementById('fill-mode-btn');
-const fillResetBtn = document.getElementById('fill-reset-btn');
+const unfillBtn = document.getElementById('fill-unfill-btn');
+const resetBtn = document.getElementById('fill-reset-btn');
 const fillColorInput = document.getElementById('fill-color-input');
 const fillColorSwitch = document.getElementById('fill-color-switch');
 
@@ -46,7 +92,7 @@ let fillModeActive = false;
 let fillResetActive = false;
 
 fillModeBtn.addEventListener('click', () => {
-    if (fillResetActive && !fillModeActive) fillResetBtn.click();
+    if (fillResetActive && !fillModeActive) unfillBtn.click();
 
     fillModeActive = !fillModeActive;
     fillModeBtn.classList.toggle('active', fillModeActive);
@@ -58,11 +104,11 @@ fillModeBtn.addEventListener('click', () => {
         squans.forEach(div => {div.style.cursor = 'auto';});
 });
 
-fillResetBtn.addEventListener('click', () => {
+unfillBtn.addEventListener('click', () => {
     if (fillModeActive && !fillResetActive) fillModeBtn.click();
 
     fillResetActive = !fillResetActive;
-    fillResetBtn.classList.toggle('active', fillResetActive);
+    unfillBtn.classList.toggle('active', fillResetActive);
 
     const squans = document.querySelectorAll('.squan');
     if (fillResetActive)
@@ -72,6 +118,7 @@ fillResetBtn.addEventListener('click', () => {
 });
 
 let lastUsedColors = [];
+const lastUsedLimit = 3;
 
 // Keep switch color in sync with the native picker
 fillColorInput.addEventListener('input', () => {
@@ -84,11 +131,33 @@ fillColorInput.addEventListener("blur", () => {
         lastUsedColors.splice(lastUsedColors.indexOf(value), 1);
         lastUsedColors.unshift(value);
     } else {
-        lastUsedColors.pop();
+        if (lastUsedColors.length >= lastUsedLimit) lastUsedColors.pop();
         lastUsedColors.unshift(value);
     }
-    // update-last-used-colors(); TODO
+    renderRecentSlots();
 })
+
+function renderRecentSlots() {
+  for (let i = 0; i < 3; i++) {
+    const slot = document.getElementById(`ctb-recent-${i}`);
+    if (lastUsedColors[i]) {
+      slot.classList.remove('empty');
+      slot.style.background = lastUsedColors[i];
+      slot.onclick = () => selectRecentColor(lastUsedColors[i], slot);
+    } else {
+      slot.classList.add('empty');
+      slot.style.background = '';
+      slot.onclick = null;
+    }
+  }
+}
+
+function selectRecentColor(hex, slotEl) {
+  document.getElementById('fill-color-input').value = hex;
+  document.getElementById('ctb-color-dot').style.background = hex;
+  document.querySelectorAll('.ctb-recent-slot').forEach(s => s.classList.remove('active-recent'));
+  slotEl.classList.add('active-recent');
+}
 
 resetBtn.addEventListener("click", sq1vis.resetPiecesColors)
 
