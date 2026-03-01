@@ -18,16 +18,18 @@ const Square1Visualizer = (() => {
         back: '#FF8C00',
         left: '#0066CC',
         border: '#000000',
-        divider: '#7a0000',
-        circle: 'transparent',
-        slice: null
+    };
+
+    const PLACEHOLDER_SCHEME = {
+        sticker: '#2a2a2a',
+        slice: '#666666',
     };
 
     const CORNER_HEX_VALUES = ['1', '3', '5', '7', '9', 'b', 'd', 'f'];
 
     // === COLOR LOOKUPS ===
 
-    let edgeColors, cornerColors;
+    let edgeColors, cornerColors, sliceColors;
     
     function defaultPieceColors()  {
          return {
@@ -51,17 +53,23 @@ const Square1Visualizer = (() => {
                 'b': { top: "bottom", left: "right", right: "front" },
                 'd': { top: "bottom", left: "front", right: "left" },
                 'f': { top: "bottom", left: "left", right: "back" }
+            },
+
+            sliceColors: {
+                "top": "top",
+                "bottom": "bottom"
             }
         }
     }
 
-    function resetPieceColors() {
+    function resetPiecesColors() {
         const scheme = defaultPieceColors();
         edgeColors = scheme.edgeColors;
         cornerColors = scheme.cornerColors;
+        sliceColors = scheme.sliceColors;
     }
 
-    resetPieceColors();
+    resetPiecesColors();
 
     // === SCRAM OPERATORS ===
     function algToHex(scramble) {
@@ -446,10 +454,16 @@ const Square1Visualizer = (() => {
      * @param {string} outerColor - side face colour
      * @param {number} size - size of the image, actually. hardcoded here is for 220px
      * @param {boolean} showSides - whether to show the side colors
+     * @param {boolean} muted - whether to draw a muted squan
      */
-    function getEdgeSVG(piece, innerColor, outerColor, size, showSides) {
+    function getEdgeSVG(piece, innerColor, outerColor, size, showSides, muted) {
         if (innerColor.charAt(0) !== "#") innerColor = COLOR_SCHEME[innerColor];
         if (outerColor.charAt(0) !== "#") outerColor = COLOR_SCHEME[outerColor];
+        if (muted) {
+            let defaultColors = defaultPieceColors().edgeColors[piece];
+            if (innerColor === COLOR_SCHEME[defaultColors.inner]) innerColor = PLACEHOLDER_SCHEME.sticker;
+            if (outerColor === COLOR_SCHEME[defaultColors.outer]) outerColor = PLACEHOLDER_SCHEME.sticker;
+        }
 
         const scale = 54 / 27 * (size / 220);
         const ox = (50.0 / 100) * 27;
@@ -473,11 +487,18 @@ const Square1Visualizer = (() => {
      * @param {string} rightColor
      * @param {number} size
      * @param {boolean} showSides - whether to show the side colors
+     * @param {boolean} muted - whether to draw a muted squan
      */
-    function getCornerSVG(piece, topColor, leftColor, rightColor, size, showSides) {
+    function getCornerSVG(piece, topColor, leftColor, rightColor, size, showSides, muted) {
         if (topColor.charAt(0) !== "#") topColor = COLOR_SCHEME[topColor];
         if (leftColor.charAt(0) !== "#") leftColor = COLOR_SCHEME[leftColor];
         if (rightColor.charAt(0) !== "#") rightColor = COLOR_SCHEME[rightColor];
+        if (muted) {
+            let defaultColors = defaultPieceColors().cornerColors[piece];
+            if (topColor === COLOR_SCHEME[defaultColors.top]) topColor = PLACEHOLDER_SCHEME.sticker;
+            if (leftColor === COLOR_SCHEME[defaultColors.left]) leftColor = PLACEHOLDER_SCHEME.sticker;
+            if (rightColor === COLOR_SCHEME[defaultColors.right]) rightColor = PLACEHOLDER_SCHEME.sticker;
+        }
 
         const scale = 96 / 48.5 * (size / 220);
         const ox = (-3.5 / 100) * 48.5;
@@ -500,25 +521,34 @@ const Square1Visualizer = (() => {
      * @param {number} cx
      * @param {number} cy
      * @param {number} size
+     * @param {boolean} muted - whether to draw a muted squan
      */
-    function getSliceSVG(layer, cx, cy, size = 220) {
+    function getSliceSVG(layer, cx, cy, size = 220, muted) {
         const scale = (size / 220) * 1.965;
-        const topCol  = COLOR_SCHEME.slice || COLOR_SCHEME.top;
-        const botCol  = COLOR_SCHEME.slice || COLOR_SCHEME.bottom;
+        let topColor = sliceColors.top;
+        let botColor  = sliceColors.bottom;
+        if (topColor.charAt(0) !== "#") topColor = COLOR_SCHEME["top"];
+        if (botColor.charAt(0) !== "#") botColor = COLOR_SCHEME["bottom"];
+        if (muted) {
+            let defaultColors = defaultPieceColors().sliceColors;
+            if (topColor === COLOR_SCHEME[defaultColors.top]) topColor = PLACEHOLDER_SCHEME.slice;
+            if (botColor === COLOR_SCHEME[defaultColors.bottom]) leftColor = PLACEHOLDER_SCHEME.slice;
+        }
+        
         if (layer === "top") {
             return `<g transform="translate(${cx.toFixed(2) - 42/220*size},${cy.toFixed(2) - 123.5/220*size}) scale(${scale.toFixed(4)})">
                 <path d="M42.56,3.6c-.16-.97-.86-1.73-1.81-1.99L35.06.09c-.21-.06-.43-.09-.65-.09-.86,0-1.64.44-2.1,1.17-.46.73-.5,1.63-.13,2.4l1.97,4.05c.42.86,1.28,1.4,2.24,1.4.5,0,.98-.15,1.39-.43l3.73-2.53c.82-.55,1.22-1.5,1.06-2.47Z"/>
                 <path d="M8.45,116.55c-.42-.86-1.28-1.4-2.24-1.4-.5,0-.98.15-1.39.43l-3.73,2.53c-.82.55-1.22,1.5-1.06,2.47.16.97.86,1.73,1.81,1.99l5.7,1.53c.21.06.43.09.65.09.86,0,1.64-.44,2.1-1.17.46-.73.5-1.63.13-2.4l-1.97-4.05Z"/>
-                <path fill="${topCol}" d="M40.37,3.06l-5.7-1.53c-.09-.02-.18-.04-.26-.04-.69,0-1.21.74-.88,1.42l1.97,4.05c.17.35.52.55.89.55.19,0,.38-.05.55-.17l3.73-2.53c.7-.47.52-1.55-.3-1.77Z"/>
-                <path fill="${topCol}" d="M7.1,117.2c-.17-.35-.52-.55-.89-.55-.19,0-.38.05-.55.17l-3.73,2.53c-.7.47-.52,1.55.3,1.77l5.7,1.53c.09.02.18.04.26.04.69,0,1.21-.74.88-1.42l-1.97-4.05Z"/>
+                <path class="sticker" id="slice top" fill="${topColor}" d="M40.37,3.06l-5.7-1.53c-.09-.02-.18-.04-.26-.04-.69,0-1.21.74-.88,1.42l1.97,4.05c.17.35.52.55.89.55.19,0,.38-.05.55-.17l3.73-2.53c.7-.47.52-1.55-.3-1.77Z"/>
+                <path class="sticker" id="slice top" fill="${topColor}" d="M7.1,117.2c-.17-.35-.52-.55-.89-.55-.19,0-.38.05-.55.17l-3.73,2.53c-.7.47-.52,1.55.3,1.77l5.7,1.53c.09.02.18.04.26.04.69,0,1.21-.74.88-1.42l-1.97-4.05Z"/>
             </g>`
         }
         else if (layer === "bottom") {
             return `<g transform="translate(${cx.toFixed(2) - 98/220*size},${cy.toFixed(2) - 86/220*size}) scale(${scale.toFixed(4)}) rotate(-30)">
                 <path d="M42.56,3.6c-.16-.97-.86-1.73-1.81-1.99L35.06.09c-.21-.06-.43-.09-.65-.09-.86,0-1.64.44-2.1,1.17-.46.73-.5,1.63-.13,2.4l1.97,4.05c.42.86,1.28,1.4,2.24,1.4.5,0,.98-.15,1.39-.43l3.73-2.53c.82-.55,1.22-1.5,1.06-2.47Z"/>
                 <path d="M8.45,116.55c-.42-.86-1.28-1.4-2.24-1.4-.5,0-.98.15-1.39.43l-3.73,2.53c-.82.55-1.22,1.5-1.06,2.47.16.97.86,1.73,1.81,1.99l5.7,1.53c.21.06.43.09.65.09.86,0,1.64-.44,2.1-1.17.46-.73.5-1.63.13-2.4l-1.97-4.05Z"/>
-                <path fill="${botCol}" d="M40.37,3.06l-5.7-1.53c-.09-.02-.18-.04-.26-.04-.69,0-1.21.74-.88,1.42l1.97,4.05c.17.35.52.55.89.55.19,0,.38-.05.55-.17l3.73-2.53c.7-.47.52-1.55-.3-1.77Z"/>
-                <path fill="${botCol}" d="M7.1,117.2c-.17-.35-.52-.55-.89-.55-.19,0,.38.05-.55.17l-3.73,2.53c-.7.47-.52,1.55.3,1.77l5.7,1.53c.09.02.18.04.26.04.69,0,1.21-.74.88-1.42l-1.97-4.05Z"/>
+                <path class="sticker" id="slice bottom" fill="${botColor}" d="M40.37,3.06l-5.7-1.53c-.09-.02-.18-.04-.26-.04-.69,0-1.21.74-.88,1.42l1.97,4.05c.17.35.52.55.89.55.19,0,.38-.05.55-.17l3.73-2.53c.7-.47.52-1.55-.3-1.77Z"/>
+                <path class="sticker" id="slice bottom" fill="${botColor}" d="M7.1,117.2c-.17-.35-.52-.55-.89-.55-.19,0,.38.05-.55.17l-3.73,2.53c-.7.47-.52,1.55.3,1.77l5.7,1.53c.09.02.18.04.26.04.69,0,1.21-.74.88-1.42l-1.97-4.05Z"/>
             </g>`
         }
         throw new Error("what layer do you wanna draw bruh")
@@ -597,9 +627,10 @@ const Square1Visualizer = (() => {
      * @param {number} cy - layer circle centre y
      * @param {number} size - the size of the image
      * @param {boolean} showSides - whether to show the side colors
+     * @param {boolean} muted - whether to draw a muted squan
      * @returns {string} SVG fragment
      */
-    function drawLayer(tokens, isBottom, cx, cy, size, showSides) {
+    function drawLayer(tokens, isBottom, cx, cy, size, showSides, muted) {
         let svg = '';
 
         for (const token of tokens) {
@@ -610,10 +641,10 @@ const Square1Visualizer = (() => {
             let pieceInner = '';
             if (token.type === 'edge') {
                 const { inner, outer } = edgeColors[token.piece];
-                pieceInner = getEdgeSVG(token.piece, inner, outer, size, showSides);
+                pieceInner = getEdgeSVG(token.piece, inner, outer, size, showSides, muted);
             } else {
                 const { top, left, right } = cornerColors[token.piece];
-                pieceInner = getCornerSVG(token.piece, top, left, right, size, showSides);
+                pieceInner = getCornerSVG(token.piece, top, left, right, size, showSides, muted);
             }
 
             // Wrap in a group: rotate around layer centre by the slot angle
@@ -625,7 +656,7 @@ const Square1Visualizer = (() => {
 
     // === MAIN SVG BUILDER ===
 
-    function getSVG(rawHex, size = 400, ringDistance = 5, isVert, showSlice, showSides, exportPad = 0) {
+    function getSVG(rawHex, size = 400, ringDistance = 5, muted, isVert, showSlice, showSides, exportPad = 0) {
         let hex = rawHex.replace(/[|/]/, '');
         if (hex.length !== 24) throw new Error('Hex must be 24 data characters (plus optional | separator).');
 
@@ -655,14 +686,14 @@ const Square1Visualizer = (() => {
         ">`;
 
         html += `<svg width="${vbW}" height="${vbH}" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" style="overflow:visible;" class="squan">`;
-        html += drawLayer(parsed.top, false, cx, cy, size, showSides);
-        if (showSlice) html += getSliceSVG("top", cx, cy, size);
+        html += drawLayer(parsed.top, false, cx, cy, size, showSides, muted);
+        if (showSlice) html += getSliceSVG("top", cx, cy, size, muted);
         html += `</svg>`;
 
         html += `<svg width="${vbW}" height="${vbH}" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" style="overflow:visible;${isVert ?
             "margin-top:" : "margin-left:"}${margin.toFixed(1)}px;" class="squan">`;
-        html += drawLayer(parsed.bottom, true, cx, cy, size, showSides);
-        if (showSlice) html += getSliceSVG("bottom", cx, cy, size);
+        html += drawLayer(parsed.bottom, true, cx, cy, size, showSides, muted);
+        if (showSlice) html += getSliceSVG("bottom", cx, cy, size, muted);
         html += `</svg></div>`;
 
         return html;
@@ -679,7 +710,9 @@ const Square1Visualizer = (() => {
     function setPieceColor(id, color) {
         if (id.split(" ").length !== 2) throw new Error(`piece id ${id} is not valid.`);
         let [piece, sticker] = id.split(" ");
-        if (parseInt(piece, 16) % 2 === 0) {
+        if (piece === "slice") {
+            sliceColors = {...sliceColors, [sticker]: color};
+        } else if (parseInt(piece, 16) % 2 === 0) {
             // edge
             let currentScheme = edgeColors[piece];
             edgeColors = {...edgeColors, [piece]: {...currentScheme, [sticker]: color}};
@@ -693,7 +726,9 @@ const Square1Visualizer = (() => {
     function resetPieceColor(id) {
         if (id.split(" ").length !== 2) throw new Error(`piece id ${id} is not valid.`);
         let [piece, sticker] = id.split(" ");
-        if (parseInt(piece, 16) % 2 === 0) {
+        if (piece === "slice") {
+            sliceColors = {...sliceColors, [sticker]: defaultPieceColors().sliceColors[sticker]};
+        } else if (parseInt(piece, 16) % 2 === 0) {
             // edge
             let currentScheme = edgeColors[piece];
             let resetColor = defaultPieceColors().edgeColors[piece][sticker]
@@ -705,18 +740,12 @@ const Square1Visualizer = (() => {
             cornerColors = {...cornerColors, [piece]: {...currentScheme, [sticker]: resetColor}};
         }
     }
-
-    function resetPiecesColors() {
-        // name is similar to resetPieceColor
-        let piecesColors = defaultPieceColors();
-        edgeColors = piecesColors.edgeColors;
-        cornerColors = piecesColors.cornerColors;
-    }
     
     function getPiecesColors() {
         return {
             edgeColors: edgeColors,
-            cornerColors: cornerColors
+            cornerColors: cornerColors,
+            sliceColors: sliceColors
         }
     }
 
@@ -725,7 +754,6 @@ const Square1Visualizer = (() => {
         edgeColors = piecesColors.edgeColors;
         cornerColors = piecesColors.cornerColors;
     }
-
 
     return { 
         getSVG, parseHex, algToHex, invertScramble, unkarnify, setColorScheme, getColorScheme, setPieceColor,

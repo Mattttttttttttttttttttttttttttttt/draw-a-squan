@@ -1,3 +1,5 @@
+const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
+
 /* ─── Color scheme editor ─────────────────────────── */
 const SCHEME_FACES = ['top', 'bottom', 'front', 'right', 'back', 'left', 'border'];
 
@@ -45,53 +47,50 @@ const customPanel    = document.getElementById('scheme-custom-panel');
 const toolbar = document.getElementById('custom-toolbar');
 
 [classicalBtn, customBtn].forEach(btn => {
-  btn.addEventListener('click', () => {
-    const isCustom = btn.dataset.mode === 'custom';
-    classicalBtn.classList.toggle('active', !isCustom);
-    customBtn.classList.toggle('active', isCustom);
-    classicalPanel.style.display = isCustom ? 'none' : '';
-    customPanel.style.display    = isCustom ? '' : 'none';
-    toolbar.style.display     = isCustom ? '' : 'none';
-  });
+    btn.addEventListener('click', () => {
+        const isCustom = btn.dataset.mode === 'custom';
+        classicalBtn.classList.toggle('active', !isCustom);
+        customBtn.classList.toggle('active', isCustom);
+        classicalPanel.style.display = isCustom ? 'none' : '';
+        customPanel.style.display    = isCustom ? '' : 'none';
+        toolbar.style.display     = isCustom ? '' : 'none';
+    });
 });
 
 // Keys 1/2/3 select recent colors
 document.addEventListener('keydown', e => {
-  if (['1','2','3'].includes(e.key) && !e.ctrlKey && !e.metaKey) {
-    const idx = parseInt(e.key) - 1;
-    if (lastUsedColors[idx]) {
-      const slot = document.getElementById(`ctb-recent-${idx}`);
-      selectRecentColor(lastUsedColors[idx], slot);
+    if (['1','2','3'].includes(e.key) && !e.ctrlKey && !e.metaKey) {
+        const idx = parseInt(e.key) - 1;
+        if (lastUsedColors[idx]) {
+            const slot = document.getElementById(`ctb-recent-${idx}`);
+            selectRecentColor(lastUsedColors[idx], slot);
+        }
     }
-  }
-});
-
-// ── Color picker dot sync ──────────────────────────────
-document.getElementById('fill-color-input').addEventListener('input', e => {
-  document.getElementById('ctb-color-dot').style.background = e.target.value;
 });
 
 // ── Undo / Redo disabled state helpers ────────────────
 function updateUndoRedo(canUndo, canRedo) {
-  document.getElementById('ctb-undo').disabled = !canUndo;
-  document.getElementById('ctb-redo').disabled = !canRedo;
+    document.getElementById('ctb-undo').disabled = !canUndo;
+    document.getElementById('ctb-redo').disabled = !canRedo;
 }
 
 document.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { /* your undo logic */ }
-  if ((e.ctrlKey || e.metaKey) && e.key === 'y') { /* your redo logic */ }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') { /* your undo logic */ }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'y') { /* your redo logic */ }
 }); 
 
 const fillModeBtn = document.getElementById('fill-mode-btn');
 const unfillBtn = document.getElementById('fill-unfill-btn');
 const resetBtn = document.getElementById('fill-reset-btn');
+const muteBtn = document.getElementById('fill-mute-btn');
 const fillColorInput = document.getElementById('fill-color-input');
 const fillColorSwitch = document.getElementById('fill-color-switch');
 
 let fillModeActive = false;
 let fillResetActive = false;
+let muteActive = false;
 
-fillModeBtn.addEventListener('click', () => {
+function activateFill() {
     if (fillResetActive && !fillModeActive) unfillBtn.click();
 
     fillModeActive = !fillModeActive;
@@ -100,9 +99,13 @@ fillModeBtn.addEventListener('click', () => {
     const squans = document.querySelectorAll('.squan');
     if (fillModeActive)
         squans.forEach(div => {div.style.cursor = 'pointer';});
-    else
+    else {
         squans.forEach(div => {div.style.cursor = 'auto';});
-});
+        document.querySelectorAll('.ctb-recent-slot').forEach(s => s.classList.remove('active-recent'));
+    }
+}
+
+fillModeBtn.addEventListener('click', activateFill);
 
 unfillBtn.addEventListener('click', () => {
     if (fillModeActive && !fillResetActive) fillModeBtn.click();
@@ -125,7 +128,7 @@ fillColorInput.addEventListener('input', () => {
     fillColorSwitch.style.background = fillColorInput.value;
 });
 
-fillColorInput.addEventListener("blur", () => {
+function updateLastUsed() {
     let value = fillColorInput.value;
     if (lastUsedColors.includes(value)) {
         lastUsedColors.splice(lastUsedColors.indexOf(value), 1);
@@ -135,31 +138,36 @@ fillColorInput.addEventListener("blur", () => {
         lastUsedColors.unshift(value);
     }
     renderRecentSlots();
+}
+
+fillColorInput.addEventListener("blur", () => {
+    updateLastUsed();
+    if (!fillModeActive) activateFill();
 })
 
 function renderRecentSlots() {
   for (let i = 0; i < 3; i++) {
     const slot = document.getElementById(`ctb-recent-${i}`);
     if (lastUsedColors[i]) {
-      slot.classList.remove('empty');
-      slot.style.background = lastUsedColors[i];
-      slot.onclick = () => selectRecentColor(lastUsedColors[i], slot);
+        slot.classList.remove('empty');
+        slot.style.background = lastUsedColors[i];
+        slot.onclick = () => selectRecentColor(lastUsedColors[i], slot);
     } else {
-      slot.classList.add('empty');
-      slot.style.background = '';
-      slot.onclick = null;
+        slot.classList.add('empty');
+        slot.style.background = '';
+        slot.onclick = null;
     }
   }
 }
 
 function selectRecentColor(hex, slotEl) {
-  document.getElementById('fill-color-input').value = hex;
-  document.getElementById('ctb-color-dot').style.background = hex;
-  document.querySelectorAll('.ctb-recent-slot').forEach(s => s.classList.remove('active-recent'));
-  slotEl.classList.add('active-recent');
+    document.getElementById('fill-color-input').value = hex;
+    document.getElementById('fill-color-switch').style.background = hex;
+    document.querySelectorAll('.ctb-recent-slot').forEach(s => s.classList.remove('active-recent'));
+    slotEl.classList.add('active-recent');
+    updateLastUsed();
+    if (!fillModeActive) activateFill();
 }
-
-resetBtn.addEventListener("click", sq1vis.resetPiecesColors)
 
 document.getElementById('canvas-inner').addEventListener('click', e => {
     if (fillModeActive) {
@@ -177,6 +185,17 @@ document.getElementById('canvas-inner').addEventListener('click', e => {
         sq1vis.resetPieceColor(piece.id);
         draw();
     }
+});
+
+resetBtn.addEventListener("click", () => {
+    sq1vis.resetPiecesColors();
+    draw();
+});
+
+muteBtn.addEventListener("click", () => {
+    muteActive = !muteActive;
+    muteBtn.classList.toggle('active', muteActive);
+    draw();
 });
 
 /* ─── Sync sliders ↔ number inputs ───────────────── */
@@ -242,17 +261,6 @@ document.addEventListener('click', () => {
 /* ─── Input reactive ──────────────────────────────────── */
 document.getElementById('scramble-input').addEventListener('input', draw);
 
-const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
-const PLACEHOLDER_SCHEME = {
-    top: '#2a2a2a',
-    bottom: '#2a2a2a',
-    front: '#2a2a2a',
-    right: '#2a2a2a',
-    back: '#2a2a2a',
-    left: '#2a2a2a',
-    slice: '#666666',
-};
-
 function draw() {
     const input = document.getElementById('scramble-input').value;
     const size = parseInt(document.getElementById('size-input').value, 10);
@@ -265,12 +273,12 @@ function draw() {
 
     if (!input) {
         // Draw placeholder cube with muted gray scheme
-        const realScheme = sq1vis.getColorScheme();
-        const realPiecesColors = sq1vis.getPiecesColors();
-        sq1vis.setColorScheme(PLACEHOLDER_SCHEME);
-        const html = sq1vis.getSVG(PLACEHOLDER_HEX, size, gap, isVertical, showSlice, showSides);
-        sq1vis.setColorScheme({ ...realScheme, slice: null });
-        sq1vis.setPiecesColors(realPiecesColors);
+        // const realScheme = sq1vis.getColorScheme();
+        // const realPiecesColors = sq1vis.getPiecesColors();
+        // sq1vis.setColorScheme(PLACEHOLDER_SCHEME);
+        const html = sq1vis.getSVG(PLACEHOLDER_HEX, size, gap, true, isVertical, showSlice, showSides);
+        // sq1vis.setColorScheme({ ...realScheme, slice: null });
+        // sq1vis.setPiecesColors(realPiecesColors);
         canvasInner.innerHTML = html;
         return;
     }
@@ -288,7 +296,7 @@ function draw() {
             hex = `${tlHex}|${blHex}`;
         }
 
-        const html = sq1vis.getSVG(hex, size, gap, isVertical, showSlice, showSides);
+        const html = sq1vis.getSVG(hex, size, gap, muteActive, isVertical, showSlice, showSides);
         canvasInner.innerHTML = html;
 
     } catch (err) {
@@ -332,25 +340,31 @@ function getExportSVGString(layer) {
     const input = document.getElementById('scramble-input').value.trim();
     const mode = MODES[currentModeIndex].value;
 
-    if (!input) return null;
-
-    let hex;
-    if (mode === 'hex') {
-        hex = input;
-    } else if (mode === 'inverse') {
-        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(sq1vis.unkarnify(input)));
-        hex = `${tlHex}|${blHex}`;
-    } else {
-        // mode = "scramble"
-        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
-        hex = `${tlHex}|${blHex}`;
+    let muted;
+    if (!input) {
+        muted = true;
+        hex = PLACEHOLDER_HEX;
+    }
+    else {
+        muted = muteActive
+        let hex;
+        if (mode === 'hex') {
+            hex = input;
+        } else if (mode === 'inverse') {
+            const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(sq1vis.unkarnify(input)));
+            hex = `${tlHex}|${blHex}`;
+        } else {
+            // mode = "scramble"
+            const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
+            hex = `${tlHex}|${blHex}`;
+        }
     }
 
     // Render to a temp div so we can grab individual SVGs
     const scaledSize = size * (220 / 400);
     const PAD = Math.round(scaledSize * 0.28);
     const tmp = document.createElement('div');
-    tmp.innerHTML = sq1vis.getSVG(hex, size, gap, isVertical, showSlice, showSides, PAD);
+    tmp.innerHTML = sq1vis.getSVG(hex, size, gap, muted, isVertical, showSlice, showSides, PAD);
     const svgs = tmp.querySelectorAll('svg');
 
     let svgEl;
@@ -392,7 +406,7 @@ function getExportSVGString(layer) {
 async function doExport(methodOverride) {
     const method = methodOverride || exportMethod;
     const input = document.getElementById('scramble-input').value.trim();
-    if (!input) { alert('Enter a scramble first.'); return; }
+    // if (!input) { alert('Enter a scramble first.'); return; }
 
     const svgStr = getExportSVGString(exportLayer);
     if (!svgStr) return;
