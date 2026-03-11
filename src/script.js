@@ -1,19 +1,17 @@
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
 
-/* ─── Color scheme editor ─────────────────────────── */
-const SCHEME_FACES = ['top', 'bottom', 'front', 'right', 'back', 'left', 'border'];
-
 function buildSchemeGrid() {
     const grid = document.getElementById('scheme-grid');
     grid.innerHTML = '';
+    const slots = sq1vis.getColorSlots();
     const scheme = sq1vis.getColorScheme();
-    SCHEME_FACES.forEach(face => {
+    slots.forEach(slot => {
         const row = document.createElement('div');
         row.className = 'scheme-row';
         row.innerHTML = `
-          <span class="scheme-face-label">${face}</span>
-          <div class="scheme-switch-btn" id="switch-${face}" style="background:${scheme[face]}">
-            <input class="scheme-color-input" type="color" value="${scheme[face]}" data-face="${face}" />
+          <span class="scheme-face-label">${slot.label}</span>
+          <div class="scheme-switch-btn" id="switch-${slot.id}" style="background:${scheme[slot.id]}">
+            <input class="scheme-color-input" type="color" value="${scheme[slot.id]}" data-face="${slot.id}" />
           </div>`;
         grid.appendChild(row);
     });
@@ -27,8 +25,38 @@ function buildSchemeGrid() {
         });
     });
 }
-
 buildSchemeGrid();
+
+// ── Style dropdown ──────────────────────────────────────
+function buildStyleDropdown() {
+    const styles = sq1vis.getStyles();
+    const select = document.getElementById('svg-style-select');
+    select.innerHTML = '';
+    styles.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.index;
+        opt.textContent = s.name;
+        select.appendChild(opt);
+    });
+    select.value = sq1vis.getActiveStyleIndex();
+    select.addEventListener('change', () => {
+        sq1vis.setActiveStyle(parseInt(select.value));
+        updateStyleToggles();
+        buildSchemeGrid();
+        draw();
+    });
+}
+
+function updateStyleToggles() {
+    const style = sq1vis.getActiveStyle();
+    const hideSidesRow = document.getElementById('hide-sides-row');
+    const hideSliceRow = document.getElementById('hide-slice-row');
+    hideSidesRow.style.display = style.hidableSideColor  ? '' : 'none';
+    hideSliceRow.style.display = style.hasSliceIndicator ? '' : 'none';
+}
+
+buildStyleDropdown();
+updateStyleToggles();
 
 document.getElementById('color-scheme-toggle').addEventListener('click', () => {
     const body = document.getElementById('color-scheme-body');
@@ -214,7 +242,11 @@ document.querySelectorAll('input[name=orientation]').forEach(r =>
 
 /* ─── Hide-slice Hide-side color toggle ───────────────────────────── */
 document.getElementById('hide-slice').addEventListener('change', draw);
-document.getElementById('hide-sides').addEventListener('change', draw);
+document.getElementById('hide-sides').addEventListener('change', e => {
+    sq1vis.setShowSideColors(!e.target.checked);
+    buildSchemeGrid();
+    draw();
+});
 
 /* ─── Mode toggle ─────────────────────────────────────── */
 const MODES = [
