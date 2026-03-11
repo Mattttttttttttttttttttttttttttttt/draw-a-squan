@@ -70,6 +70,7 @@ const Square1Visualizer = (() => {
         hasSliceIndicator: true,
 
         withSideColor: {
+            layerScale: 1,
             colorSlots: [
                 { id: "top",    label: "Top",    default: "#4d4d4d" },
                 { id: "bottom", label: "Bottom", default: "#FFFFFF" },
@@ -151,6 +152,7 @@ const Square1Visualizer = (() => {
         },
 
         withoutSideColor: {
+            layerScale: 0.93,
     colorSlots: [
         { id: "top",    label: "Top",    default: "#4d4d4d" },
         { id: "bottom", label: "Bottom", default: "#FFFFFF" },
@@ -445,20 +447,24 @@ const Square1Visualizer = (() => {
     // === DRAW LAYER ===
 
     function drawLayer(tokens, isBottom, cx, cy, size, muted) {
-        const variant = getActiveVariant();
-        const colors  = getResolvedColors();
-        let svg = '';
-        for (const token of tokens) {
-            const span = token.type === 'corner' ? 2 : 1;
-            const layerOffset = isBottom ? -195 : 15;
-            const angle = -slotCentreAngle(token.position, span) + layerOffset;
-            const pieceInner = token.type === 'edge'
-                ? variant.drawEdge(token.piece, colors, size, muted)
-                : variant.drawCorner(token.piece, colors, size, muted);
-            svg += `<g transform="translate(${cx},${cy}) rotate(${angle.toFixed(2)})">${pieceInner}</g>`;
-        }
-        return svg;
+    const variant = getActiveVariant();
+    const colors  = getResolvedColors();
+    const layerScale = variant.layerScale ?? 1;
+    let svg = '';
+    for (const token of tokens) {
+        const span = token.type === 'corner' ? 2 : 1;
+        const layerOffset = isBottom ? -195 : 15;
+        const angle = -slotCentreAngle(token.position, span) + layerOffset;
+        const pieceInner = token.type === 'edge'
+            ? variant.drawEdge(token.piece, colors, size, muted)
+            : variant.drawCorner(token.piece, colors, size, muted);
+        svg += `<g transform="translate(${cx},${cy}) rotate(${angle.toFixed(2)})">${pieceInner}</g>`;
     }
+    if (layerScale !== 1) {
+        svg = `<g transform="translate(${cx},${cy}) scale(${layerScale}) translate(${-cx},${-cy})">${svg}</g>`;
+    }
+    return svg;
+}
 
     // === MAIN SVG BUILDER ===
 
