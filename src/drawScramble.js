@@ -124,8 +124,8 @@ const Square1Visualizer = (() => {
                 </g>`;
             },
 
-            drawSlice(layer, cx, cy, size, colors, muted) {
-                const scale = (size / 220) * 1.965;
+            drawSlice(layer, cx, cy, size, colors, muted, relScale=1.965) {
+                const scale = (size / 220) * relScale;
                 let topColor = resolveColor(sliceColors.top,    colors);
                 let botColor = resolveColor(sliceColors.bottom, colors);
                 if (muted) {
@@ -133,21 +133,21 @@ const Square1Visualizer = (() => {
                     if (topColor === colors[def.top])    topColor = PLACEHOLDER_SCHEME.slice;
                     if (botColor === colors[def.bottom]) botColor = PLACEHOLDER_SCHEME.slice;
                 }
+                let color, angle;
                 if (layer === "top") {
-                    return `<g transform="translate(${(cx - 42/220*size).toFixed(2)},${(cy - 123.5/220*size).toFixed(2)}) scale(${scale.toFixed(4)})">
-                        <path d="M42.56,3.6c-.16-.97-.86-1.73-1.81-1.99L35.06.09c-.21-.06-.43-.09-.65-.09-.86,0-1.64.44-2.1,1.17-.46.73-.5,1.63-.13,2.4l1.97,4.05c.42.86,1.28,1.4,2.24,1.4.5,0,.98-.15,1.39-.43l3.73-2.53c.82-.55,1.22-1.5,1.06-2.47Z"/>
-                        <path d="M8.45,116.55c-.42-.86-1.28-1.4-2.24-1.4-.5,0-.98.15-1.39.43l-3.73,2.53c-.82.55-1.22,1.5-1.06,2.47.16.97.86,1.73,1.81,1.99l5.7,1.53c.21.06.43.09.65.09.86,0,1.64-.44,2.1-1.17.46-.73.5-1.63.13-2.4l-1.97-4.05Z"/>
-                        <path class="sticker" id="slice top" fill="${topColor}" d="M40.37,3.06l-5.7-1.53c-.09-.02-.18-.04-.26-.04-.69,0-1.21.74-.88,1.42l1.97,4.05c.17.35.52.55.89.55.19,0,.38-.05.55-.17l3.73-2.53c.7-.47.52-1.55-.3-1.77Z"/>
-                        <path class="sticker" id="slice top" fill="${topColor}" d="M7.1,117.2c-.17-.35-.52-.55-.89-.55-.19,0-.38.05-.55.17l-3.73,2.53c-.7.47-.52,1.55.3,1.77l5.7,1.53c.09.02.18.04.26.04.69,0,1.21-.74.88-1.42l-1.97-4.05Z"/>
-                    </g>`;
+                    color = topColor;
+                    angle = 0;
                 } else {
-                    return `<g transform="translate(${(cx - 98/220*size).toFixed(2)},${(cy - 86/220*size).toFixed(2)}) scale(${scale.toFixed(4)}) rotate(-30)">
-                        <path d="M42.56,3.6c-.16-.97-.86-1.73-1.81-1.99L35.06.09c-.21-.06-.43-.09-.65-.09-.86,0-1.64.44-2.1,1.17-.46.73-.5,1.63-.13,2.4l1.97,4.05c.42.86,1.28,1.4,2.24,1.4.5,0,.98-.15,1.39-.43l3.73-2.53c.82-.55,1.22-1.5,1.06-2.47Z"/>
-                        <path d="M8.45,116.55c-.42-.86-1.28-1.4-2.24-1.4-.5,0-.98.15-1.39.43l-3.73,2.53c-.82.55-1.22,1.5-1.06,2.47.16.97.86,1.73,1.81,1.99l5.7,1.53c.21.06.43.09.65.09.86,0,1.64-.44,2.1-1.17.46-.73.5-1.63.13-2.4l-1.97-4.05Z"/>
-                        <path class="sticker" id="slice bottom" fill="${botColor}" d="M40.37,3.06l-5.7-1.53c-.09-.02-.18-.04-.26-.04-.69,0-1.21.74-.88,1.42l1.97,4.05c.17.35.52.55.89.55.19,0,.38-.05.55-.17l3.73-2.53c.7-.47.52-1.55-.3-1.77Z"/>
-                        <path class="sticker" id="slice bottom" fill="${botColor}" d="M7.1,117.2c-.17-.35-.52-.55-.89-.55-.19,0,.38.05-.55.17l-3.73,2.53c-.7.47-.52,1.55.3,1.77l5.7,1.53c.09.02.18.04.26.04.69,0,1.21-.74.88-1.42l-1.97-4.05Z"/>
-                    </g>`;
+                    color = botColor;
+                    angle = -30;
                 }
+                return `<g transform="rotate(${angle}, ${cx}, ${cy}) translate(${(cx + 29.5/220*size).toFixed(2)}, ${(cy - 114/220*size).toFixed(2)}) scale(${scale.toFixed(4)}) translate(5.43, 4.19) rotate(-165)">
+                    <path d="M7.32.86C6.69.13,5.72-.16,4.79.09c-.48.13-.91.4-1.23.77L.61,4.26C-.03,5.01-.18,6.03.23,6.92c.41.9,1.28,1.45,2.26,1.45h5.9c.22,0,.44-.03.65-.08.83-.22,1.47-.85,1.73-1.67.25-.82.07-1.7-.5-2.35L7.32.86Z"/>
+                    <path fill="${color}" d="M6.18,1.84c-.26-.3-.65-.4-1-.31-.18.05-.35.15-.49.31l-2.95,3.41c-.55.64-.1,1.63.74,1.63h5.9c.09,0,.18-.01.26-.03.67-.18.97-1.03.48-1.59l-2.95-3.41Z"/></g>
+                    <g transform="rotate(${angle+180}, ${cx}, ${cy}) translate(${(cx + 29.5/220*size).toFixed(2)}, ${(cy - 114/220*size).toFixed(2)}) scale(${scale.toFixed(4)}) translate(5.43, 4.19) rotate(-165)">
+                    <path d="M7.32.86C6.69.13,5.72-.16,4.79.09c-.48.13-.91.4-1.23.77L.61,4.26C-.03,5.01-.18,6.03.23,6.92c.41.9,1.28,1.45,2.26,1.45h5.9c.22,0,.44-.03.65-.08.83-.22,1.47-.85,1.73-1.67.25-.82.07-1.7-.5-2.35L7.32.86Z"/>
+                    <path fill="${color}" d="M6.18,1.84c-.26-.3-.65-.4-1-.31-.18.05-.35.15-.49.31l-2.95,3.41c-.55.64-.1,1.63.74,1.63h5.9c.09,0,.18-.01.26-.03.67-.18.97-1.03.48-1.59l-2.95-3.41Z"/>
+                </g>`;
             }
         },
 
@@ -192,7 +192,7 @@ const Square1Visualizer = (() => {
     },
 
     drawSlice(layer, cx, cy, size, colors, muted) {
-        return SAC2Style.withSideColor.drawSlice(layer, cx, cy, size, colors, muted);
+        return SAC2Style.withSideColor.drawSlice(layer, cx, cy, size, colors, muted, 1.968 * 1.38 / 0.93);
     }
 },
     };
@@ -246,6 +246,11 @@ const Square1Visualizer = (() => {
     // === SCRAM OPERATORS (unchanged) =====================================
     // =====================================================================
 
+    function polarToCart(cx, cy, r, deg) {
+        const rad = (deg - 90) * Math.PI / 180; // deg from top, CW
+        return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+    }
+    
     function algToHex(scramble) {
         let tlHex = '011233455677';
         let blHex = '998bbaddcffe';
