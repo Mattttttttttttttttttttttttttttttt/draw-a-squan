@@ -578,4 +578,430 @@ function flashBtn(msg) {
 }
 
 /* ─── Init ────────────────────────────────────────── */
+
+// ═══════════════════════════════════════════════════
+// ═══ BULK EXPORT ═══════════════════════════════════
+// ═══════════════════════════════════════════════════
+
+(function initBulkExport() {
+
+    // ── helpers ──────────────────────────────────────
+    function getCurrentSettings() {
+        return {
+            size:       parseInt(document.getElementById('size-input').value, 10),
+            gap:        parseInt(document.getElementById('gap-input').value, 10),
+            isVertical: document.querySelector('input[name=orientation]:checked').value === 'vertical',
+            showSlice:  !document.getElementById('hide-slice').checked,
+            showSides:  !document.getElementById('hide-sides').checked,
+            mode:       MODES[currentModeIndex].value,
+        };
+    }
+
+    function inputToHex(raw, s) {
+        const input = raw.trim();
+        if (!input) throw new Error('empty');
+        if (s.mode === 'hex') return input;
+        if (s.mode === 'inverse') {
+            const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(sq1vis.unkarnify(input)));
+            return `${tlHex}|${blHex}`;
+        }
+        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
+        return `${tlHex}|${blHex}`;
+    }
+
+    function svgStringForHex(hex, s) {
+        const PAD = Math.round(s.size * (220/400) * 0.28);
+        const tmp = document.createElement('div');
+        tmp.innerHTML = sq1vis.getSVG(hex, s.size, s.gap, muteActive, s.isVertical, s.showSlice, s.showSides, PAD);
+        const svgs = tmp.querySelectorAll('svg');
+        const svg0 = svgs[0], svg1 = svgs[1];
+
+        const vb    = svg0.getAttribute('viewBox').split(' ').map(parseFloat);
+        const vbX   = vb[0], vbY = vb[1], vbW = vb[2], vbH = vb[3];
+        const sc    = Math.round(s.size * (220/400));
+        const padT  = -vbY, padO = -vbX;
+        const margin = sc * (0.44 * (2 + s.gap/100) - 1);
+
+        const g0shift = `translate(${padO},${padT})`;
+        const g1shift = s.isVertical
+            ? `translate(${padO},${padT + sc + margin})`
+            : `translate(${padO + sc + margin},${padT})`;
+        const totalW = s.isVertical ? vbW : padO + sc + margin + sc + padO;
+        const totalH = s.isVertical ? padT + sc + margin + sc + padO : vbH;
+
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">` +
+               `<g transform="${g0shift}">${svg0.innerHTML}</g>` +
+               `<g transform="${g1shift}">${svg1.innerHTML}</g></svg>`;
+    }
+
+    async function svgToPngBlob(svgStr) {
+        return new Promise((res, rej) => {
+            const img = new Image();
+            const url = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                c.width  = img.naturalWidth  || img.width;
+                c.height = img.naturalHeight || img.height;
+                c.getContext('2d').drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+                c.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png');
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('img load failed')); };
+            img.src = url;
+        });
+    }
+
+    // ── modal wiring ─────────────────────────────────
+    const overlay      = document.getElementById('bulk-modal-overlay');
+    const closeBtn     = document.getElementById('bulk-modal-close');
+    const openBtn      = document.getElementById('bulk-export-btn');
+    const tabs         = document.querySelectorAll('.modal-tab');
+    const panelText    = document.getElementById('bulk-tab-text');
+    const panelXlsx    = document.getElementById('bulk-tab-xlsx');
+    const warnOverlay  = document.getElementById('bulk-warn-overlay');
+    const warnList     = document.getElementById('bulk-warn-list');
+    const warnClose    = document.getElementById('bulk-warn-close');
+    const warnCancel   = document.getElementById('bulk-warn-cancel');
+    const warnProceed  = document.getElementById('bulk-warn-proceed');
+    const dropzone     = document.getElementById('bulk-dropzone');
+    const fileInput    = document.getElementById('bulk-xlsx-file');
+    const dropLabel    = document.getElementById('bulk-dropzone-label');
+
+    let pendingExportFn = null;
+    let loadedXlsxFile  = null;
+
+    openBtn.addEventListener('click', () => overlay.classList.add('open'));
+    closeBtn.addEventListener('click', () => overlay.classList.remove('open'));
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            panelText.style.display = tab.dataset.tab === 'text' ? '' : 'none';
+            panelXlsx.style.display = tab.dataset.tab === 'xlsx' ? '' : 'none';
+        });
+    });
+
+    // warn modal
+    function showWarn(invalids, onProceed) {
+        warnList.innerHTML = invalids.map(v => `<li>${v}</li>`).join('');
+        warnOverlay.classList.add('open');
+        pendingExportFn = onProceed;
+    }
+    warnClose.addEventListener('click',  () => { warnOverlay.classList.remove('open'); pendingExportFn = null; });
+    warnCancel.addEventListener('click', () => { warnOverlay.classList.remove('open'); pendingExportFn = null; });
+    warnProceed.addEventListener('click',() => { warnOverlay.classList.remove('open'); if (pendingExportFn) pendingExportFn(); });
+
+    // ── dropzone ─────────────────────────────────────
+    dropzone.addEventListener('click',      () => fileInput.click());
+    dropzone.addEventListener('dragover',   e  => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave',  ()  => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        const f = e.dataTransfer.files[0];
+        if (f) setXlsxFile(f);
+    });
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files[0]) setXlsxFile(fileInput.files[0]);
+    });
+
+    function setXlsxFile(f) {
+        loadedXlsxFile = f;
+        dropLabel.textContent = f.name;
+    }
+
+    // ── TEXT EXPORT ───────────────────────────────────
+    document.getElementById('bulk-text-export').addEventListener('click', () => {
+        const lines = document.getElementById('bulk-text-input').value
+            .split('\n').map(l => l.trim()).filter(Boolean);
+        if (!lines.length) return flashBtn('No inputs entered.');
+
+        const s = getCurrentSettings();
+        const invalids = [];
+        const valid    = [];
+
+        lines.forEach((line, i) => {
+            try {
+                const hex = inputToHex(line, s);
+                valid.push({ label: `line-${i+1}`, hex });
+            } catch {
+                invalids.push(`Line ${i+1}: "${line}"`);
+            }
+        });
+
+        const doExportZip = async () => {
+            const zip = new JSZip();
+            for (const item of valid) {
+                try {
+                    const svgStr = svgStringForHex(item.hex, s);
+                    const blob   = await svgToPngBlob(svgStr);
+                    zip.file(`${item.label}.png`, blob);
+                } catch { /* skip render errors silently */ }
+            }
+            const blob = await zip.generateAsync({ type: 'blob' });
+            triggerDownload(blob, 'bulk-export.zip');
+            overlay.classList.remove('open');
+        };
+
+        if (invalids.length) showWarn(invalids, doExportZip);
+        else doExportZip();
+    });
+
+    // ── XLSX EXPORT ───────────────────────────────────
+    async function processXlsx(outputMode) {
+    if (!loadedXlsxFile) return flashBtn('No file selected.');
+    const s = getCurrentSettings();
+
+    const arrayBuf = await loadedXlsxFile.arrayBuffer();
+    const wb       = XLSX.read(arrayBuf, { type: 'array' });
+
+    const tasks    = [];
+    const invalids = [];
+
+    wb.SheetNames.forEach((sheetName, si) => {
+        const ws = wb.Sheets[sheetName];
+        const ref = ws['!ref'];
+        if (!ref) return;
+        const range = XLSX.utils.decode_range(ref);
+        for (let R = range.s.r; R <= range.e.r; R++) {
+            for (let C = range.s.c; C <= range.e.c; C++) {
+                const addr = XLSX.utils.encode_cell({ r: R, c: C });
+                const cell = ws[addr];
+                if (!cell || cell.v === undefined || cell.v === '') continue;
+                const raw = String(cell.v).trim();
+                try {
+                    const hex = inputToHex(raw, s);
+                    tasks.push({ sheetIdx: si, sheetName, cellAddr: addr, row: R, col: C, input: raw, hex });
+                } catch {
+                    invalids.push(`Sheet "${sheetName}" ${addr}: "${raw}"`);
+                    tasks.push({ sheetIdx: si, sheetName, cellAddr: addr, row: R, col: C, input: raw, hex: null });
+                }
+            }
+        }
+    });
+
+    const doExport = async () => {
+        if (outputMode === 'zip') {
+            const zip = new JSZip();
+            for (const t of tasks) {
+                if (!t.hex) continue;
+                try {
+                    const svgStr = svgStringForHex(t.hex, s);
+                    const blob   = await svgToPngBlob(svgStr);
+                    zip.file(`${t.sheetName}-${t.cellAddr}.png`, blob);
+                } catch { /* skip */ }
+            }
+            const blob = await zip.generateAsync({ type: 'blob' });
+            triggerDownload(blob, 'bulk-export.zip');
+            overlay.classList.remove('open');
+
+        } else {
+            // ── XLSX with real embedded images via raw ZIP surgery ──────
+
+            // 1. Render all valid PNGs first
+            const imgMap = new Map(); // taskIndex → Uint8Array
+            for (let i = 0; i < tasks.length; i++) {
+                const t = tasks[i];
+                if (!t.hex) continue;
+                try {
+                    const svgStr = svgStringForHex(t.hex, s);
+                    const blob   = await svgToPngBlob(svgStr);
+                    const abuf   = await blob.arrayBuffer();
+                    imgMap.set(i, new Uint8Array(abuf));
+                } catch { /* skip */ }
+            }
+
+            // 2. Build a clean xlsx via SheetJS — clear cell values for valid cells
+            const newWb = XLSX.utils.book_new();
+            for (let si = 0; si < wb.SheetNames.length; si++) {
+                const sheetName = wb.SheetNames[si];
+                // deep clone the sheet
+                const srcWs = wb.Sheets[sheetName];
+                const ws    = Object.assign({}, srcWs);
+                // clear valid cells so the image shows cleanly over an empty cell
+                tasks.filter(t => t.sheetIdx === si && t.hex).forEach(t => {
+                    ws[t.cellAddr] = { t: 's', v: '' };
+                });
+                XLSX.utils.book_append_sheet(newWb, ws, sheetName);
+            }
+
+            const xlsxBytes = XLSX.write(newWb, { bookType: 'xlsx', type: 'array' });
+
+            // 3. Re-open the xlsx as a JSZip
+            const xlsxZip = await JSZip.loadAsync(xlsxBytes);
+
+            // 4. For each sheet that has valid tasks, inject drawings
+            const sheetTaskMap = new Map();
+            tasks.forEach((t, i) => {
+                if (!imgMap.has(i)) return;
+                if (!sheetTaskMap.has(t.sheetIdx)) sheetTaskMap.set(t.sheetIdx, []);
+                sheetTaskMap.get(t.sheetIdx).push({ ...t, imgIdx: i });
+            });
+
+            // Read & patch [Content_Types].xml
+            const ctXml = await xlsxZip.file('[Content_Types].xml').async('string');
+            const ctDom = new DOMParser().parseFromString(ctXml, 'application/xml');
+            const types = ctDom.querySelector('Types');
+
+            // Ensure png override type exists
+            if (!ctXml.includes('image/png')) {
+                const def = ctDom.createElementNS('', 'Default');
+                def.setAttribute('Extension', 'png');
+                def.setAttribute('ContentType', 'image/png');
+                types.insertBefore(def, types.firstChild);
+            }
+
+            // Read workbook rels to find sheet file names
+            const wbRelsXml = await xlsxZip.file('xl/_rels/workbook.xml.rels').async('string');
+            const wbRelsDom = new DOMParser().parseFromString(wbRelsXml, 'application/xml');
+            const relEls    = Array.from(wbRelsDom.querySelectorAll('Relationship'));
+
+            for (const [si, sheetTasks] of sheetTaskMap) {
+                const sheetName = wb.SheetNames[si];
+                // find the sheet filename e.g. "worksheets/sheet1.xml"
+                const sheetRel  = relEls.find(r =>
+                    r.getAttribute('Type').endsWith('/worksheet') &&
+                    (r.getAttribute('Id') === `rId${si+1}` || r.getAttribute('Target').includes(`sheet${si+1}`))
+                );
+                const sheetTarget = sheetRel
+                    ? sheetRel.getAttribute('Target').replace(/^\/xl\//, '').replace(/^xl\//, '')
+                    : `worksheets/sheet${si+1}.xml`;
+
+                const drawingId  = si + 1;
+                const drawingFile = `drawings/drawing${drawingId}.xml`;
+                const drawingPath = `xl/${drawingFile}`;
+
+                // 4a. Add images to xl/media/
+                let imgXmlParts = '';
+                const drawingRels = [];
+                let rIdCounter    = 1;
+
+                for (const t of sheetTasks) {
+                    const imgBytes  = imgMap.get(t.imgIdx);
+                    const imgFile   = `image_${si}_${t.cellAddr}.png`;
+                    xlsxZip.file(`xl/media/${imgFile}`, imgBytes);
+
+                    const rId = `rId${rIdCounter++}`;
+                    drawingRels.push({ rId, target: `../media/${imgFile}` });
+
+                    // Get image pixel dimensions from PNG header
+                    const view = new DataView(imgBytes.buffer);
+                    const imgW = view.getUint32(16);
+                    const imgH = view.getUint32(20);
+
+                    // Convert pixels to EMUs (English Metric Units): 1px ~ 9525 EMU at 96dpi
+                    const emuW = Math.round(imgW * 9525);
+                    const emuH = Math.round(imgH * 9525);
+
+                    // xdr:oneCellAnchor pins top-left to the cell, with explicit size
+                    imgXmlParts += `
+  <xdr:oneCellAnchor>
+    <xdr:from>
+      <xdr:col>${t.col}</xdr:col><xdr:colOff>0</xdr:colOff>
+      <xdr:row>${t.row}</xdr:row><xdr:rowOff>0</xdr:rowOff>
+    </xdr:from>
+    <xdr:ext cx="${emuW}" cy="${emuH}"/>
+    <xdr:pic>
+      <xdr:nvPicPr>
+        <xdr:cNvPr id="${t.imgIdx + 2}" name="img_${t.cellAddr}"/>
+        <xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr>
+      </xdr:nvPicPr>
+      <xdr:blipFill>
+        <a:blip r:embed="${rId}"/>
+        <a:stretch><a:fillRect/></a:stretch>
+      </xdr:blipFill>
+      <xdr:spPr>
+        <a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm>
+        <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+      </xdr:spPr>
+    </xdr:pic>
+    <xdr:clientData/>
+  </xdr:oneCellAnchor>`;
+                }
+
+                // 4b. Write drawing xml
+                const drawingXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+          xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+${imgXmlParts}
+</xdr:wsDr>`;
+                xlsxZip.file(drawingPath, drawingXml);
+
+                // 4c. Write drawing rels
+                const drawingRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+${drawingRels.map(r => `  <Relationship Id="${r.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${r.target}"/>`).join('\n')}
+</Relationships>`;
+                xlsxZip.file(`xl/drawings/_rels/drawing${drawingId}.xml.rels`, drawingRelsXml);
+
+                // 4d. Patch sheet xml to reference the drawing
+                const sheetXml  = await xlsxZip.file(`xl/${sheetTarget}`).async('string');
+                const drawingRefXml = `<drawing r:id="rId_drawing${drawingId}"/>`;
+                // inject before </worksheet>
+                const patchedSheet = sheetXml.includes('<drawing')
+                    ? sheetXml
+                    : sheetXml.replace('</worksheet>', `${drawingRefXml}</worksheet>`);
+
+                // make sure xmlns:r is on the worksheet root
+                const finalSheet = patchedSheet.replace(
+                    '<worksheet ',
+                    '<worksheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
+                ).replace(
+                    // avoid duplicate xmlns:r
+                    /xmlns:r="[^"]*"\s+xmlns:r="[^"]*"/,
+                    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+                );
+                xlsxZip.file(`xl/${sheetTarget}`, finalSheet);
+
+                // 4e. Patch sheet rels
+                const sheetRelsPath = `xl/${sheetTarget.replace('worksheets/', 'worksheets/_rels/').replace('.xml', '.xml.rels')}`;
+                let sheetRelsXml;
+                try {
+                    sheetRelsXml = await xlsxZip.file(sheetRelsPath).async('string');
+                } catch {
+                    sheetRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`;
+                }
+                const drawingRelEntry = `  <Relationship Id="rId_drawing${drawingId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../${drawingFile}"/>`;
+                const patchedRels = sheetRelsXml.includes(`rId_drawing${drawingId}`)
+                    ? sheetRelsXml
+                    : sheetRelsXml.replace('</Relationships>', `${drawingRelEntry}\n</Relationships>`);
+                xlsxZip.file(sheetRelsPath, patchedRels);
+
+                // 4f. Register drawing in Content_Types
+                const ctPartName = `/xl/${drawingFile}`;
+                if (!ctXml.includes(ctPartName)) {
+                    const override = ctDom.createElementNS('', 'Override');
+                    override.setAttribute('PartName', ctPartName);
+                    override.setAttribute('ContentType', 'application/vnd.openxmlformats-officedocument.drawing+xml');
+                    types.appendChild(override);
+                }
+            }
+
+            // 5. Write back patched Content_Types
+            const serializer   = new XMLSerializer();
+            const newCtXml     = serializer.serializeToString(ctDom);
+            xlsxZip.file('[Content_Types].xml', newCtXml);
+
+            // 6. Export final xlsx blob
+            const finalBlob = await xlsxZip.generateAsync({
+                type: 'blob',
+                mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            triggerDownload(finalBlob, 'bulk-export.xlsx');
+            overlay.classList.remove('open');
+        }
+    };
+
+    if (invalids.length) showWarn(invalids, doExport);
+    else doExport();
+}
+
+    document.getElementById('bulk-xlsx-export-zip').addEventListener('click',  () => processXlsx('zip'));
+    document.getElementById('bulk-xlsx-export-xlsx').addEventListener('click', () => processXlsx('xlsx'));
+
+})();
+
 draw();
