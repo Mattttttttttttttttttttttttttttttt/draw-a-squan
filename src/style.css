@@ -1,46 +1,46 @@
 /* ─── Fonts ──────────────────────────────────── */
 /* ===== SYNE ===== */
 @font-face {
-  font-family: 'Syne';
-  src: url('../fonts/Syne/static/Syne-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
+    font-family: 'Syne';
+    src: url('../fonts/Syne/static/Syne-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
 }
 
 @font-face {
-  font-family: 'Syne';
-  src: url('../fonts/Syne/static/Syne-SemiBold.ttf') format('truetype');
-  font-weight: 600;
-  font-style: normal;
+    font-family: 'Syne';
+    src: url('../fonts/Syne/static/Syne-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
 }
 
 @font-face {
-  font-family: 'Syne';
-  src: url('../fonts/Syne/static/Syne-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
+    font-family: 'Syne';
+    src: url('../fonts/Syne/static/Syne-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
 }
 
 @font-face {
-  font-family: 'Syne';
-  src: url('../fonts/Syne/static/Syne-ExtraBold.ttf') format('truetype');
-  font-weight: 800;
-  font-style: normal;
+    font-family: 'Syne';
+    src: url('../fonts/Syne/static/Syne-ExtraBold.ttf') format('truetype');
+    font-weight: 800;
+    font-style: normal;
 }
 
 /* ===== JETBRAINS MONO ===== */
 @font-face {
-  font-family: 'JetBrains Mono';
-  src: url('../fonts/JetBrains_Mono/static/JetBrainsMono-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
+    font-family: 'JetBrains Mono';
+    src: url('../fonts/JetBrains_Mono/static/JetBrainsMono-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
 }
 
 @font-face {
-  font-family: 'JetBrains Mono';
-  src: url('../fonts/JetBrains_Mono/static/JetBrainsMono-Medium.ttf') format('truetype');
-  font-weight: 500;
-  font-style: normal;
+    font-family: 'JetBrains Mono';
+    src: url('../fonts/JetBrains_Mono/static/JetBrainsMono-Medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
 }
 
 
@@ -56,7 +56,7 @@
 }
 
 :root {
-    --bg: #0b0c0f;
+    --bg: #1d1f25;
     --surface: #111318;
     --surface2: #181b22;
     --border: #22262f;
@@ -538,306 +538,312 @@ input[type=number]::-webkit-outer-spin-button {
 
 /* ─── Fill mode row ───────────────────────────────────── */
 .fill-mode-row {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-  margin-top: .85rem;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin-top: .85rem;
 }
 
-.fill-mode-btn, .fill-reset-btn {
-  flex: 1;
-  gap: .45rem;
-  height: 32px;
-  padding: 0 .8rem;
-  background: var(--surface2);
-  color: var(--muted);
-  border: 1px solid var(--border2);
-  font-size: .72rem;
-  letter-spacing: .06em;
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  /* override .btn width:100% */
-  width: auto;
+.fill-mode-btn,
+.fill-reset-btn {
+    flex: 1;
+    gap: .45rem;
+    height: 32px;
+    padding: 0 .8rem;
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border2);
+    font-size: .72rem;
+    letter-spacing: .06em;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    /* override .btn width:100% */
+    width: auto;
 }
 
-.fill-mode-btn:hover, .fill-reset-btn:hover {
-  background: var(--border);
-  color: var(--text);
-  border-color: var(--muted);
-  box-shadow: none;
+.fill-mode-btn:hover,
+.fill-reset-btn:hover {
+    background: var(--border);
+    color: var(--text);
+    border-color: var(--muted);
+    box-shadow: none;
 }
 
-.fill-mode-btn.active, .fill-reset-btn.active {
-  background: var(--accent-dim);
-  color: var(--accent);
-  border-color: var(--accent);
-  box-shadow: 0 0 10px rgba(79, 255, 176, .12);
+.fill-mode-btn.active,
+.fill-reset-btn.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(79, 255, 176, .12);
 }
 
 .fill-icon {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
 }
 
 /* switch wraps a colored button over a hidden <input type=color> */
 .fill-color-switch-wrap {
-  position: relative;
-  flex-shrink: 0;
+    position: relative;
+    flex-shrink: 0;
 }
 
 .fill-color-switch {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 2px solid rgba(255, 255, 255, .1);
-  background: #CC0000;
-  cursor: pointer;
-  display: block;
-  transition: transform var(--transition), border-color var(--transition);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 2px solid rgba(255, 255, 255, .1);
+    background: #CC0000;
+    cursor: pointer;
+    display: block;
+    transition: transform var(--transition), border-color var(--transition);
 }
 
 .fill-color-switch:hover {
-  transform: scale(1.1);
-  border-color: var(--accent);
+    transform: scale(1.1);
+    border-color: var(--accent);
 }
 
 .fill-color-input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
-  border: none;
-  padding: 0;
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    border: none;
+    padding: 0;
 }
 
 /* ─── Scheme mode toggle (Classical / Custom) ─────────── */
 .scheme-mode-seg {
-  display: flex;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  margin-bottom: .9rem;
-  margin-top: .85rem;
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: .9rem;
+    margin-top: .85rem;
 }
 
 .scheme-mode-btn {
-  flex: 1;
-  padding: .45rem .5rem;
-  background: var(--surface2);
-  border: none;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: .7rem;
-  font-weight: 600;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background var(--transition), color var(--transition);
+    flex: 1;
+    padding: .45rem .5rem;
+    background: var(--surface2);
+    border: none;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
 }
 
-.scheme-mode-btn + .scheme-mode-btn {
-  border-left: 1px solid var(--border);
+.scheme-mode-btn+.scheme-mode-btn {
+    border-left: 1px solid var(--border);
 }
 
 .scheme-mode-btn:hover {
-  background: var(--border);
-  color: var(--text);
+    background: var(--border);
+    color: var(--text);
 }
 
 .scheme-mode-btn.active {
-  background: var(--accent-dim);
-  color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent);
 }
 
 /* ─── Custom toolbar bar (top of page) ────────────────── */
 .custom-toolbar {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border2);
-  padding: 0 1.5rem;
-  height: 44px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 54px;         /* sits flush under the header */
-  z-index: 40;
-  box-shadow: 0 2px 12px rgba(0,0,0,.35);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border2);
+    padding: 0 1.5rem;
+    height: 44px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 54px;
+    /* sits flush under the header */
+    z-index: 40;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, .35);
 }
 
 .ctb-inner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .4rem;
-  height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    height: 100%;
 }
 
 .ctb-group {
-  display: flex;
-  align-items: center;
-  gap: .3rem;
+    display: flex;
+    align-items: center;
+    gap: .3rem;
 }
 
 .ctb-divider {
-  width: 1px;
-  height: 20px;
-  background: var(--border2);
-  margin: 0 .3rem;
+    width: 1px;
+    height: 20px;
+    background: var(--border2);
+    margin: 0 .3rem;
 }
 
 .ctb-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .4rem;
-  height: 28px;
-  padding: 0 .6rem;
-  background: var(--surface2);
-  border: 1px solid var(--border2);
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: .7rem;
-  font-weight: 600;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background var(--transition), color var(--transition), border-color var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    height: 28px;
+    padding: 0 .6rem;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
 
 .ctb-btn:hover:not(:disabled) {
-  background: var(--border);
-  color: var(--text);
-  border-color: var(--muted);
+    background: var(--border);
+    color: var(--text);
+    border-color: var(--muted);
 }
 
 .ctb-btn.active {
-  background: var(--accent-dim);
-  color: var(--accent);
-  border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent);
+    border-color: var(--accent);
 }
 
 .ctb-btn.active:hover {
-  background: #0d6b4f;
-  border-color: #6fffbf;
-  color: #6fffbf;
+    background: #0d6b4f;
+    border-color: #6fffbf;
+    color: #6fffbf;
 }
 
 .ctb-btn:disabled {
-  opacity: .5;
-  cursor: not-allowed;
+    opacity: .5;
+    cursor: not-allowed;
 }
 
 .ctb-group-label {
-  font-size: .65rem;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  margin-right: .2rem;
+    font-size: .65rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-right: .2rem;
 }
 
 /* fill toggle button — same active treatment as before */
 .ctb-fill-toggle {
-  padding: 0.65rem;
+    padding: 0.65rem;
 }
 
 /* standalone color switch next to fill button */
 .ctb-color-switch {
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  border: 2px solid rgba(255,255,255,.12);
-  background: #CC0000;
-  cursor: pointer;
-  display: block;
-  flex-shrink: 0;
-  transition: transform var(--transition), border-color var(--transition);
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: 2px solid rgba(255, 255, 255, .12);
+    background: #CC0000;
+    cursor: pointer;
+    display: block;
+    flex-shrink: 0;
+    transition: transform var(--transition), border-color var(--transition);
 }
 
 .ctb-color-switch:hover {
-  transform: scale(1.1);
-  border-color: var(--accent);
+    transform: scale(1.1);
+    border-color: var(--accent);
 }
 
 .ctb-icon {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
 }
 
 /* color picker button */
 .ctb-color-wrap {
-  position: relative;
+    position: relative;
 }
 
 .ctb-color-btn {
-  padding-right: .8rem;
+    padding-right: .8rem;
 }
 
 .ctb-color-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #CC0000;
-  border: 1px solid rgba(0,0,0,.4);
-  flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #CC0000;
+    border: 1px solid rgba(0, 0, 0, .4);
+    flex-shrink: 0;
 }
 
 .ctb-color-wrap .fill-color-input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
-  border: none;
-  padding: 0;
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    border: none;
+    padding: 0;
 }
 
 /* recently used slots */
-.ctb-recents { gap: .3rem; }
+.ctb-recents {
+    gap: .3rem;
+}
 
 .ctb-recent-slot {
-  width: 26px;
-  height: 26px;
-  border-radius: 5px;
-  border: 1px solid var(--border2);
-  cursor: pointer;
-  position: relative;
-  flex-shrink: 0;
-  transition: transform var(--transition), border-color var(--transition);
+    width: 26px;
+    height: 26px;
+    border-radius: 5px;
+    border: 1px solid var(--border2);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: transform var(--transition), border-color var(--transition);
 }
 
 .ctb-recent-slot:hover:not(.empty) {
-  transform: scale(1.12);
-  border-color: var(--accent);
+    transform: scale(1.12);
+    border-color: var(--accent);
 }
 
 .ctb-recent-slot.empty {
-  background: var(--bg);
-  cursor: default;
+    background: var(--bg);
+    cursor: default;
 }
 
 .ctb-recent-key {
-  position: absolute;
-  bottom: 1px;
-  right: 2px;
-  font-family: var(--font-mono);
-  font-size: .48rem;
-  color: rgba(255,255,255,.3);
-  line-height: 1;
-  pointer-events: none;
+    position: absolute;
+    bottom: 1px;
+    right: 2px;
+    font-family: var(--font-mono);
+    font-size: .48rem;
+    color: rgba(255, 255, 255, .3);
+    line-height: 1;
+    pointer-events: none;
 }
 
 .ctb-recent-slot:not(.empty) .ctb-recent-key {
-  color: rgba(0,0,0,.4);
+    color: rgba(0, 0, 0, .4);
 }
 
 .ctb-recent-slot.active-recent {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-dim);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
 }
 
 /* ─── Export tabs ─────────────────────────────────────── */
@@ -1138,9 +1144,9 @@ input[type=number]::-webkit-outer-spin-button {
 /* dot grid bg */
 .viewport-canvas::before {
     content: '';
-    position: fixed;
-    inset: 54px 0 0 300px;
-    background-image: radial-gradient(circle, #22262f 1px, transparent 1px);
+    position: absolute;
+    inset: 0px 0 0 0px;
+    background-image: radial-gradient(circle, #323845 1px, transparent 1px);
     background-size: 28px 28px;
     pointer-events: none;
     z-index: 0;
@@ -1212,7 +1218,7 @@ input[type=number]::-webkit-outer-spin-button {
     font-size: .75rem;
     padding: .5rem 1.1rem;
     border-radius: var(--radius);
-    box-shadow: 0 6px 24px rgba(0,0,0,.4);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .4);
     opacity: 0;
     pointer-events: none;
     transition: opacity 200ms ease, transform 200ms ease;
