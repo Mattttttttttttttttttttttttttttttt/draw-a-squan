@@ -634,22 +634,26 @@ function flashBtn(msg) {
                `<g transform="${g1shift}">${svg1.innerHTML}</g></svg>`;
     }
 
-    async function svgToPngBlob(svgStr) {
-        return new Promise((res, rej) => {
-            const img = new Image();
-            const url = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
-            img.onload = () => {
-                const c = document.createElement('canvas');
-                c.width  = img.naturalWidth  || img.width;
-                c.height = img.naturalHeight || img.height;
-                c.getContext('2d').drawImage(img, 0, 0);
-                URL.revokeObjectURL(url);
-                c.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png');
-            };
-            img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('img load failed')); };
-            img.src = url;
-        });
-    }
+    async function rasterizeBlob(svgStr, fmt) {
+    return new Promise((res, rej) => {
+        const img = new Image();
+        const url = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
+        img.onload = () => {
+            const c = document.createElement('canvas');
+            c.width  = img.naturalWidth  || img.width;
+            c.height = img.naturalHeight || img.height;
+            const ctx = c.getContext('2d');
+            if (fmt === 'jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height); }
+            ctx.drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+            if (fmt === 'bmp') { res(createBMP32(c)); return; }
+            const mime = fmt === 'jpeg' ? 'image/jpeg' : 'image/png';
+            c.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), mime);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('img load failed')); };
+        img.src = url;
+    });
+}
 
     // ── modal wiring ─────────────────────────────────
     const overlay      = document.getElementById('bulk-modal-overlay');
@@ -736,7 +740,7 @@ function flashBtn(msg) {
             for (const item of valid) {
                 try {
                     const svgStr = svgStringForHex(item.hex, s);
-                    const blob   = await svgToPngBlob(svgStr);
+                    const blob   = await rasterizeBlob(svgStr, exportFmt === 'svg' ? 'png' : exportFmt);
                     zip.file(`${item.label}.png`, blob);
                 } catch { /* skip render errors silently */ }
             }
@@ -752,7 +756,16 @@ function flashBtn(msg) {
     // ── XLSX EXPORT ───────────────────────────────────
     async function processXlsx(outputMode) {
     if (!loadedXlsxFile) return flashBtn('No file selected.');
-    const s = getCurrentSettings();
+    const s   = getCurrentSettings();
+    const fmt = exportFmt === 'svg' ? 'png' : exportFmt; // svg doesn't embed well in xlsx, fallback to png
+    const mimeForFmt = { png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/png' }; // bmp→png for xlsx compat
+    const extForFmt  = { png: 'png', jpeg: 'jpeg', bmp: 'png' };
+    const imgMime    = mimeForFmt[fmt] || 'image/png';
+    const imgExt     = extForFmt[fmt]  || 'png';
+    const imgContentType = imgMime === 'image/jpeg'
+        ? 'image/jpeg'
+        : 'image/png';
+    const xlsxImgType = imgMime === 'image/jpeg' ? 'jpeg' : 'png';
 
     const arrayBuf = await loadedXlsxFile.arrayBuffer();
     const wb       = XLSX.read(arrayBuf, { type: 'array' });
@@ -762,237 +775,282 @@ function flashBtn(msg) {
 
     wb.SheetNames.forEach((sheetName, si) => {
         const ws = wb.Sheets[sheetName];
-        const ref = ws['!ref'];
-        if (!ref) return;
-        const range = XLSX.utils.decode_range(ref);
+        if (!ws || !ws['!ref']) return;
+        const range = XLSX.utils.decode_range(ws['!ref']);
         for (let R = range.s.r; R <= range.e.r; R++) {
             for (let C = range.s.c; C <= range.e.c; C++) {
                 const addr = XLSX.utils.encode_cell({ r: R, c: C });
                 const cell = ws[addr];
                 if (!cell || cell.v === undefined || cell.v === '') continue;
                 const raw = String(cell.v).trim();
+                if (!raw) continue;
                 try {
                     const hex = inputToHex(raw, s);
-                    tasks.push({ sheetIdx: si, sheetName, cellAddr: addr, row: R, col: C, input: raw, hex });
+                    tasks.push({ sheetIdx: si, sheetName, cellAddr: addr, row: R, col: C, hex, valid: true });
                 } catch {
                     invalids.push(`Sheet "${sheetName}" ${addr}: "${raw}"`);
-                    tasks.push({ sheetIdx: si, sheetName, cellAddr: addr, row: R, col: C, input: raw, hex: null });
+                    tasks.push({ sheetIdx: si, sheetName, cellAddr: addr, row: R, col: C, hex: null, valid: false, rawVal: raw });
                 }
             }
         }
     });
 
     const doExport = async () => {
+        // ── Render all images ──────────────────────────────
+        // taskImgMap: taskIdx → { blob, uint8, w, h }
+        const taskImgMap = new Map();
+        for (let i = 0; i < tasks.length; i++) {
+            const t = tasks[i];
+            if (!t.valid) continue;
+            try {
+                const svgStr = svgStringForHex(t.hex, s);
+                const blob   = await rasterizeBlob(svgStr, fmt);
+                const abuf   = await blob.arrayBuffer();
+                const uint8  = new Uint8Array(abuf);
+                // Read dimensions from PNG/JPEG header
+                let w = 400, h = 400;
+                if (imgExt === 'png') {
+                    const dv = new DataView(abuf);
+                    w = dv.getUint32(16); h = dv.getUint32(20);
+                } else if (imgExt === 'jpeg') {
+                    // scan for SOF0/SOF2 marker
+                    const dv = new DataView(abuf);
+                    let off = 2;
+                    while (off < abuf.byteLength - 8) {
+                        const marker = dv.getUint16(off);
+                        const len    = dv.getUint16(off + 2);
+                        if (marker === 0xFFC0 || marker === 0xFFC2) {
+                            h = dv.getUint16(off + 5);
+                            w = dv.getUint16(off + 7);
+                            break;
+                        }
+                        off += 2 + len;
+                    }
+                }
+                taskImgMap.set(i, { blob, uint8, w, h });
+            } catch (e) { console.warn('render failed for task', i, e); }
+        }
+
         if (outputMode === 'zip') {
             const zip = new JSZip();
-            for (const t of tasks) {
-                if (!t.hex) continue;
-                try {
-                    const svgStr = svgStringForHex(t.hex, s);
-                    const blob   = await svgToPngBlob(svgStr);
-                    zip.file(`${t.sheetName}-${t.cellAddr}.png`, blob);
-                } catch { /* skip */ }
+            for (const [i, img] of taskImgMap) {
+                const t = tasks[i];
+                zip.file(`${t.sheetName}-${t.cellAddr}.${imgExt}`, img.blob);
             }
             const blob = await zip.generateAsync({ type: 'blob' });
             triggerDownload(blob, 'bulk-export.zip');
             overlay.classList.remove('open');
-
-        } else {
-            // ── XLSX with real embedded images via raw ZIP surgery ──────
-
-            // 1. Render all valid PNGs first
-            const imgMap = new Map(); // taskIndex → Uint8Array
-            for (let i = 0; i < tasks.length; i++) {
-                const t = tasks[i];
-                if (!t.hex) continue;
-                try {
-                    const svgStr = svgStringForHex(t.hex, s);
-                    const blob   = await svgToPngBlob(svgStr);
-                    const abuf   = await blob.arrayBuffer();
-                    imgMap.set(i, new Uint8Array(abuf));
-                } catch { /* skip */ }
-            }
-
-            // 2. Build a clean xlsx via SheetJS — clear cell values for valid cells
-            const newWb = XLSX.utils.book_new();
-            for (let si = 0; si < wb.SheetNames.length; si++) {
-                const sheetName = wb.SheetNames[si];
-                // deep clone the sheet
-                const srcWs = wb.Sheets[sheetName];
-                const ws    = Object.assign({}, srcWs);
-                // clear valid cells so the image shows cleanly over an empty cell
-                tasks.filter(t => t.sheetIdx === si && t.hex).forEach(t => {
-                    ws[t.cellAddr] = { t: 's', v: '' };
-                });
-                XLSX.utils.book_append_sheet(newWb, ws, sheetName);
-            }
-
-            const xlsxBytes = XLSX.write(newWb, { bookType: 'xlsx', type: 'array' });
-
-            // 3. Re-open the xlsx as a JSZip
-            const xlsxZip = await JSZip.loadAsync(xlsxBytes);
-
-            // 4. For each sheet that has valid tasks, inject drawings
-            const sheetTaskMap = new Map();
-            tasks.forEach((t, i) => {
-                if (!imgMap.has(i)) return;
-                if (!sheetTaskMap.has(t.sheetIdx)) sheetTaskMap.set(t.sheetIdx, []);
-                sheetTaskMap.get(t.sheetIdx).push({ ...t, imgIdx: i });
-            });
-
-            // Read & patch [Content_Types].xml
-            const ctXml = await xlsxZip.file('[Content_Types].xml').async('string');
-            const ctDom = new DOMParser().parseFromString(ctXml, 'application/xml');
-            const types = ctDom.querySelector('Types');
-
-            // Ensure png override type exists
-            if (!ctXml.includes('image/png')) {
-                const def = ctDom.createElementNS('', 'Default');
-                def.setAttribute('Extension', 'png');
-                def.setAttribute('ContentType', 'image/png');
-                types.insertBefore(def, types.firstChild);
-            }
-
-            // Read workbook rels to find sheet file names
-            const wbRelsXml = await xlsxZip.file('xl/_rels/workbook.xml.rels').async('string');
-            const wbRelsDom = new DOMParser().parseFromString(wbRelsXml, 'application/xml');
-            const relEls    = Array.from(wbRelsDom.querySelectorAll('Relationship'));
-
-            for (const [si, sheetTasks] of sheetTaskMap) {
-                const sheetName = wb.SheetNames[si];
-                // find the sheet filename e.g. "worksheets/sheet1.xml"
-                const sheetRel  = relEls.find(r =>
-                    r.getAttribute('Type').endsWith('/worksheet') &&
-                    (r.getAttribute('Id') === `rId${si+1}` || r.getAttribute('Target').includes(`sheet${si+1}`))
-                );
-                const sheetTarget = sheetRel
-                    ? sheetRel.getAttribute('Target').replace(/^\/xl\//, '').replace(/^xl\//, '')
-                    : `worksheets/sheet${si+1}.xml`;
-
-                const drawingId  = si + 1;
-                const drawingFile = `drawings/drawing${drawingId}.xml`;
-                const drawingPath = `xl/${drawingFile}`;
-
-                // 4a. Add images to xl/media/
-                let imgXmlParts = '';
-                const drawingRels = [];
-                let rIdCounter    = 1;
-
-                for (const t of sheetTasks) {
-                    const imgBytes  = imgMap.get(t.imgIdx);
-                    const imgFile   = `image_${si}_${t.cellAddr}.png`;
-                    xlsxZip.file(`xl/media/${imgFile}`, imgBytes);
-
-                    const rId = `rId${rIdCounter++}`;
-                    drawingRels.push({ rId, target: `../media/${imgFile}` });
-
-                    // Get image pixel dimensions from PNG header
-                    const view = new DataView(imgBytes.buffer);
-                    const imgW = view.getUint32(16);
-                    const imgH = view.getUint32(20);
-
-                    // Convert pixels to EMUs (English Metric Units): 1px ~ 9525 EMU at 96dpi
-                    const emuW = Math.round(imgW * 9525);
-                    const emuH = Math.round(imgH * 9525);
-
-                    // xdr:oneCellAnchor pins top-left to the cell, with explicit size
-                    imgXmlParts += `
-  <xdr:oneCellAnchor>
-    <xdr:from>
-      <xdr:col>${t.col}</xdr:col><xdr:colOff>0</xdr:colOff>
-      <xdr:row>${t.row}</xdr:row><xdr:rowOff>0</xdr:rowOff>
-    </xdr:from>
-    <xdr:ext cx="${emuW}" cy="${emuH}"/>
-    <xdr:pic>
-      <xdr:nvPicPr>
-        <xdr:cNvPr id="${t.imgIdx + 2}" name="img_${t.cellAddr}"/>
-        <xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr>
-      </xdr:nvPicPr>
-      <xdr:blipFill>
-        <a:blip r:embed="${rId}"/>
-        <a:stretch><a:fillRect/></a:stretch>
-      </xdr:blipFill>
-      <xdr:spPr>
-        <a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm>
-        <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
-      </xdr:spPr>
-    </xdr:pic>
-    <xdr:clientData/>
-  </xdr:oneCellAnchor>`;
-                }
-
-                // 4b. Write drawing xml
-                const drawingXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
-          xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
-          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-${imgXmlParts}
-</xdr:wsDr>`;
-                xlsxZip.file(drawingPath, drawingXml);
-
-                // 4c. Write drawing rels
-                const drawingRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-${drawingRels.map(r => `  <Relationship Id="${r.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${r.target}"/>`).join('\n')}
-</Relationships>`;
-                xlsxZip.file(`xl/drawings/_rels/drawing${drawingId}.xml.rels`, drawingRelsXml);
-
-                // 4d. Patch sheet xml to reference the drawing
-                const sheetXml  = await xlsxZip.file(`xl/${sheetTarget}`).async('string');
-                const drawingRefXml = `<drawing r:id="rId_drawing${drawingId}"/>`;
-                // inject before </worksheet>
-                const patchedSheet = sheetXml.includes('<drawing')
-                    ? sheetXml
-                    : sheetXml.replace('</worksheet>', `${drawingRefXml}</worksheet>`);
-
-                // make sure xmlns:r is on the worksheet root
-                const finalSheet = patchedSheet.replace(
-                    '<worksheet ',
-                    '<worksheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
-                ).replace(
-                    // avoid duplicate xmlns:r
-                    /xmlns:r="[^"]*"\s+xmlns:r="[^"]*"/,
-                    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
-                );
-                xlsxZip.file(`xl/${sheetTarget}`, finalSheet);
-
-                // 4e. Patch sheet rels
-                const sheetRelsPath = `xl/${sheetTarget.replace('worksheets/', 'worksheets/_rels/').replace('.xml', '.xml.rels')}`;
-                let sheetRelsXml;
-                try {
-                    sheetRelsXml = await xlsxZip.file(sheetRelsPath).async('string');
-                } catch {
-                    sheetRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`;
-                }
-                const drawingRelEntry = `  <Relationship Id="rId_drawing${drawingId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../${drawingFile}"/>`;
-                const patchedRels = sheetRelsXml.includes(`rId_drawing${drawingId}`)
-                    ? sheetRelsXml
-                    : sheetRelsXml.replace('</Relationships>', `${drawingRelEntry}\n</Relationships>`);
-                xlsxZip.file(sheetRelsPath, patchedRels);
-
-                // 4f. Register drawing in Content_Types
-                const ctPartName = `/xl/${drawingFile}`;
-                if (!ctXml.includes(ctPartName)) {
-                    const override = ctDom.createElementNS('', 'Override');
-                    override.setAttribute('PartName', ctPartName);
-                    override.setAttribute('ContentType', 'application/vnd.openxmlformats-officedocument.drawing+xml');
-                    types.appendChild(override);
-                }
-            }
-
-            // 5. Write back patched Content_Types
-            const serializer   = new XMLSerializer();
-            const newCtXml     = serializer.serializeToString(ctDom);
-            xlsxZip.file('[Content_Types].xml', newCtXml);
-
-            // 6. Export final xlsx blob
-            const finalBlob = await xlsxZip.generateAsync({
-                type: 'blob',
-                mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            });
-            triggerDownload(finalBlob, 'bulk-export.xlsx');
-            overlay.classList.remove('open');
+            return;
         }
+
+        // ── XLSX with embedded images via raw ZIP surgery ──
+
+        // Build clean xlsx — strip valid cell values so image shows over empty cell
+        const newWb = XLSX.utils.book_new();
+        for (let si = 0; si < wb.SheetNames.length; si++) {
+            const sheetName = wb.SheetNames[si];
+            const srcWs = wb.Sheets[sheetName];
+            if (!srcWs) { XLSX.utils.book_append_sheet(newWb, {}, sheetName); continue; }
+            // shallow clone all keys
+            const ws = {};
+            for (const key of Object.keys(srcWs)) ws[key] = srcWs[key];
+            // clear valid task cells
+            tasks.filter(t => t.sheetIdx === si && t.valid).forEach(t => {
+                ws[t.cellAddr] = { t: 's', v: '' };
+            });
+            XLSX.utils.book_append_sheet(newWb, ws, sheetName);
+        }
+        const xlsxBytes = XLSX.write(newWb, { bookType: 'xlsx', type: 'array' });
+
+        // Re-open as JSZip for surgery
+        const xz = await JSZip.loadAsync(xlsxBytes);
+
+        // ── Helpers ────────────────────────────────────────
+        const nsR   = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+        const nsCT  = 'http://schemas.openxmlformats.org/package/2006/content-types';
+        const nsDrw = 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing';
+        const nsA   = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+        const nsRel = 'http://schemas.openxmlformats.org/package/2006/relationships';
+
+        function xmlEscape(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        // Read workbook.xml.rels to find actual sheet filenames
+        const wbRelsRaw = await xz.file('xl/_rels/workbook.xml.rels').async('string');
+        // Extract all Relationship targets for worksheets
+        const sheetTargets = {}; // sheetIndex (0-based) → e.g. "worksheets/sheet1.xml"
+        const relMatches = [...wbRelsRaw.matchAll(/<Relationship[^>]+Id="([^"]*)"[^>]+Type="([^"]*)"[^>]+Target="([^"]*)"/g)];
+        for (const m of relMatches) {
+            const [, id, type, target] = m;
+            if (type.endsWith('/worksheet')) {
+                // SheetJS orders sheets rId1, rId2... matching SheetNames order
+                const num = parseInt(id.replace('rId',''), 10) - 1;
+                sheetTargets[num] = target.startsWith('/xl/') ? target.slice(4) : target.startsWith('xl/') ? target.slice(3) : target;
+            }
+        }
+
+        // Group tasks by sheet
+        const bySheet = new Map();
+        for (let i = 0; i < tasks.length; i++) {
+            const t = tasks[i];
+            if (!taskImgMap.has(i)) continue;
+            if (!bySheet.has(t.sheetIdx)) bySheet.set(t.sheetIdx, []);
+            bySheet.get(t.sheetIdx).push({ t, imgData: taskImgMap.get(i), globalIdx: i });
+        }
+
+        // Track content-types overrides to add
+        const ctOverrides = []; // { partName, contentType }
+        const ctDefaults  = []; // { ext, contentType }
+
+        for (const [si, entries] of bySheet) {
+            const drawingNum  = si + 1;
+            const drawingFile = `drawings/drawing${drawingNum}.xml`;
+            const drawingPath = `xl/${drawingFile}`;
+            const drawingRelsPath = `xl/drawings/_rels/drawing${drawingNum}.xml.rels`;
+            const sheetFile   = sheetTargets[si] || `worksheets/sheet${si+1}.xml`;
+            const sheetPath   = `xl/${sheetFile}`;
+            const sheetRelsPath = `xl/${sheetFile.replace('worksheets/','worksheets/_rels/').replace('.xml','.xml.rels')}`;
+
+            // ── Add media files ──────────────────────────────
+            const drawingRelEntries = []; // { rId, target, imgFile }
+            let rIdN = 1;
+            for (const { t, imgData, globalIdx } of entries) {
+                const imgFile = `image_s${si}_${t.cellAddr}.${imgExt}`;
+                xz.file(`xl/media/${imgFile}`, imgData.uint8);
+                drawingRelEntries.push({
+                    rId: `rId${rIdN++}`,
+                    target: `../media/${imgFile}`,
+                    t, imgData, globalIdx
+                });
+            }
+
+            // ── drawing xml ──────────────────────────────────
+            let anchors = '';
+            let picId = 2;
+            for (const { rId, t, imgData } of drawingRelEntries) {
+                const emuW = Math.round(imgData.w * 9525);
+                const emuH = Math.round(imgData.h * 9525);
+                anchors += `<xdr:oneCellAnchor>` +
+                    `<xdr:from><xdr:col>${t.col}</xdr:col><xdr:colOff>0</xdr:colOff>` +
+                    `<xdr:row>${t.row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>` +
+                    `<xdr:ext cx="${emuW}" cy="${emuH}"/>` +
+                    `<xdr:pic>` +
+                    `<xdr:nvPicPr>` +
+                    `<xdr:cNvPr id="${picId++}" name="${xmlEscape('img_'+t.cellAddr)}"/>` +
+                    `<xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr>` +
+                    `</xdr:nvPicPr>` +
+                    `<xdr:blipFill>` +
+                    `<a:blip r:embed="${rId}"/>` +
+                    `<a:stretch><a:fillRect/></a:stretch>` +
+                    `</xdr:blipFill>` +
+                    `<xdr:spPr>` +
+                    `<a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm>` +
+                    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
+                    `</xdr:spPr>` +
+                    `</xdr:pic>` +
+                    `<xdr:clientData/>` +
+                    `</xdr:oneCellAnchor>`;
+            }
+
+            const drawingXml =
+                `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+                `<xdr:wsDr` +
+                ` xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"` +
+                ` xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"` +
+                ` xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"` +
+                `>${anchors}</xdr:wsDr>`;
+            xz.file(drawingPath, drawingXml);
+
+            // ── drawing rels ─────────────────────────────────
+            const drawingRelsXml =
+                `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+                `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+                drawingRelEntries.map(({ rId, target }) =>
+                    `<Relationship Id="${rId}"` +
+                    ` Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"` +
+                    ` Target="${xmlEscape(target)}"/>`
+                ).join('') +
+                `</Relationships>`;
+            xz.file(drawingRelsPath, drawingRelsXml);
+
+            // ── patch sheet xml ──────────────────────────────
+            let sheetXml = await xz.file(sheetPath).async('string');
+
+            // Ensure xmlns:r on worksheet element (only if not already there)
+            if (!sheetXml.includes('xmlns:r=')) {
+                sheetXml = sheetXml.replace(/(<worksheet\b)/, `$1 xmlns:r="${nsR}"`);
+            }
+            // Remove any existing <drawing .../> tags to avoid duplicates
+            sheetXml = sheetXml.replace(/<drawing\b[^>]*\/>/g, '');
+            // Remove legacy pageMargins / pageSetup blocks to inject cleanly before </worksheet>
+            // Inject <drawing> ref as last child of worksheet (must come after sheetData, after pageMargins etc.)
+            const drawingTag = `<drawing r:id="rId_drw${drawingNum}"/>`;
+            if (sheetXml.includes('</worksheet>')) {
+                sheetXml = sheetXml.replace('</worksheet>', `${drawingTag}</worksheet>`);
+            } else {
+                sheetXml += drawingTag;
+            }
+            xz.file(sheetPath, sheetXml);
+
+            // ── patch sheet rels ─────────────────────────────
+            let sheetRelsXml;
+            const sheetRelsFile = xz.file(sheetRelsPath);
+            if (sheetRelsFile) {
+                sheetRelsXml = await sheetRelsFile.async('string');
+                // Remove any stale drawing relationships
+                sheetRelsXml = sheetRelsXml.replace(/<Relationship[^>]*drawing[^>]*\/>/g, '');
+            } else {
+                sheetRelsXml =
+                    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+                    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`;
+            }
+            const drawingRelEntry =
+                `<Relationship Id="rId_drw${drawingNum}"` +
+                ` Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"` +
+                ` Target="../${drawingFile}"/>`;
+            sheetRelsXml = sheetRelsXml.replace('</Relationships>', `${drawingRelEntry}</Relationships>`);
+            xz.file(sheetRelsPath, sheetRelsXml);
+
+            // Queue content type entries
+            ctOverrides.push({
+                partName: `/xl/${drawingFile}`,
+                contentType: 'application/vnd.openxmlformats-officedocument.drawing+xml'
+            });
+        }
+
+        // ── Patch [Content_Types].xml ────────────────────────
+        let ctXml = await xz.file('[Content_Types].xml').async('string');
+
+        // Add image extension default if missing
+        if (!ctXml.includes(`Extension="${imgExt}"`)) {
+            ctDefaults.push({ ext: imgExt, contentType: imgContentType });
+        }
+        for (const { ext, contentType } of ctDefaults) {
+            ctXml = ctXml.replace(
+                '</Types>',
+                `<Default Extension="${ext}" ContentType="${contentType}"/></Types>`
+            );
+        }
+        for (const { partName, contentType } of ctOverrides) {
+            if (!ctXml.includes(`PartName="${partName}"`)) {
+                ctXml = ctXml.replace(
+                    '</Types>',
+                    `<Override PartName="${partName}" ContentType="${contentType}"/></Types>`
+                );
+            }
+        }
+        xz.file('[Content_Types].xml', ctXml);
+
+        // ── Generate final xlsx blob ─────────────────────────
+        const finalBlob = await xz.generateAsync({
+            type: 'blob',
+            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            compression: 'DEFLATE',
+            compressionOptions: { level: 6 }
+        });
+        triggerDownload(finalBlob, 'bulk-export.xlsx');
+        overlay.classList.remove('open');
     };
 
     if (invalids.length) showWarn(invalids, doExport);
