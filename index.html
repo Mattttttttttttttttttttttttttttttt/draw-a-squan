@@ -216,7 +216,7 @@
         <input type="text" class="topbar-input" id="scramble-input" placeholder="1,0 / 3,3 / 0,-3 / ... (supports karn)" autocomplete="off"/>
       </div>
       <div class="viewport-canvas" id="viewport-canvas">
-        <div class="canvas-inner" id="canvas-inner" style="background-color: #ffffff;">
+        <div class="canvas-inner" id="canvas-inner">
           <div class="placeholder" id="placeholder">
             <div class="placeholder-icon">◈</div>
             <div class="placeholder-text">An error seems to have occurred :(</div>
@@ -229,6 +229,7 @@
 
   <!-- ═══ drawScramble.js ═══ -->
   <div id="toast" class="toast"></div>
+  <script src="src/parseScramble.js"></script>
   <script src="src/drawScramble.js"></script>
   <script src="src/script.js"></script>
 </body>

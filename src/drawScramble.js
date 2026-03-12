@@ -4,48 +4,52 @@
 
 const Square1Visualizer = (() => {
 
-    // === CONSTANTS ===
+    // =====================================================================
+    // === CONSTANTS & DEFAULTS ============================================
+    // =====================================================================
+
     const CORNER_HEX_VALUES = ['1', '3', '5', '7', '9', 'b', 'd', 'f'];
 
-    const PLACEHOLDER_SCHEME = {
+    const DEFAULT_PLACEHOLDER = {
         sticker: '#2a2a2a',
-        slice: '#666666',
+        slice:   '#666666',
+        border:  '#000000',
     };
-
-    // === PIECE COLOR STATE ===
-    let edgeColors, cornerColors, sliceColors;
 
     function defaultPieceColors() {
         return {
             edgeColors: {
-                '0':  { inner: "top", outer: "back" },
-                '2':  { inner: "top", outer: "left" },
-                '4':  { inner: "top", outer: "front" },
-                '6':  { inner: "top", outer: "right" },
-                '8':  { inner: "bottom", outer: "right" },
-                'a':  { inner: "bottom", outer: "front" },
-                'c':  { inner: "bottom", outer: "left" },
-                'e':  { inner: "bottom", outer: "back" }
+                '0': { inner: 'top',    outer: 'back'  },
+                '2': { inner: 'top',    outer: 'left'  },
+                '4': { inner: 'top',    outer: 'front' },
+                '6': { inner: 'top',    outer: 'right' },
+                '8': { inner: 'bottom', outer: 'right' },
+                'a': { inner: 'bottom', outer: 'front' },
+                'c': { inner: 'bottom', outer: 'left'  },
+                'e': { inner: 'bottom', outer: 'back'  },
             },
             cornerColors: {
-                '1': { top: "top", left: "back",  right: "left"  },
-                '3': { top: "top", left: "left",  right: "front" },
-                '5': { top: "top", left: "front", right: "right" },
-                '7': { top: "top", left: "right", right: "back"  },
-                '9': { top: "bottom", left: "back",  right: "right" },
-                'b': { top: "bottom", left: "right", right: "front" },
-                'd': { top: "bottom", left: "front", right: "left"  },
-                'f': { top: "bottom", left: "left",  right: "back"  }
+                '1': { top: 'top',    left: 'back',  right: 'left'  },
+                '3': { top: 'top',    left: 'left',  right: 'front' },
+                '5': { top: 'top',    left: 'front', right: 'right' },
+                '7': { top: 'top',    left: 'right', right: 'back'  },
+                '9': { top: 'bottom', left: 'back',  right: 'right' },
+                'b': { top: 'bottom', left: 'right', right: 'front' },
+                'd': { top: 'bottom', left: 'front', right: 'left'  },
+                'f': { top: 'bottom', left: 'left',  right: 'back'  },
             },
-            sliceColors: { top: "top", bottom: "bottom" }
+            sliceColors: { top: 'top', bottom: 'bottom' },
         };
     }
 
+    // =====================================================================
+    // === PIECE COLOR STATE ===============================================
+    // =====================================================================
+
+    let edgeColors, cornerColors, sliceColors;
+
     function resetPiecesColors() {
-        const s = defaultPieceColors();
-        edgeColors   = s.edgeColors;
-        cornerColors = s.cornerColors;
-        sliceColors  = s.sliceColors;
+        ({ edgeColors, cornerColors, sliceColors } = defaultPieceColors());
     }
     resetPiecesColors();
 
@@ -53,11 +57,10 @@ const Square1Visualizer = (() => {
     // === STYLE DEFINITIONS ===============================================
     // =====================================================================
 
-    // Helper: resolve a color name like "top" → hex via a colors object,
-    // or pass through if already a hex string.
+    // Resolve a color name like "top" → hex via a colors object,
+    // or pass through if it's already a hex string.
     function resolveColor(val, colors) {
-        if (val.charAt(0) === '#') return val;
-        return colors[val] ?? val;
+        return val.charAt(0) === '#' ? val : (colors[val] ?? val);
     }
 
     // -----------------------------------------------------------------
@@ -65,170 +68,318 @@ const Square1Visualizer = (() => {
     // -----------------------------------------------------------------
     const SAC2Style = {
         name: "SAC2's Style",
-        source: "SAC2",
+        placeholderScheme: { sticker: '#2a2a2a', slice: '#666666', border: '#000000' },
+        source: 'SAC2',
         hidableSideColor: true,
         hasSliceIndicator: true,
 
         withSideColor: {
             layerScale: 1,
             colorSlots: [
-                { id: "top",    label: "Top",    default: "#4d4d4d" },
-                { id: "bottom", label: "Bottom", default: "#FFFFFF" },
-                { id: "front",  label: "Front",  default: "#CC0000" },
-                { id: "right",  label: "Right",  default: "#00AA00" },
-                { id: "back",   label: "Back",   default: "#FF8C00" },
-                { id: "left",   label: "Left",   default: "#0066CC" },
-                { id: "border", label: "Border", default: "#000000" },
+                { id: 'top',    label: 'Top',    default: '#4d4d4d' },
+                { id: 'bottom', label: 'Bottom', default: '#FFFFFF' },
+                { id: 'front',  label: 'Front',  default: '#CC0000' },
+                { id: 'right',  label: 'Right',  default: '#00AA00' },
+                { id: 'back',   label: 'Back',   default: '#FF8C00' },
+                { id: 'left',   label: 'Left',   default: '#0066CC' },
+                { id: 'border', label: 'Border', default: '#000000' },
             ],
 
-            drawEdge(piece, colors, size, muted) {
+            drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
                 let innerColor = resolveColor(edgeColors[piece].inner, colors);
                 let outerColor = resolveColor(edgeColors[piece].outer, colors);
                 if (muted) {
                     const def = defaultPieceColors().edgeColors[piece];
-                    if (innerColor === colors[def.inner]) innerColor = PLACEHOLDER_SCHEME.sticker;
-                    if (outerColor === colors[def.outer]) outerColor = PLACEHOLDER_SCHEME.sticker;
+                    if (innerColor === colors[def.inner]) innerColor = ph.sticker;
+                    if (outerColor === colors[def.outer]) outerColor = ph.sticker;
                 }
                 const scale = 54 / 27 * (size / 220);
                 const ox = (50.0 / 100) * 27;
                 const oy = (117.0 / 100) * 42.61;
                 const tx = -ox * scale, ty = -oy * scale;
                 return `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
-                    <path fill="${colors.border}" d="M.11,4.17l2.4,8.97h21.97l2.4-8.97c.56-2.1-1.02-4.17-3.2-4.17H3.31C1.14,0-.45,2.07.11,4.17Z"/>
-                    <path fill="${colors.border}" d="M3.05,15.11l6.57,24.52c1.07,3.98,6.71,3.98,7.77,0l6.57-24.52c.56-2.1-1.02-4.17-3.2-4.17H6.24c-2.18,0-3.76,2.07-3.2,4.17Z"/>
+                    <path fill="${muted ? ph.border : colors.border}" d="M.11,4.17l2.4,8.97h21.97l2.4-8.97c.56-2.1-1.02-4.17-3.2-4.17H3.31C1.14,0-.45,2.07.11,4.17Z"/>
+                    <path fill="${muted ? ph.border : colors.border}" d="M3.05,15.11l6.57,24.52c1.07,3.98,6.71,3.98,7.77,0l6.57-24.52c.56-2.1-1.02-4.17-3.2-4.17H6.24c-2.18,0-3.76,2.07-3.2,4.17Z"/>
                     <path class="sticker" id="${piece} outer" fill="${outerColor}" d="M21.3,10.94c.88,0,1.66-.59,1.88-1.45l.78-2.92.51-1.91c.33-1.24-.6-2.45-1.88-2.45H4.41c-1.28,0-2.22,1.22-1.88,2.45l.51,1.91.78,2.92c.23.85,1,1.45,1.88,1.45h15.6Z"/>
                     <path class="sticker" id="${piece} inner" fill="${innerColor}" d="M19.67,13.14H7.34c-1.28,0-2.22,1.22-1.88,2.45l6.17,23.01c.52,1.93,3.25,1.93,3.77,0l6.17-23.01c.33-1.24-.6-2.45-1.88-2.45Z"/>
                 </g>`;
             },
 
-            drawCorner(piece, colors, size, muted) {
+            drawCorner(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
                 let topColor   = resolveColor(cornerColors[piece].top,   colors);
                 let leftColor  = resolveColor(cornerColors[piece].left,  colors);
                 let rightColor = resolveColor(cornerColors[piece].right, colors);
                 if (muted) {
                     const def = defaultPieceColors().cornerColors[piece];
-                    if (topColor   === colors[def.top])   topColor   = PLACEHOLDER_SCHEME.sticker;
-                    if (leftColor  === colors[def.left])  leftColor  = PLACEHOLDER_SCHEME.sticker;
-                    if (rightColor === colors[def.right]) rightColor = PLACEHOLDER_SCHEME.sticker;
+                    if (topColor   === colors[def.top])   topColor   = ph.sticker;
+                    if (leftColor  === colors[def.left])  leftColor  = ph.sticker;
+                    if (rightColor === colors[def.right]) rightColor = ph.sticker;
                 }
                 const scale = 96 / 48.5 * (size / 220);
                 const ox = (-3.5 / 100) * 48.5;
                 const oy = (103.5 / 100) * 48.5;
                 const tx = -ox * scale, ty = -oy * scale;
                 return `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)}) rotate(-45,${ox.toFixed(2)},${oy.toFixed(2)})">
-                    <path fill="${colors.border}" d="M10.19,2.45l-2.86,10.68h24.73c1.83,0,3.31,1.48,3.31,3.31v24.73l10.68-2.86c1.45-.39,2.45-1.7,2.45-3.2V3.31c0-1.83-1.48-3.31-3.31-3.31H13.39c-1.5,0-2.81,1.01-3.2,2.45Z"/>
-                    <path fill="${colors.border}" d="M7.26,13.39L.25,39.56c-1.41,5.28,3.42,10.11,8.7,8.7l26.16-7.01c1.45-.39,2.45-1.7,2.45-3.2V14.25c0-1.83-1.48-3.31-3.31-3.31H10.46c-1.5,0-2.81,1.01-3.2,2.45Z"/>
+                    <path fill="${muted ? ph.border : colors.border}" d="M10.19,2.45l-2.86,10.68h24.73c1.83,0,3.31,1.48,3.31,3.31v24.73l10.68-2.86c1.45-.39,2.45-1.7,2.45-3.2V3.31c0-1.83-1.48-3.31-3.31-3.31H13.39c-1.5,0-2.81,1.01-3.2,2.45Z"/>
+                    <path fill="${muted ? ph.border : colors.border}" d="M7.26,13.39L.25,39.56c-1.41,5.28,3.42,10.11,8.7,8.7l26.16-7.01c1.45-.39,2.45-1.7,2.45-3.2V14.25c0-1.83-1.48-3.31-3.31-3.31H10.46c-1.5,0-2.81,1.01-3.2,2.45Z"/>
                     <path class="sticker" id="${piece} right" fill="${rightColor}" d="M35.2,10.94c.52,0,1.01-.21,1.38-.57l.71-.71,5.72-5.72c.64-.64.19-1.73-.72-1.73H14.03c-.88,0-1.66.59-1.88,1.45l-.78,2.92-.51,1.91c-.33,1.24.6,2.45,1.88,2.45h22.47Z"/>
-                    <path class="sticker" id="${piece} left" fill="${leftColor}" d="M37.57,35.77c0,1.28,1.22,2.22,2.45,1.88l1.91-.51,2.92-.78c.85-.23,1.45-1,1.45-1.88V6.21c0-.9-1.09-1.36-1.73-.72l-5.72,5.72-.71.71c-.37.37-.57.86-.57,1.38v22.47Z"/>
-                    <path class="sticker" id="${piece} top" fill="${topColor}" d="M33.92,39.28c.85-.23,1.45-1,1.45-1.88V15.09c0-1.08-.87-1.95-1.95-1.95H11.1c-.88,0-1.66.59-1.88,1.45l-7,26.12c-.91,3.39,2.19,6.49,5.58,5.58l26.12-7Z"/>
+                    <path class="sticker" id="${piece} left"  fill="${leftColor}"  d="M37.57,35.77c0,1.28,1.22,2.22,2.45,1.88l1.91-.51,2.92-.78c.85-.23,1.45-1,1.45-1.88V6.21c0-.9-1.09-1.36-1.73-.72l-5.72,5.72-.71.71c-.37.37-.57.86-.57,1.38v22.47Z"/>
+                    <path class="sticker" id="${piece} top"   fill="${topColor}"   d="M33.92,39.28c.85-.23,1.45-1,1.45-1.88V15.09c0-1.08-.87-1.95-1.95-1.95H11.1c-.88,0-1.66.59-1.88,1.45l-7,26.12c-.91,3.39,2.19,6.49,5.58,5.58l26.12-7Z"/>
                 </g>`;
             },
 
-            drawSlice(layer, cx, cy, size, colors, muted, relScale=1.965) {
+            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER, relScale = 1.965) {
                 const scale = (size / 220) * relScale;
                 let topColor = resolveColor(sliceColors.top,    colors);
                 let botColor = resolveColor(sliceColors.bottom, colors);
                 if (muted) {
                     const def = defaultPieceColors().sliceColors;
-                    if (topColor === colors[def.top])    topColor = PLACEHOLDER_SCHEME.slice;
-                    if (botColor === colors[def.bottom]) botColor = PLACEHOLDER_SCHEME.slice;
+                    if (topColor === colors[def.top])    topColor = ph.slice;
+                    if (botColor === colors[def.bottom]) botColor = ph.slice;
                 }
-                let color, angle;
-                if (layer === "top") {
-                    color = topColor;
-                    angle = 0;
-                } else {
-                    color = botColor;
-                    angle = -30;
-                }
-                return `<g transform="rotate(${angle}, ${cx}, ${cy}) translate(${(cx + 29.5/220*size).toFixed(2)}, ${(cy - 114/220*size).toFixed(2)}) scale(${scale.toFixed(4)}) translate(5.43, 4.19) rotate(-165)">
-                    <path d="M7.32.86C6.69.13,5.72-.16,4.79.09c-.48.13-.91.4-1.23.77L.61,4.26C-.03,5.01-.18,6.03.23,6.92c.41.9,1.28,1.45,2.26,1.45h5.9c.22,0,.44-.03.65-.08.83-.22,1.47-.85,1.73-1.67.25-.82.07-1.7-.5-2.35L7.32.86Z"/>
-                    <path fill="${color}" d="M6.18,1.84c-.26-.3-.65-.4-1-.31-.18.05-.35.15-.49.31l-2.95,3.41c-.55.64-.1,1.63.74,1.63h5.9c.09,0,.18-.01.26-.03.67-.18.97-1.03.48-1.59l-2.95-3.41Z"/></g>
-                    <g transform="rotate(${angle+180}, ${cx}, ${cy}) translate(${(cx + 29.5/220*size).toFixed(2)}, ${(cy - 114/220*size).toFixed(2)}) scale(${scale.toFixed(4)}) translate(5.43, 4.19) rotate(-165)">
-                    <path d="M7.32.86C6.69.13,5.72-.16,4.79.09c-.48.13-.91.4-1.23.77L.61,4.26C-.03,5.01-.18,6.03.23,6.92c.41.9,1.28,1.45,2.26,1.45h5.9c.22,0,.44-.03.65-.08.83-.22,1.47-.85,1.73-1.67.25-.82.07-1.7-.5-2.35L7.32.86Z"/>
-                    <path fill="${color}" d="M6.18,1.84c-.26-.3-.65-.4-1-.31-.18.05-.35.15-.49.31l-2.95,3.41c-.55.64-.1,1.63.74,1.63h5.9c.09,0,.18-.01.26-.03.67-.18.97-1.03.48-1.59l-2.95-3.41Z"/>
-                </g>`;
-            }
+                const color = layer === 'top' ? topColor : botColor;
+                const angle = layer === 'top' ? 0 : -30;
+                const tx = (cx + 29.5 / 220 * size).toFixed(2);
+                const ty = (cy - 114 / 220 * size).toFixed(2);
+                const arrowPath = `<path d="M7.32.86C6.69.13,5.72-.16,4.79.09c-.48.13-.91.4-1.23.77L.61,4.26C-.03,5.01-.18,6.03.23,6.92c.41.9,1.28,1.45,2.26,1.45h5.9c.22,0,.44-.03.65-.08.83-.22,1.47-.85,1.73-1.67.25-.82.07-1.7-.5-2.35L7.32.86Z"/>
+                    <path fill="${color}" d="M6.18,1.84c-.26-.3-.65-.4-1-.31-.18.05-.35.15-.49.31l-2.95,3.41c-.55.64-.1,1.63.74,1.63h5.9c.09,0,.18-.01.26-.03.67-.18.97-1.03.48-1.59l-2.95-3.41Z"/>`;
+                const transform = `rotate(%ROT%, ${cx}, ${cy}) translate(${tx}, ${ty}) scale(${scale.toFixed(4)}) translate(5.43, 4.19) rotate(-165)`;
+                return `<g transform="${transform.replace('%ROT%', angle)}">${arrowPath}</g>` +
+                       `<g transform="${transform.replace('%ROT%', angle + 180)}">${arrowPath}</g>`;
+            },
         },
 
         withoutSideColor: {
             layerScale: 0.93,
-    colorSlots: [
-        { id: "top",    label: "Top",    default: "#4d4d4d" },
-        { id: "bottom", label: "Bottom", default: "#FFFFFF" },
-        { id: "border", label: "Border", default: "#000000" },
-    ],
+            colorSlots: [
+                { id: 'top',    label: 'Top',    default: '#4d4d4d' },
+                { id: 'bottom', label: 'Bottom', default: '#FFFFFF' },
+                { id: 'border', label: 'Border', default: '#000000' },
+            ],
 
-    drawEdge(piece, colors, size, muted) {
-        let innerColor = resolveColor(edgeColors[piece].inner, colors);
-        if (muted) {
-            const def = defaultPieceColors().edgeColors[piece];
-            if (innerColor === colors[def.inner]) innerColor = PLACEHOLDER_SCHEME.sticker;
-        }
-        const scale = 54 / 27 * (size / 220) * 1.38;
-        const ox = (50.0 / 100) * 27;
-        const oy = (117.0 / 100) * 42.61;
-        const tx = -ox * scale, ty = -oy * scale;
-        return `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
-            <path fill="${colors.border}" d="M3.05,15.11l6.57,24.52c1.07,3.98,6.71,3.98,7.77,0l6.57-24.52c.56-2.1-1.02-4.17-3.2-4.17H6.24c-2.18,0-3.76,2.07-3.2,4.17Z"/>
-            <path class="sticker" id="${piece} inner" fill="${innerColor}" d="M19.67,13.14H7.34c-1.28,0-2.22,1.22-1.88,2.45l6.17,23.01c.52,1.93,3.25,1.93,3.77,0l6.17-23.01c.33-1.24-.6-2.45-1.88-2.45Z"/>
-        </g>`;
-    },
+            drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
+                let innerColor = resolveColor(edgeColors[piece].inner, colors);
+                if (muted) {
+                    const def = defaultPieceColors().edgeColors[piece];
+                    if (innerColor === colors[def.inner]) innerColor = ph.sticker;
+                }
+                const scale = 54 / 27 * (size / 220) * 1.38;
+                const ox = (50.0 / 100) * 27;
+                const oy = (117.0 / 100) * 42.61;
+                const tx = -ox * scale, ty = -oy * scale;
+                return `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
+                    <path fill="${muted ? ph.border : colors.border}" d="M3.05,15.11l6.57,24.52c1.07,3.98,6.71,3.98,7.77,0l6.57-24.52c.56-2.1-1.02-4.17-3.2-4.17H6.24c-2.18,0-3.76,2.07-3.2,4.17Z"/>
+                    <path class="sticker" id="${piece} inner" fill="${innerColor}" d="M19.67,13.14H7.34c-1.28,0-2.22,1.22-1.88,2.45l6.17,23.01c.52,1.93,3.25,1.93,3.77,0l6.17-23.01c.33-1.24-.6-2.45-1.88-2.45Z"/>
+                </g>`;
+            },
 
-    drawCorner(piece, colors, size, muted) {
-        let topColor = resolveColor(cornerColors[piece].top, colors);
-        if (muted) {
-            const def = defaultPieceColors().cornerColors[piece];
-            if (topColor === colors[def.top]) topColor = PLACEHOLDER_SCHEME.sticker;
-        }
-        const scale = 96 / 48.5 * (size / 220) * 1.38;
-        const ox = (-3.5 / 100) * 48.5;
-        const oy = (103.5 / 100) * 48.5;
-        const tx = -ox * scale, ty = -oy * scale;
-        return `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)}) rotate(-45,${ox.toFixed(2)},${oy.toFixed(2)})">
-            <path fill="${colors.border}" d="M7.26,13.39L.25,39.56c-1.41,5.28,3.42,10.11,8.7,8.7l26.16-7.01c1.45-.39,2.45-1.7,2.45-3.2V14.25c0-1.83-1.48-3.31-3.31-3.31H10.46c-1.5,0-2.81,1.01-3.2,2.45Z"/>
-            <path class="sticker" id="${piece} top" fill="${topColor}" d="M33.92,39.28c.85-.23,1.45-1,1.45-1.88V15.09c0-1.08-.87-1.95-1.95-1.95H11.1c-.88,0-1.66.59-1.88,1.45l-7,26.12c-.91,3.39,2.19,6.49,5.58,5.58l26.12-7Z"/>
-        </g>`;
-    },
+            drawCorner(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
+                let topColor = resolveColor(cornerColors[piece].top, colors);
+                if (muted) {
+                    const def = defaultPieceColors().cornerColors[piece];
+                    if (topColor === colors[def.top]) topColor = ph.sticker;
+                }
+                const scale = 96 / 48.5 * (size / 220) * 1.38;
+                const ox = (-3.5 / 100) * 48.5;
+                const oy = (103.5 / 100) * 48.5;
+                const tx = -ox * scale, ty = -oy * scale;
+                return `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)}) rotate(-45,${ox.toFixed(2)},${oy.toFixed(2)})">
+                    <path fill="${muted ? ph.border : colors.border}" d="M7.26,13.39L.25,39.56c-1.41,5.28,3.42,10.11,8.7,8.7l26.16-7.01c1.45-.39,2.45-1.7,2.45-3.2V14.25c0-1.83-1.48-3.31-3.31-3.31H10.46c-1.5,0-2.81,1.01-3.2,2.45Z"/>
+                    <path class="sticker" id="${piece} top" fill="${topColor}" d="M33.92,39.28c.85-.23,1.45-1,1.45-1.88V15.09c0-1.08-.87-1.95-1.95-1.95H11.1c-.88,0-1.66.59-1.88,1.45l-7,26.12c-.91,3.39,2.19,6.49,5.58,5.58l26.12-7Z"/>
+                </g>`;
+            },
 
-    drawSlice(layer, cx, cy, size, colors, muted) {
-        return SAC2Style.withSideColor.drawSlice(layer, cx, cy, size, colors, muted, 1.968 * 1.38 / 0.93);
-    }
-},
+            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER) {
+                return SAC2Style.withSideColor.drawSlice(layer, cx, cy, size, colors, muted, ph, 1.968 * 1.38 / 0.93);
+            },
+        },
+    };
+
+    // -----------------------------------------------------------------
+    // ABID'S STYLE
+    // -----------------------------------------------------------------
+    const AbidStyle = {
+        name: "Abid's Style",
+        placeholderScheme: { sticker: '#0d0d0dff', slice: '#4e0000ff', border: '#d0d0d0ff' },
+        source: 'Abid',
+        hidableSideColor: true,
+        hasSliceIndicator: true,
+
+        withSideColor: {
+            layerScale: 1.64,
+            colorSlots: [
+                { id: 'top',             label: 'Top',             default: '#000000ff' },
+                { id: 'bottom',          label: 'Bottom',          default: '#FFFFFF'   },
+                { id: 'front',           label: 'Front',           default: '#CC0000'   },
+                { id: 'right',           label: 'Right',           default: '#00AA00'   },
+                { id: 'back',            label: 'Back',            default: '#FF8C00'   },
+                { id: 'left',            label: 'Left',            default: '#0066CC'   },
+                { id: 'border',          label: 'Border',          default: '#333333'   },
+                { id: 'slice-indicator', label: 'Slice Indicator', default: '#6f0000ff' },
+            ],
+
+            drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
+                let innerColor = resolveColor(edgeColors[piece].inner, colors);
+                let outerColor = resolveColor(edgeColors[piece].outer, colors);
+                if (muted) {
+                    const def = defaultPieceColors().edgeColors[piece];
+                    if (innerColor === colors[def.inner]) innerColor = ph.sticker;
+                    if (outerColor === colors[def.outer]) outerColor = ph.sticker;
+                }
+                const rOuter = size * 0.4 * 0.7, half = 15;
+                const midR = rOuter * 0.8;
+                function pt(r, deg) {
+                    const rad = deg * Math.PI / 180;
+                    return { x: +(r * Math.sin(rad)).toFixed(2), y: +(-r * Math.cos(rad)).toFixed(2) };
+                }
+                function ps(pts) { return pts.map(p => `${p.x},${p.y}`).join(' '); }
+                const pi = { x: 0, y: 0 };
+                const pA = pt(rOuter, -half), pB = pt(rOuter, half);
+                const pmA = pt(midR, -half),  pmB = pt(midR, half);
+                const sw = (size * 0.004).toFixed(2);
+                return `<polygon class="sticker" id="${piece} outer" points="${ps([pmA, pA, pB, pmB])}" fill="${outerColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}"/>` +
+                       `<polygon class="sticker" id="${piece} inner" points="${ps([pi, pmA, pmB])}"      fill="${innerColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}"/>`;
+            },
+
+            drawCorner(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
+                let topColor   = resolveColor(cornerColors[piece].top,   colors);
+                let leftColor  = resolveColor(cornerColors[piece].left,  colors);
+                let rightColor = resolveColor(cornerColors[piece].right, colors);
+                if (muted) {
+                    const def = defaultPieceColors().cornerColors[piece];
+                    if (topColor   === colors[def.top])   topColor   = ph.sticker;
+                    if (leftColor  === colors[def.left])  leftColor  = ph.sticker;
+                    if (rightColor === colors[def.right]) rightColor = ph.sticker;
+                }
+                const rOuter = size * 0.4 * 0.7;
+                const rApex  = rOuter * 1.366025404;
+                const half = 30, sf = 0.80;
+                function pt(r, deg) {
+                    const rad = deg * Math.PI / 180;
+                    return { x: +(r * Math.sin(rad)).toFixed(2), y: +(-r * Math.cos(rad)).toFixed(2) };
+                }
+                function lerp(a, b, t) {
+                    return { x: +((a.x + (b.x - a.x) * t).toFixed(2)), y: +((a.y + (b.y - a.y) * t).toFixed(2)) };
+                }
+                function ps(pts) { return pts.map(p => `${p.x},${p.y}`).join(' '); }
+                const pi  = { x: 0, y: 0 };
+                const pOR = pt(rOuter, -half), pAp = pt(rApex, 0), pOL = pt(rOuter, half);
+                const psL = lerp(pi, pOL, sf), psR = lerp(pi, pOR, sf), psB = lerp(pi, pAp, sf);
+                const swM = (size * 0.004).toFixed(2), swT = (size * 0.003).toFixed(2);
+                const col = muted ? ph.border : colors.border;
+                return `<polygon class="sticker" id="${piece} left"  points="${ps([pi, pOL, pAp, psB, psL])}" fill="${leftColor}"  stroke="${col}" stroke-width="${swM}"/>` +
+                       `<polygon class="sticker" id="${piece} right" points="${ps([pi, psR, psB, pAp, pOR])}" fill="${rightColor}" stroke="${col}" stroke-width="${swM}"/>` +
+                       `<polygon class="sticker" id="${piece} top"   points="${ps([pi, psL, psB, psR])}"      fill="${topColor}"   stroke="${col}" stroke-width="${swT}"/>` +
+                       `<polygon                                      points="${ps([pi, pOL, pAp, pOR])}"      fill="none"         stroke="${col}" stroke-width="${swM}"/>` +
+                       `<line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="${col}" stroke-width="${swM}" stroke-linecap="round"/>`;
+            },
+
+            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER) {
+                const rOuter  = size * 0.4 * 0.7;
+                const ringR   = rOuter + size * 0.4 * 0.4;
+                const r       = ringR * 1.20;
+                const sw      = (size * 0.008).toFixed(2);
+                const color   = muted ? ph.slice : (colors['slice-indicator'] ?? '#6f0000');
+                function polarPt(r, deg) {
+                    const rad = (deg - 90) * Math.PI / 180;
+                    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+                }
+                const [a1, a2] = layer === 'top' ? [-15, 165] : [15, 195];
+                const p1 = polarPt(r, a1), p2 = polarPt(r, a2);
+                return `<line x1="${p1.x.toFixed(2)}" y1="${p1.y.toFixed(2)}" x2="${p2.x.toFixed(2)}" y2="${p2.y.toFixed(2)}" stroke="${color}" stroke-width="${sw}"/>`;
+            },
+        },
+
+        withoutSideColor: {
+            layerScale: 1.64,
+            colorSlots: [
+                { id: 'top',             label: 'Top',             default: '#000000ff' },
+                { id: 'bottom',          label: 'Bottom',          default: '#FFFFFF'   },
+                { id: 'border',          label: 'Border',          default: '#333333'   },
+                { id: 'slice-indicator', label: 'Slice Indicator', default: '#6f0000'   },
+            ],
+
+            drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
+                let innerColor = resolveColor(edgeColors[piece].inner, colors);
+                if (muted) {
+                    const def = defaultPieceColors().edgeColors[piece];
+                    if (innerColor === colors[def.inner]) innerColor = ph.sticker;
+                }
+                const rOuter = size * 0.4 * 0.7, half = 15;
+                function pt(r, deg) {
+                    const rad = deg * Math.PI / 180;
+                    return { x: +(r * Math.sin(rad)).toFixed(2), y: +(-r * Math.cos(rad)).toFixed(2) };
+                }
+                function ps(pts) { return pts.map(p => `${p.x},${p.y}`).join(' '); }
+                const pi = { x: 0, y: 0 };
+                const pA = pt(rOuter, -half), pB = pt(rOuter, half);
+                const sw = (size * 0.004).toFixed(2);
+                return `<polygon class="sticker" id="${piece} inner" points="${ps([pi, pA, pB])}" fill="${innerColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}"/>`;
+            },
+
+            drawCorner(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
+                let topColor = resolveColor(cornerColors[piece].top, colors);
+                if (muted) {
+                    const def = defaultPieceColors().cornerColors[piece];
+                    if (topColor === colors[def.top]) topColor = ph.sticker;
+                }
+                const rOuter = size * 0.4 * 0.7;
+                const rApex  = rOuter * 1.366025404;
+                const half   = 30;
+                function pt(r, deg) {
+                    const rad = deg * Math.PI / 180;
+                    return { x: +(r * Math.sin(rad)).toFixed(2), y: +(-r * Math.cos(rad)).toFixed(2) };
+                }
+                function ps(pts) { return pts.map(p => `${p.x},${p.y}`).join(' '); }
+                const pi  = { x: 0, y: 0 };
+                const pOR = pt(rOuter, -half), pAp = pt(rApex, 0), pOL = pt(rOuter, half);
+                const sw  = (size * 0.004).toFixed(2);
+                return `<polygon class="sticker" id="${piece} top" points="${ps([pi, pOR, pAp, pOL])}" fill="${topColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}"/>`;
+            },
+
+            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER) {
+                // Reuse withSideColor — same visual, same angles
+                return AbidStyle.withSideColor.drawSlice(layer, cx, cy, size, colors, muted, ph);
+            },
+        },
     };
 
     // =====================================================================
     // === STYLE REGISTRY ==================================================
     // =====================================================================
 
-    const STYLES = [SAC2Style];
+    const STYLES = [SAC2Style, AbidStyle];
 
     // =====================================================================
     // === ACTIVE STYLE STATE ==============================================
     // =====================================================================
 
     let activeStyleIndex = 0;
-    let showSideColors   = true;  // toggled by the "Hide side colors" checkbox
+    let showSideColors   = true;
 
     function getActiveVariant() {
         const style = STYLES[activeStyleIndex];
         return showSideColors ? style.withSideColor : style.withoutSideColor;
     }
 
-    // Runtime color overrides per variant.
-    // Structure: Map keyed by `${styleSource}_${variantKey}` → { colorId: hexString }
+    function getPlaceholderScheme() {
+        return STYLES[activeStyleIndex]?.placeholderScheme ?? DEFAULT_PLACEHOLDER;
+    }
+
+    // ── Color overrides ──────────────────────────────────────────────────
+    // Keyed by `${styleSource}_${with|without}` → { colorId: hexString }
     const colorOverrides = new Map();
 
-    function variantKey(styleSource, withSides) {
-        return `${styleSource}_${withSides ? 'with' : 'without'}`;
+    function variantKey(source, withSides) {
+        return `${source}_${withSides ? 'with' : 'without'}`;
     }
 
     function getResolvedColors() {
-        const style   = STYLES[activeStyleIndex];
-        const variant = getActiveVariant();
-        const key     = variantKey(style.source, showSideColors);
+        const style    = STYLES[activeStyleIndex];
+        const variant  = getActiveVariant();
+        const key      = variantKey(style.source, showSideColors);
         const overrides = colorOverrides.get(key) || {};
-        const colors = {};
+        const colors   = {};
         for (const slot of variant.colorSlots) {
             colors[slot.id] = overrides[slot.id] ?? slot.default;
         }
@@ -242,195 +393,18 @@ const Square1Visualizer = (() => {
         colorOverrides.get(key)[slotId] = hex;
     }
 
+
+
     // =====================================================================
-    // === SCRAM OPERATORS (unchanged) =====================================
+    // === HEX PARSING & RENDERING =========================================
     // =====================================================================
-
-    function polarToCart(cx, cy, r, deg) {
-        const rad = (deg - 90) * Math.PI / 180; // deg from top, CW
-        return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-    }
-    
-    function algToHex(scramble) {
-        let tlHex = '011233455677';
-        let blHex = '998bbaddcffe';
-        const moves = parseScramble(scramble);
-        for (const move of moves) {
-            if (move.type === 'twist') {
-                const result = twist(tlHex, blHex);
-                tlHex = result.tlHex; blHex = result.blHex;
-            } else if (move.type === 'turn') {
-                tlHex = cycleLeft(tlHex, move.top);
-                blHex = cycleLeft(blHex, move.bottom);
-            }
-        }
-        return { tlHex, blHex };
-    }
-
-    function parseScramble(scramble) {
-        const moves = [];
-        const normalized = scramble.replace(/\//g, ' / ');
-        const parts = normalized.trim().split(/\s+/).filter(p => p.length > 0);
-        for (const part of parts) {
-            if (part === '/') {
-                moves.push({ type: 'twist' });
-            } else if (part.includes(',')) {
-                const cleaned = part.replace(/[()]/g, '');
-                const [top, bottom] = cleaned.split(',').map(n => parseInt(n.trim()));
-                if (!isNaN(top) && !isNaN(bottom)) moves.push({ type: 'turn', top, bottom });
-            }
-        }
-        return moves;
-    }
-
-    function twist(tlHex, blHex) {
-        return { tlHex: tlHex.slice(0, 6) + blHex.slice(0, 6), blHex: tlHex.slice(6) + blHex.slice(6) };
-    }
-
-    function cycleLeft(hex, places) {
-        const n = ((places % 12) + 12) % 12;
-        return hex.slice(n) + hex.slice(0, n);
-    }
-
-    function invertScramble(scrambleString) {
-        if (!scrambleString) return scrambleString;
-        let str = String(scrambleString).trim();
-        const parts = str.split('/');
-        const reversed = parts.slice().reverse();
-        const inverted = reversed.map(part => {
-            part = part.trim();
-            const turnMatch = part.match(/\(([^)]+)\)/);
-            if (turnMatch) {
-                const values = turnMatch[1].split(',').map(v => v.trim());
-                const invertedValues = values.map(v => { const num = parseInt(v); return isNaN(num) ? v : String(-num); });
-                return '(' + invertedValues.join(',') + ')';
-            }
-            if (part.includes(',')) {
-                const values = part.split(',').map(v => v.trim());
-                const invertedValues = values.map(v => { const num = parseInt(v); return isNaN(num) ? v : String(-num); });
-                return invertedValues.join(',');
-            }
-            return part;
-        });
-        return inverted.join('/');
-    }
-
-    function dictReplace(str, dict) {
-        const pattern = new RegExp(Object.keys(dict).join("|"), "g");
-        while (str.replace(pattern, match => dict[match]) !== str)
-            str = str.replace(pattern, match => dict[match]);
-        return str;
-    }
-
-    const karnToWCA = {
-        " U4 ": " U U' U U' "," U4' ": " U' U U' U "," D4 ": " D D' D D' "," D4' ": " D' D D' D ",
-        " u4 ": " u u' u u' "," u4' ": " u' u u' u "," d4 ": " d d' d d' "," d4' ": " d' d d' d ",
-        " U3 ": " U U' U "," U3' ": " U' U U' "," D3 ": " D D' D "," D3' ": " D' D D' ",
-        " u3 ": " u u' u "," u3' ": " u' u u' "," d3 ": " d d' d "," d3' ": " d' d d' ",
-        " F3 ": " F F' F "," F3' ": " F' F F' "," f3 ": " f f' f "," f3' ": " f' f f' ",
-        " W ": " U U' "," W' ": " U' U "," B ": " D D' "," B' ": " D' D ",
-        " w ": " u u' "," w' ": " u' u "," b ": " d d' "," b' ": " d' d ",
-        " F2 ": " F F' "," F2' ": " F' F "," f2 ": " f f' "," f2' ": " f' f ",
-        " UU ": " U U "," UU' ": " U' U' "," DD ": " D D "," DD' ": " D' D' ",
-        " U2 ": " 6,0 "," U2D ": " 6,3 "," U2D' ": " 6,-3 "," U2D2 ": " 6,6 ",
-        " D2 ": " 0,6 "," UD2 ": " 3,6 "," U'D2 ": " -3,6 ",
-        " U ": " 3,0 "," U' ": " -3,0 "," D ": " 0,3 "," D' ": " 0,-3 ",
-        " E ": " 3,-3 "," E' ": " -3,3 "," e ": " 3,3 "," e' ": " -3,-3 ",
-        " u ": " 2,-1 "," u' ": " -2,1 "," d ": " -1,2 "," d' ": " 1,-2 ",
-        " F' ": " -4,-1 "," F ": " 4,1 "," f' ": " -1,-4 "," f ": " 1,4 ",
-        " T ": " 2,-4 "," T' ": " -2,4 "," t' ": " -4,2 "," t ": " 4,-2 ",
-        " m ": " 2,2 "," m' ": " -2,-2 "," M' ": " -1,-1 "," M ": " 1,1 ",
-        " u2 ": " 5,-1 "," u2' ": " -5,1 "," d2 ": " -1,5 "," d2' ": " 1,-5 ",
-        " K' ": " -5,-2 "," K ": " 5,2 "," k ": " 2,5 "," k' ": " -2,-5 ",
-    };
-
-    const shorthandToKarn = {
-        "bjj": "/U' e D'/","fjj": "/U e' D/","bpj10": "/d m' U/","bpj0-1": "/u' m D'/",
-        "fpj10": "/u m' D/","fpj0-1": "/d' m U'/","nn": "/E E'/","aa10": "/u m' u T'/",
-        "aa0-1": "/U m' U t'/","fadj10": "/D M' d'/","dadj10": "/D M' d'/","fadj0-1": "/U' M u/",
-        "u'adj0-1": "/U' M u/","badj10": "/U M u'/","uadj10": "/U M u'/","badj0-1": "/D' M d/",
-        "d'adj0-1": "/D' M d/","bb10": "/T u' e U'/","bb0-1": "/t d e' D/",
-        "fdd10": "/D e' d t/","fdd0-1": "/U' e u' T/","bdd10": "/U e' u T'/","bdd0-1": "/D' e d' t'/",
-        "ff10": "/d m' d M E/","fv10": "/d4/","fv0-1": "/d4'/","vf10": "/u4/","vf0-1": "/u4'/",
-        "jf10": "/w D' u T'/","jf0-1": "/w' D u' T/","fj10": "/b U' d t/","fj0-1": "/b' U d' t'/",
-        "jr00": "/e' w e/","jr10": "/e' b e/","jr0-1": "/e' w' e/","jr1-1": "/e' b' e/",
-        "rj00": "/e b' e'/","rj10": "/e w e'/","rj0-1": "/e b' e'/","rj1-1": "/e w e'/",
-        "jv10": "/b D d d2'/","jv0-1": "/b' D' d' d2/","vj10": "/w U u u2'/","vj0-1": "/w' U' u' u2/",
-        "kk10": "/u m' U E'/","kk0-1": "/U m' u E'/","opp10": "/u2 u2'/","opp0-1": "/u2' u2/",
-        "pn10": "/T T'/","pn0-1": "/t t'/","px10": "/f' d3' f'/","px0-1": "/f d3 f/",
-        "xp10": "/F' u3' F'/","xp0-1": "/F u3 F/","tt10": "/d m' F' u2'/",
-        "fss10": "/u M D' E'/","fss0-1": "/D' M u E'/","bss10": "/D M' u' E/","bss0-1": "/U' M d E/",
-        "vv10": "/u M u m' E'/","zz10": "/u M t' M D'/","zz0-1": "/D' M t' M u/"
-    };
-
-    function unkarnify(scramble) {
-        scramble = scramble.replaceAll(/\/|\\/g, " ").replaceAll(/\(|\)/g, "").replaceAll(/ +/g, " ");
-        scramble = addCommas(scramble);
-        return replaceShorthands(dictReplace(" "+scramble+" ", karnToWCA).slice(1,-1));
-    }
-
-    function replaceShorthands(scramble) {
-        let moves = scramble.split(" ");
-        let good = true;
-        for (let move of moves)
-            if (move && isNaN(Number(move.charAt(0))) && !(" "+move+" " in karnToWCA)) good = false;
-        if (good) return dictReplace(" "+scramble+" ", karnToWCA).slice(1,-1).replaceAll(" ", "/");
-        let topA = false, bottomA = false;
-        for (let move of moves) {
-            if (!move) continue;
-            else if (move.includes(",")) {
-                let [u, d] = move.split(",");
-                if (parseInt(u, 10) % 3 !== 0) topA = !topA;
-                if (parseInt(d, 10) % 3 !== 0) bottomA = !bottomA;
-            } else {
-                let replacement;
-                if (["bjj","fjj","nn"].includes(move.toLowerCase()))
-                    replacement = shorthandToKarn[move.toLowerCase()];
-                else replacement = shorthandToKarn[move.toLowerCase()+getAlignment(topA, bottomA)];
-                if (replacement === undefined) throw new Error(`${move} with ${getAlignment(topA, bottomA)} alignment is not a thing.`);
-                scramble = scramble.replace(move, replacement);
-                for (let submove of dictReplace(" "+replacement+" ", karnToWCA).split(" ")) {
-                    let [u, d] = submove.split(",");
-                    if (parseInt(u, 10) % 3 !== 0) topA = !topA;
-                    if (parseInt(d, 10) % 3 !== 0) bottomA = !bottomA;
-                }
-            }
-        }
-        scramble = scramble.replaceAll(/ *\/ */g, "/").replaceAll(/\/\//g, "/0,0/").replaceAll(/\//g, " ");
-        return dictReplace(" "+scramble+" ", karnToWCA).slice(1,-1).replaceAll(" ", "/");
-    }
-
-    function getAlignment(topA, bottomA) {
-        return (topA ? "1" : "0") + (bottomA ? "-1" : "0");
-    }
-
-    function addCommas(scramble) {
-        let moves = scramble.split(" ");
-        for (let inx = 0; inx < moves.length; inx++) {
-            if (moves[inx] && !isNaN(Number(moves[inx].replace("-", "")))) {
-                let move = moves[inx];
-                switch (move.length) {
-                    case 1: moves[inx] = move + ",0"; break;
-                    case 2: moves[inx] = move.charAt(0) === "-" ? move + ",0" : move.charAt(0) + "," + move.charAt(1); break;
-                    case 3: moves[inx] = move.charAt(0) === "-" ? move.slice(0,2) + "," + move.charAt(2) : move.charAt(0) + "," + move.slice(1); break;
-                    case 4: moves[inx] = move.slice(0,2) + "," + move.slice(2); break;
-                    default: throw new Error(`${move} is not a valid move`);
-                }
-            }
-        }
-        return moves.join(" ");
-    }
-
-    // === POSITION → ANGLE MAPPING ===
 
     function slotCentreAngle(pos, span) {
         return (pos - 1) * 30 + (span * 30) / 2;
     }
 
-    // === HEX PARSER ===
-
     function parseHex(rawHex) {
-        let hex = rawHex.replace(/[|/]/, '');
+        const hex = rawHex.replace(/[|/]/, '');
         function parseLayer(chars) {
             const tokens = [];
             let slotPos = 1, i = 0;
@@ -449,36 +423,37 @@ const Square1Visualizer = (() => {
         return { top: parseLayer(hex.slice(0, 12)), bottom: parseLayer(hex.slice(12, 24)) };
     }
 
-    // === DRAW LAYER ===
-
     function drawLayer(tokens, isBottom, cx, cy, size, muted) {
-    const variant = getActiveVariant();
-    const colors  = getResolvedColors();
-    const layerScale = variant.layerScale ?? 1;
-    let svg = '';
-    for (const token of tokens) {
-        const span = token.type === 'corner' ? 2 : 1;
-        const layerOffset = isBottom ? -195 : 15;
-        const angle = -slotCentreAngle(token.position, span) + layerOffset;
-        const pieceInner = token.type === 'edge'
-            ? variant.drawEdge(token.piece, colors, size, muted)
-            : variant.drawCorner(token.piece, colors, size, muted);
-        svg += `<g transform="translate(${cx},${cy}) rotate(${angle.toFixed(2)})">${pieceInner}</g>`;
+        const variant = getActiveVariant();
+        const colors  = getResolvedColors();
+        const ph      = getPlaceholderScheme();
+        const layerScale = variant.layerScale ?? 1;
+        let svg = '';
+        for (const token of tokens) {
+            const span        = token.type === 'corner' ? 2 : 1;
+            const layerOffset = isBottom ? -195 : 15;
+            const angle       = -slotCentreAngle(token.position, span) + layerOffset;
+            const pieceInner  = token.type === 'edge'
+                ? variant.drawEdge(token.piece,   colors, size, muted, ph)
+                : variant.drawCorner(token.piece, colors, size, muted, ph);
+            svg += `<g transform="translate(${cx},${cy}) rotate(${angle.toFixed(2)})">${pieceInner}</g>`;
+        }
+        if (layerScale !== 1) {
+            svg = `<g transform="translate(${cx},${cy}) scale(${layerScale}) translate(${-cx},${-cy})">${svg}</g>`;
+        }
+        return svg;
     }
-    if (layerScale !== 1) {
-        svg = `<g transform="translate(${cx},${cy}) scale(${layerScale}) translate(${-cx},${-cy})">${svg}</g>`;
-    }
-    return svg;
-}
 
-    // === MAIN SVG BUILDER ===
+    // =====================================================================
+    // === MAIN SVG BUILDER ================================================
+    // =====================================================================
 
     function getSVG(rawHex, size = 400, ringDistance = 5, muted, isVert, showSlice, _showSides, exportPad = 0) {
-        // _showSides is now ignored — controlled internally via setShowSideColors()
-        let hex = rawHex.replace(/[|/]/, '');
+        // _showSides is ignored — controlled via setShowSideColors()
+        const hex = rawHex.replace(/[|/]/, '');
         if (hex.length !== 24) throw new Error('Hex must be 24 data characters (plus optional | separator).');
 
-        const parsed = parseHex(rawHex);
+        const parsed  = parseHex(rawHex);
         const variant = getActiveVariant();
         const colors  = getResolvedColors();
 
@@ -486,55 +461,39 @@ const Square1Visualizer = (() => {
         const cx = size / 2, cy = size / 2;
         const margin = size * (0.44 * (2 + ringDistance / 100) - 1);
 
-        const sliceH   = (122 / 220) * size;
         const topApexY = cy - (123.5 / 220) * size;
-        const padTop   = exportPad + Math.max(0, Math.ceil(-topApexY + sliceH * 0.05));
+        const padTop   = exportPad + Math.max(0, Math.ceil(-topApexY + (122 / 220) * size * 0.05));
         const padOther = exportPad;
         const vbX = -padOther, vbY = -padTop;
         const vbW = size + padOther * 2, vbH = size + padTop + padOther;
 
-        let html = `<div style="display:flex;align-items:center;overflow:visible;padding:2rem;${isVert ? "flex-direction:column;" : "flex-direction:row;"}">`;
+        const dir = isVert ? 'flex-direction:column;' : 'flex-direction:row;';
+        let html = `<div style="display:flex;align-items:center;overflow:visible;padding:2rem;${dir}">`;
 
-        html += `<svg width="${vbW}" height="${vbH}" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" style="overflow:visible;" class="squan">`;
+        const svgAttrs = `width="${vbW}" height="${vbH}" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" style="overflow:visible;" class="squan"`;
+        const gap = isVert ? `margin-top:${margin.toFixed(1)}px;` : `margin-left:${margin.toFixed(1)}px;`;
+
+        html += `<svg ${svgAttrs}>`;
+        if (showSlice) html += variant.drawSlice('top', cx, cy, size, colors, muted, getPlaceholderScheme());
         html += drawLayer(parsed.top, false, cx, cy, size, muted);
-        if (showSlice) html += variant.drawSlice("top", cx, cy, size, colors, muted);
         html += `</svg>`;
 
-        html += `<svg width="${vbW}" height="${vbH}" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" style="overflow:visible;${isVert ? "margin-top:" : "margin-left:"}${margin.toFixed(1)}px;" class="squan">`;
+        html += `<svg ${svgAttrs.replace('style="overflow:visible;"', `style="overflow:visible;${gap}"`)}>`;
+        if (showSlice) html += variant.drawSlice('bottom', cx, cy, size, colors, muted, getPlaceholderScheme());
         html += drawLayer(parsed.bottom, true, cx, cy, size, muted);
-        if (showSlice) html += variant.drawSlice("bottom", cx, cy, size, colors, muted);
         html += `</svg></div>`;
 
         return html;
     }
 
-    // === PUBLIC STYLE API ===
-
-    function getStyles() { return STYLES.map((s, i) => ({ name: s.name, source: s.source, index: i })); }
-    function getActiveStyleIndex() { return activeStyleIndex; }
-    function setActiveStyle(index) { activeStyleIndex = index; }
-    function getActiveStyle() { return STYLES[activeStyleIndex]; }
-
-    function setShowSideColors(val) { showSideColors = val; }
-    function getShowSideColors() { return showSideColors; }
-
-    // Returns colorSlots for current variant (drives sidebar swatches)
-    function getColorSlots() { return getActiveVariant().colorSlots; }
-
-    // Returns resolved colors for current variant
-    function getColorScheme() { return getResolvedColors(); }
-
-    // Set a single color slot override
-    function setColorScheme(partial) {
-        for (const [id, hex] of Object.entries(partial)) setColorOverride(id, hex);
-    }
-
-    // === PIECE FILL API (unchanged behaviour) ===
+    // =====================================================================
+    // === PIECE FILL API ==================================================
+    // =====================================================================
 
     function setPieceColor(id, color) {
-        if (id.split(" ").length !== 2) throw new Error(`piece id ${id} is not valid.`);
-        let [piece, sticker] = id.split(" ");
-        if (piece === "slice") {
+        const [piece, sticker] = id.split(' ');
+        if (!sticker) throw new Error(`piece id ${id} is not valid.`);
+        if (piece === 'slice') {
             sliceColors = { ...sliceColors, [sticker]: color };
         } else if (parseInt(piece, 16) % 2 === 0) {
             edgeColors = { ...edgeColors, [piece]: { ...edgeColors[piece], [sticker]: color } };
@@ -544,27 +503,39 @@ const Square1Visualizer = (() => {
     }
 
     function resetPieceColor(id) {
-        if (id.split(" ").length !== 2) throw new Error(`piece id ${id} is not valid.`);
-        let [piece, sticker] = id.split(" ");
-        if (piece === "slice") {
-            sliceColors = { ...sliceColors, [sticker]: defaultPieceColors().sliceColors[sticker] };
+        const [piece, sticker] = id.split(' ');
+        if (!sticker) throw new Error(`piece id ${id} is not valid.`);
+        const def = defaultPieceColors();
+        if (piece === 'slice') {
+            sliceColors = { ...sliceColors, [sticker]: def.sliceColors[sticker] };
         } else if (parseInt(piece, 16) % 2 === 0) {
-            edgeColors = { ...edgeColors, [piece]: { ...edgeColors[piece], [sticker]: defaultPieceColors().edgeColors[piece][sticker] } };
+            edgeColors = { ...edgeColors, [piece]: { ...edgeColors[piece], [sticker]: def.edgeColors[piece][sticker] } };
         } else {
-            cornerColors = { ...cornerColors, [piece]: { ...cornerColors[piece], [sticker]: defaultPieceColors().cornerColors[piece][sticker] } };
+            cornerColors = { ...cornerColors, [piece]: { ...cornerColors[piece], [sticker]: def.cornerColors[piece][sticker] } };
         }
     }
 
-    function getPiecesColors() { return { edgeColors, cornerColors, sliceColors }; }
+    function getPiecesColors()   { return { edgeColors, cornerColors, sliceColors }; }
     function setPiecesColors(pc) { edgeColors = pc.edgeColors; cornerColors = pc.cornerColors; }
 
+    // =====================================================================
+    // === PUBLIC API ======================================================
+    // =====================================================================
+
     return {
+        // Core rendering
         getSVG, parseHex, algToHex, invertScramble, unkarnify,
         // Color scheme
-        getColorSlots, getColorScheme, setColorScheme,
+        getColorSlots()  { return getActiveVariant().colorSlots; },
+        getColorScheme() { return getResolvedColors(); },
+        setColorScheme(partial) { for (const [id, hex] of Object.entries(partial)) setColorOverride(id, hex); },
         // Style system
-        getStyles, getActiveStyleIndex, setActiveStyle, getActiveStyle,
-        setShowSideColors, getShowSideColors,
+        getStyles()          { return STYLES.map((s, i) => ({ name: s.name, source: s.source, index: i })); },
+        getActiveStyleIndex(){ return activeStyleIndex; },
+        setActiveStyle(i)    { activeStyleIndex = i; },
+        getActiveStyle()     { return STYLES[activeStyleIndex]; },
+        setShowSideColors(v) { showSideColors = v; },
+        getShowSideColors()  { return showSideColors; },
         // Piece fill
         setPieceColor, resetPieceColor, resetPiecesColors, getPiecesColors, setPiecesColors,
     };
