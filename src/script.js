@@ -675,6 +675,91 @@ function flashBtn(msg) {
     flashBtn._t = setTimeout(() => toast.classList.remove('show'), 2200);
 }
 
+/* ─── Sidebar toggle ──────────────────────────────── */
+const sidebar = document.querySelector('.sidebar');
+const hamburgerBtn = document.getElementById('hamburger-btn');
+const floatingBtn = document.getElementById('floating-export-btn');
+
+const isMobile = () => window.innerWidth <= 768;
+
+function setSidebarOpen(open) {
+  if (open) {
+    sidebar.classList.remove('hidden');
+    if (isMobile()) floatingBtn.style.display = 'none';
+    else floatingBtn.style.display = 'none';
+  } else {
+    sidebar.classList.add('hidden');
+    floatingBtn.style.display = 'flex';
+  }
+}
+
+// Start closed on mobile, open on desktop
+setSidebarOpen(!isMobile());
+
+hamburgerBtn.addEventListener('click', () => {
+  setSidebarOpen(sidebar.classList.contains('hidden'));
+});
+
+// Close sidebar when clicking outside on mobile
+document.addEventListener('click', e => {
+  if (!isMobile()) return;
+  if (!sidebar.classList.contains('hidden') &&
+      !sidebar.contains(e.target) &&
+      e.target !== hamburgerBtn &&
+      !hamburgerBtn.contains(e.target)) {
+    setSidebarOpen(false);
+  }
+});
+
+/* ─── Floating export button ──────────────────────── */
+let febMode = 'download'; // 'download' or 'copy'
+const febActionBtn = document.getElementById('feb-action-btn');
+const febActionIcon = document.getElementById('feb-action-icon');
+const febSplitBtn = document.getElementById('feb-split-btn');
+const febDropdown = document.getElementById('feb-dropdown');
+
+function setFebMode(mode) {
+  febMode = mode;
+  febActionIcon.src = mode === 'download' ? 'src/download.svg' : 'src/copy.svg';
+  document.querySelectorAll('.feb-option').forEach(o => {
+    o.classList.toggle('active', o.dataset.mode === mode);
+  });
+}
+setFebMode('download');
+
+let febClickTimer = null;
+febActionBtn.addEventListener('click', () => {
+  if (febClickTimer) return;
+  febClickTimer = setTimeout(() => {
+    febClickTimer = null;
+    doExport(febMode === 'download' ? 'download' : 'clipboard');
+  }, 250);
+});
+
+febActionBtn.addEventListener('dblclick', e => {
+  e.preventDefault();
+  if (febClickTimer) { clearTimeout(febClickTimer); febClickTimer = null; }
+  setFebMode(febMode === 'download' ? 'copy' : 'download');
+});
+
+febSplitBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  febDropdown.style.display = febDropdown.style.display === 'none' ? 'block' : 'none';
+});
+
+document.querySelectorAll('.feb-option').forEach(opt => {
+  opt.addEventListener('click', () => {
+    setFebMode(opt.dataset.mode);
+    febDropdown.style.display = 'none';
+  });
+});
+
+document.addEventListener('click', e => {
+  if (!febDropdown.contains(e.target) && e.target !== febSplitBtn) {
+    febDropdown.style.display = 'none';
+  }
+});
+
 /* ─── Init ────────────────────────────────────────── */
 
 // ═══════════════════════════════════════════════════
@@ -1160,4 +1245,174 @@ function flashBtn(msg) {
 
 })();
 
+/* ─── Local Storage persistence ───────────────────── */
+const LS_KEY = 'sq1vis_settings';
+
+function saveSettings() {
+    const settings = {
+        // Display
+        size: document.getElementById('size-input').value,
+        gap: document.getElementById('gap-input').value,
+        orientation: document.querySelector('input[name=orientation]:checked').value,
+        hideSlice: document.getElementById('hide-slice').checked,
+        hideSides: document.getElementById('hide-sides').checked,
+        // Style
+        styleIndex: sq1vis.getActiveStyleIndex(),
+        showSideColors: sq1vis.getShowSideColors(),
+        // Color scheme — save all overrides for all style/variant combos
+        colorOverrides: (() => {
+            const obj = {};
+            for (const style of sq1vis.getStyles()) {
+                for (const withSides of [true, false]) {
+                    const key = `${style.source}_${withSides ? 'with' : 'without'}`;
+                    // temporarily switch to read resolved colors
+                    const prevIdx = sq1vis.getActiveStyleIndex();
+                    const prevSides = sq1vis.getShowSideColors();
+                    sq1vis.setActiveStyle(style.index);
+                    sq1vis.setShowSideColors(withSides);
+                    obj[key] = sq1vis.getColorScheme();
+                    sq1vis.setActiveStyle(prevIdx);
+                    sq1vis.setShowSideColors(prevSides);
+                }
+            }
+            return obj;
+        })(),
+        // Piece fill colors
+        piecesColors: sq1vis.getPiecesColors(),
+        // Export settings
+        exportLayer,
+        exportFmt,
+        // Floating button mode
+        febMode,
+        // Sidebar state
+        sidebarHidden: sidebar.classList.contains('hidden'),
+        // Mute
+        muteActive,
+        // Color scheme panel mode (classical/custom)
+        schemeMode: customBtn.classList.contains('active') ? 'custom' : 'classical',
+        // Recent colors
+        lastUsedColors,
+        // Fill/unfill mode active states (save as inactive — don't restore active tool states)
+    };
+    try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch(e) {}
+}
+
+function loadSettings() {
+    let s;
+    try { s = JSON.parse(localStorage.getItem(LS_KEY)); } catch(e) {}
+    if (!s) return;
+
+    // Display
+    if (s.size != null) {
+        document.getElementById('size-input').value = s.size;
+        document.getElementById('size-slider').value = s.size;
+    }
+    if (s.gap != null) {
+        document.getElementById('gap-input').value = s.gap;
+        document.getElementById('gap-slider').value = s.gap;
+    }
+    if (s.orientation) {
+        const r = document.querySelector(`input[name=orientation][value="${s.orientation}"]`);
+        if (r) r.checked = true;
+    }
+    if (s.hideSlice != null) document.getElementById('hide-slice').checked = s.hideSlice;
+    if (s.hideSides != null) {
+        document.getElementById('hide-sides').checked = s.hideSides;
+        sq1vis.setShowSideColors(!s.hideSides);
+    }
+
+    // Style
+    if (s.styleIndex != null) {
+        sq1vis.setActiveStyle(s.styleIndex);
+        document.getElementById('svg-style-select').value = s.styleIndex;
+    }
+    if (s.showSideColors != null) sq1vis.setShowSideColors(s.showSideColors);
+
+    // Color overrides — apply all saved overrides
+    if (s.colorOverrides) {
+        for (const style of sq1vis.getStyles()) {
+            for (const withSides of [true, false]) {
+                const key = `${style.source}_${withSides ? 'with' : 'without'}`;
+                const saved = s.colorOverrides[key];
+                if (!saved) continue;
+                const prevIdx = sq1vis.getActiveStyleIndex();
+                const prevSides = sq1vis.getShowSideColors();
+                sq1vis.setActiveStyle(style.index);
+                sq1vis.setShowSideColors(withSides);
+                sq1vis.setColorScheme(saved);
+                sq1vis.setActiveStyle(prevIdx);
+                sq1vis.setShowSideColors(prevSides);
+            }
+        }
+    }
+
+    // Piece fill colors
+    if (s.piecesColors) sq1vis.setPiecesColors(s.piecesColors);
+
+    // Export
+    if (s.exportLayer) {
+        exportLayer = s.exportLayer;
+        document.querySelectorAll('.export-tab[data-group="layer"]').forEach(b => {
+            b.classList.toggle('active', b.dataset.val === exportLayer);
+        });
+    }
+    if (s.exportFmt) {
+        exportFmt = s.exportFmt;
+        document.querySelectorAll('.export-tab[data-group="fmt"]').forEach(b => {
+            b.classList.toggle('active', b.dataset.val === exportFmt);
+        });
+    }
+
+    // Floating button mode
+    if (s.febMode) setFebMode(s.febMode);
+
+    // Sidebar state
+    if (s.sidebarHidden != null) setSidebarOpen(!s.sidebarHidden);
+
+    // Mute
+    if (s.muteActive != null) {
+        muteActive = s.muteActive;
+        muteBtn.classList.toggle('active', muteActive);
+    }
+
+    // Scheme mode panel
+    if (s.schemeMode === 'custom') {
+        customBtn.click();
+    }
+
+    // Recent colors
+    if (s.lastUsedColors) {
+        lastUsedColors = s.lastUsedColors;
+        renderRecentSlots();
+    }
+
+    // Rebuild UI that depends on loaded state
+    updateStyleToggles();
+    buildSchemeGrid();
+}
+
+// Hook all relevant inputs to save
+function hookSaveListeners() {
+    const ids = ['size-input','size-slider','gap-input','gap-slider','hide-slice','hide-sides'];
+    ids.forEach(id => document.getElementById(id)?.addEventListener('input', saveSettings));
+    document.querySelectorAll('input[name=orientation]').forEach(r => r.addEventListener('change', saveSettings));
+    document.getElementById('svg-style-select').addEventListener('change', saveSettings);
+    document.getElementById('fill-reset-btn').addEventListener('click', saveSettings);
+    document.getElementById('fill-mute-btn').addEventListener('click', saveSettings);
+    document.getElementById('ctb-undo').addEventListener('click', saveSettings);
+    document.getElementById('ctb-redo').addEventListener('click', saveSettings);
+    document.querySelectorAll('.export-tab').forEach(b => b.addEventListener('click', saveSettings));
+    document.getElementById('canvas-inner').addEventListener('click', saveSettings);
+    document.getElementById('scheme-mode-classical').addEventListener('click', saveSettings);
+    document.getElementById('scheme-mode-custom').addEventListener('click', saveSettings);
+    hamburgerBtn.addEventListener('click', saveSettings);
+    febActionBtn.addEventListener('click', () => setTimeout(saveSettings, 300));
+    document.querySelectorAll('.feb-option').forEach(o => o.addEventListener('click', saveSettings));
+    febActionBtn.addEventListener('dblclick', () => setTimeout(saveSettings, 300));
+    // scheme color inputs — delegate since they're rebuilt dynamically
+    document.getElementById('scheme-grid').addEventListener('input', saveSettings);
+}
+
+hookSaveListeners();
+loadSettings();
 draw();

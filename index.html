@@ -10,7 +10,10 @@
 
   <!-- ═══ HEADER ═══ -->
   <header>
-    <div class="logo">DRAW-A-SQUAN <span class="logo-by">by Matt &amp; Abid</span></div>
+    <button class="hamburger-btn" id="hamburger-btn" title="Toggle sidebar">
+  <span></span><span></span><span></span>
+</button>
+<div class="logo">DRAW-A-SQUAN <span class="logo-by">by Matt &amp; Abid</span></div>
   </header>
   <!-- ═══ CUSTOM TOOLBAR BAR ═══ -->
   <div class="custom-toolbar" id="custom-toolbar" style="display:none;">
@@ -82,6 +85,14 @@
     <!-- ══ SIDEBAR ══ -->
     <aside class="sidebar">
 
+      <!-- SVG STYLE (top) -->
+      <div class="section">
+        <div class="section-title">Style</div>
+        <div class="field">
+          <select id="svg-style-select" class="style-select"></select>
+        </div>
+      </div>
+
       <!-- DISPLAY -->
       <div class="section">
         <div class="section-title">Display</div>
@@ -129,14 +140,6 @@
             <input type="checkbox" id="hide-sides" />
             <span class="toggle-track"></span>
           </label>
-        </div>
-      </div>
-
-      <!-- SVG STYLE -->
-      <div class="section">
-        <div class="section-title">SVG Style</div>
-        <div class="field">
-          <select id="svg-style-select" class="style-select"></select>
         </div>
       </div>
 
@@ -215,7 +218,7 @@
         </div>
         <input type="text" class="topbar-input" id="scramble-input" placeholder="1,0 / 3,3 / 0,-3 / ... (supports karn)" autocomplete="off"/>
         <button class="mode-toggle-btn bulk-export-open-btn" id="bulk-export-btn" title="Bulk Export">
-          <img src="src/bulk-input.svg" width="16" height="16" style="display:block;" />
+          <img src="src/bulk-input.svg" width="24" height="24" style="display:block;" />
         </button>
       </div>
       <div class="viewport-canvas" id="viewport-canvas">
@@ -287,6 +290,20 @@
   </div>
 
   <div id="toast" class="toast"></div>
+  <div class="floating-export-btn" id="floating-export-btn" style="display:none;">
+    <button class="feb-action" id="feb-action-btn" title="Export">
+      <img id="feb-action-icon" src="src/download.svg" width="18" height="18" style="display:block;" />
+    </button>
+    <button class="feb-split" id="feb-split-btn" title="Switch mode">▾</button>
+    <div class="feb-dropdown" id="feb-dropdown" style="display:none;">
+      <div class="feb-option" data-mode="download">
+        <img src="src/download.svg" width="14" height="14" /> Download
+      </div>
+      <div class="feb-option" data-mode="copy">
+        <img src="src/copy.svg" width="14" height="14" /> Copy
+      </div>
+    </div>
+  </div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="src/parseScramble.js"></script>
