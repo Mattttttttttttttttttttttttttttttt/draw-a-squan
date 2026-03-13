@@ -67,7 +67,7 @@ const Square1Visualizer = (() => {
     // SAC2'S STYLE
     // -----------------------------------------------------------------
     const SAC2Style = {
-        name: "SAC2's Style",
+        name: "SAC2's Design",
         placeholderScheme: { sticker: '#2a2a2a', slice: '#666666', border: '#000000' },
         source: 'SAC2',
         hidableSideColor: true,
@@ -199,7 +199,7 @@ const Square1Visualizer = (() => {
     // ABID'S STYLE
     // -----------------------------------------------------------------
     const AbidStyle = {
-        name: "Abid's Style",
+        name: "Abid's Design",
         placeholderScheme: { sticker: '#0d0d0dff', slice: '#4e0000ff', border: '#d0d0d0ff' },
         source: 'Abid',
         hidableSideColor: true,

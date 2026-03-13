@@ -196,6 +196,10 @@ input[type="number"] {
     transition: border-color var(--transition);
 }
 
+#scramble-input {
+    border-radius: var(--radius) 0 0 var(--radius) !important;
+}
+
 textarea {
     resize: vertical;
     min-height: 72px;
@@ -976,8 +980,7 @@ input[type=number]::-webkit-outer-spin-button {
     display: flex;
     align-items: center;
     gap: .5rem;
-    padding: .5rem 1.25rem;
-    border-bottom: 1px solid var(--border);
+    padding: .5rem 1.25rem .5rem 1.25rem;
     background: var(--surface);
     flex-shrink: 0;
     height: 48px;
@@ -1085,7 +1088,7 @@ input[type=number]::-webkit-outer-spin-button {
     height: 32px;
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--radius) 0 0 var(--radius);
     color: var(--text);
     font-family: var(--font-mono);
     font-size: .82rem;
@@ -1440,20 +1443,30 @@ input[type=number]::-webkit-outer-spin-button {
 
 /* ─── Bulk Export Button ──────────────────────────────── */
 .bulk-export-open-btn {
-    min-width: unset;
-    width: 32px;
-    padding: 0;
-    border-radius: var(--radius);
+    height: 32px;
+    padding: 0 14px;
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border2);
+    border-left: 0.5px solid rgb(147, 147, 147);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background var(--transition), color var(--transition);
     flex-shrink: 0;
+    min-width: unset;
+    width: auto;
 }
 
-.bulk-export-open-btn img {
-    filter: brightness(0) saturate(100%) invert(55%) sepia(10%) saturate(500%) hue-rotate(180deg);
-    transition: filter var(--transition);
-}
+.bulk-export-open-btn:hover { background: var(--border); color: var(--text); }
 
-.bulk-export-open-btn:hover img {
-    filter: brightness(0) saturate(100%) invert(90%);
+.topbar-input + .bulk-export-open-btn {
+    margin-left: calc(-0.5rem - 1px);
 }
 
 /* ─── Modal Base ──────────────────────────────────────── */
