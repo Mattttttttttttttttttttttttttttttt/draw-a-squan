@@ -536,7 +536,6 @@ function getExportSVGString(layer) {
 async function doExport(methodOverride) {
     const method = methodOverride || exportMethod;
     const input = document.getElementById('scramble-input').value.trim();
-    // if (!input) { alert('Enter a scramble first.'); return; }
 
     const svgStr = getExportSVGString(exportLayer);
     if (!svgStr) return;
@@ -554,49 +553,56 @@ async function doExport(methodOverride) {
         return;
     }
 
-    // Rasterize for PNG / JPEG / BMP
-    const img = new Image();
-    const url = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
-    img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        // For JPEG/BMP fill white bg
-        const ctx = canvas.getContext('2d');
-        if (exportFmt === 'jpeg') {
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-        ctx.drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
+    function rasterize(svgStr, fmt) {
+        return new Promise((resolve, reject) => {
+            const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+            const img = new Image();
+            img.onload = () => {
+                // wait a tick to ensure full paint
+                setTimeout(() => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width  = img.naturalWidth  || img.width  || 800;
+                    canvas.height = img.naturalHeight || img.height || 400;
+                    const ctx = canvas.getContext('2d');
+                    if (fmt === 'jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+                    ctx.drawImage(img, 0, 0);
+                    URL.revokeObjectURL(url);
+                    resolve(canvas);
+                }, 100);
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img load failed')); };
+            img.src = url;
+        });
+    }
 
-        const mimeMap = { png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/bmp' };
-        const extMap = { png: 'png', jpeg: 'jpg', bmp: 'bmp' };
+    try {
+        const canvas = await rasterize(svgStr, exportFmt);
+        const mimeMap = { png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/png' };
+        const extMap  = { png: 'png', jpeg: 'jpg', bmp: 'bmp' };
         const mime = mimeMap[exportFmt] || 'image/png';
-        const ext = extMap[exportFmt] || 'png';
+        const ext  = extMap[exportFmt]  || 'png';
 
-        if (exportFmt === 'bmp') {
-            const blob = createBMP32(canvas);
-            if (method === 'clipboard') {
-                try {
-                    await navigator.clipboard.write([new ClipboardItem({ 'image/bmp': blob })]);
-                    flashBtn('Copied to clipboard!');
-                } catch { flashBtn('Failed to copy to clipboard'); }
-            } else {
-                triggerDownload(blob, `${fname}.bmp`);
-            }
-        } else if (method === 'clipboard') {
-            canvas.toBlob(async blob => {
-                try {
-                    await navigator.clipboard.write([new ClipboardItem({ [mime]: blob })]);
-                    flashBtn('Copied to clipboard!');
-                } catch { flashBtn('Failed to copy to clipboard'); }
-            }, mime);
+        if (exportFmt === 'bmp' && method !== 'clipboard') {
+            triggerDownload(createBMP32(canvas), `${fname}.bmp`);
+            return;
+        }
+
+        if (method === 'clipboard') {
+            const dataUrl = canvas.toDataURL('image/png');
+            const res = await fetch(dataUrl);
+            const pngBlob = await res.blob();
+            try {
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+                flashBtn('Copied to clipboard!');
+            } catch { flashBtn('Failed to copy to clipboard'); }
         } else {
             canvas.toBlob(blob => triggerDownload(blob, `${fname}.${ext}`), mime);
         }
-    };
-    img.src = url;
+    } catch(err) {
+        flashBtn('Export failed');
+        console.error(err);
+    }
 }
 
 function createBMP32(canvas) {
