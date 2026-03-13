@@ -97,14 +97,56 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Undo / Redo disabled state helpers ────────────────
+// ── Undo / Redo history ────────────────────────────
+const undoStack = [];
+const redoStack = [];
+
+function snapshotColors() {
+    const pc = sq1vis.getPiecesColors();
+    return JSON.stringify({
+        edgeColors:   pc.edgeColors,
+        cornerColors: pc.cornerColors,
+        sliceColors:  pc.sliceColors,
+    });
+}
+
+function pushUndo() {
+    undoStack.push(snapshotColors());
+    redoStack.length = 0;
+    updateUndoRedo(true, false);
+}
+
+function applySnapshot(snap) {
+    sq1vis.setPiecesColors(JSON.parse(snap));
+}
+
 function updateUndoRedo(canUndo, canRedo) {
     document.getElementById('ctb-undo').disabled = !canUndo;
     document.getElementById('ctb-redo').disabled = !canRedo;
 }
 
+document.getElementById('ctb-undo').addEventListener('click', doUndo);
+document.getElementById('ctb-redo').addEventListener('click', doRedo);
+
+function doUndo() {
+    if (!undoStack.length) return;
+    redoStack.push(snapshotColors());
+    applySnapshot(undoStack.pop());
+    updateUndoRedo(!!undoStack.length, true);
+    draw();
+}
+
+function doRedo() {
+    if (!redoStack.length) return;
+    undoStack.push(snapshotColors());
+    applySnapshot(redoStack.pop());
+    updateUndoRedo(true, !!redoStack.length);
+    draw();
+}
+
 document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z') { /* your undo logic */ }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'y') { /* your redo logic */ }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); doUndo(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); doRedo(); }
 }); 
 
 const fillModeBtn = document.getElementById('fill-mode-btn');
@@ -118,19 +160,66 @@ let fillModeActive = false;
 let fillResetActive = false;
 let muteActive = false;
 
+const canvasInner = document.getElementById('canvas-inner');
+
+const viewportCanvas = document.getElementById('viewport-canvas');
+
+function updateCanvasCursor() {
+    if (fillModeActive) {
+        const encoded = 'url("data:image/svg+xml,' + encodeURIComponent(window.CURSOR_SVG.fill.replace(/\n\s*/g, '')) + '") 1 31, crosshair';
+        viewportCanvas.style.cursor = encoded;
+    } else if (fillResetActive) {
+        const encoded = 'url("data:image/svg+xml,' + encodeURIComponent(window.CURSOR_SVG.unfill.replace(/\n\s*/g, '')) + '") 1 7, crosshair';
+        viewportCanvas.style.cursor = encoded;
+    } else {
+        viewportCanvas.style.cursor = '';
+    }
+}
+
+// ── Cursor dev helper ─────────────────────────────────
+// Edit SVGs here, then call encodeCursors() in console
+// to get the encoded strings to paste into style.css
+window.CURSOR_SVG = {
+    fill: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g transform="scale(-1,1) translate(-24,0)"><path fill="#ffffff" stroke="#000000" stroke-width="0.4" paint-order="stroke" d="M20.911 14.216l-.411-.596-.411.596C19.74 14.72 18 17.3 18 18.5a2.5 2.5 0 0 0 5 0c0-1.2-1.74-3.78-2.089-4.284zM20.5 20a1.502 1.502 0 0 1-1.5-1.5 9.725 9.725 0 0 1 1.5-3.096A9.725 9.725 0 0 1 22 18.5a1.502 1.502 0 0 1-1.5 1.5zm-9-17.207L9.145 5.148a.476.476 0 0 0-.09-.023c-3.475-.17-5.962.425-6.743 1.59-.027.042-.07.077-.092.12a1.394 1.394 0 0 0 .118 1.522c.694.973 2.685 1.732 5.833 1.732a23.887 23.887 0 0 0 2.89-.192 1.494 1.494 0 1 0 .076-1.016c-4.77.618-7.418-.308-7.986-1.104-.812-1.14 3.1-1.71 5.044-1.679L6.32 7.973c.386.05.836.08 1.318.096L11.5 4.207l7.293 7.293-8.09 8.091a1.74 1.74 0 0 1-2.405 0l-4.889-4.888a1.702 1.702 0 0 1 0-2.405l1.514-1.514a9.152 9.152 0 0 1-1.101-.312l-1.12 1.12a2.703 2.703 0 0 0 0 3.818l4.889 4.888a2.7 2.7 0 0 0 3.818 0l8.798-8.798zM12 9.5a.5.5 0 1 1 .5.5.5.5 0 0 1-.5-.5z"/></g></svg>`,
+
+    unfill: `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="16" height="16" viewBox="0 0 488 488" xml:space="preserve">
+<g>
+  <g>
+    <path fill="#ffffff" stroke="#000000" stroke-width="18" paint-order="stroke" d="M466.806,93.681L466.806,93.681l-72.48-72.485C380.63,7.499,362.635,0,343.74,0s-36.89,7.498-50.586,21.196l-0.1,0.1
+      l-41.089,42.691L60.619,256.147l-35.89,35.093c0,0-0.1,0-0.1,0.1c-14.596,14.597-23.294,33.493-24.493,52.989
+      c-1.2,19.996,5.598,38.392,19.095,51.889l72.48,72.485C104.207,481.201,120.902,488,139.197,488c1.4,0,2.899,0,4.399-0.1
+      c19.595-1.1,38.389-9.798,53.085-24.495l41.888-42.691l185.449-184.662l42.688-41.092l0.1-0.1
+      C480.502,181.163,488,163.167,488,144.271S480.502,107.378,466.806,93.681z M182.785,449.308
+      c-11.297,10.998-25.593,17.696-40.189,18.496v0c-14.196,0.8-27.192-3.899-36.59-13.297l-72.48-72.485
+      c-19.595-19.596-17.295-53.989,5.299-76.584l1.1-1.1c0,0.1,0,0.2,0,0.4c-0.2,18.896,7.198,36.792,20.694,50.29l72.48,72.485
+      c13.296,13.297,30.991,20.696,49.686,20.696c0.2,0,0.4,0,0.6,0c0.1,0,0.2,0,0.4,0L182.785,449.308z M217.675,413.315l-0.1,0.1
+      c-9.097,9.398-21.294,14.597-34.49,14.697c-13.496,0.1-26.293-5.099-35.99-14.797l-72.48-72.485
+      c-9.697-9.698-14.896-22.395-14.796-35.993c0.1-13.097,5.299-25.395,14.696-34.393l0.1-0.1c0,0,0.1,0,0.1-0.1l115.468-115.976
+      l143.46,143.471L217.675,413.315z M452.71,180.563L452.71,180.563l-42.688,41.191l-0.1,0.1l-62.083,61.887l-143.56-143.57
+      l61.883-62.087l0.1-0.1l41.089-42.691c9.897-9.898,22.794-15.297,36.39-15.297c13.596,0,26.493,5.499,36.39,15.397l72.48,72.485
+      c9.897,9.898,15.396,22.895,15.396,36.393C468.006,157.768,462.607,170.665,452.71,180.563z"/>
+  </g>
+</g>
+</svg>`,
+};
+
+window.encodeCursors = function() {
+    for (const [name, svg] of Object.entries(window.CURSOR_SVG)) {
+        const encoded = 'url("data:image/svg+xml,' + encodeURIComponent(svg.replace(/\n\s*/g, '')) + '")';
+        console.log(`--- ${name} ---\n${encoded}\n`);
+    }
+};
+
 function activateFill() {
     if (fillResetActive && !fillModeActive) unfillBtn.click();
 
     fillModeActive = !fillModeActive;
     fillModeBtn.classList.toggle('active', fillModeActive);
 
-    const squans = document.querySelectorAll('.squan');
-    if (fillModeActive)
-        squans.forEach(div => {div.style.cursor = 'pointer';});
-    else {
-        squans.forEach(div => {div.style.cursor = 'auto';});
+    if (!fillModeActive) {
         document.querySelectorAll('.ctb-recent-slot').forEach(s => s.classList.remove('active-recent'));
     }
+    updateCanvasCursor();
 }
 
 fillModeBtn.addEventListener('click', activateFill);
@@ -141,11 +230,7 @@ unfillBtn.addEventListener('click', () => {
     fillResetActive = !fillResetActive;
     unfillBtn.classList.toggle('active', fillResetActive);
 
-    const squans = document.querySelectorAll('.squan');
-    if (fillResetActive)
-        squans.forEach(div => {div.style.cursor = 'pointer';});
-    else
-        squans.forEach(div => {div.style.cursor = 'auto';});
+    updateCanvasCursor();
 });
 
 let lastUsedColors = [];
@@ -201,7 +286,19 @@ document.getElementById('canvas-inner').addEventListener('click', e => {
     if (fillModeActive) {
         const piece = e.target.closest('.sticker');
         if (!piece) return;
+        pushUndo();
         sq1vis.setPieceColor(piece.id, fillColorInput.value);
+        draw();
+    }
+});
+
+document.getElementById('canvas-inner').addEventListener('contextmenu', e => {
+    if (fillModeActive) {
+        const piece = e.target.closest('.sticker');
+        if (!piece) return;
+        e.preventDefault();
+        pushUndo();
+        sq1vis.resetPieceColor(piece.id);
         draw();
     }
 });
@@ -210,12 +307,14 @@ document.getElementById('canvas-inner').addEventListener('click', e => {
     if (fillResetActive) {
         const piece = e.target.closest('.sticker');
         if (!piece) return;
+        pushUndo();
         sq1vis.resetPieceColor(piece.id);
         draw();
     }
 });
 
 resetBtn.addEventListener("click", () => {
+    pushUndo();
     sq1vis.resetPiecesColors();
     draw();
 });
@@ -298,7 +397,6 @@ function draw() {
     const size = parseInt(document.getElementById('size-input').value, 10);
     const gap = parseInt(document.getElementById('gap-input').value, 10);
     const mode = MODES[currentModeIndex].value;
-    const canvasInner = document.getElementById('canvas-inner');
     const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
     const showSlice = !document.getElementById("hide-slice").checked;
     const showSides = !document.getElementById("hide-sides").checked;
@@ -309,9 +407,8 @@ function draw() {
         // const realPiecesColors = sq1vis.getPiecesColors();
         // sq1vis.setColorScheme(PLACEHOLDER_SCHEME);
         const html = sq1vis.getSVG(PLACEHOLDER_HEX, size, gap, true, isVertical, showSlice, showSides);
-        // sq1vis.setColorScheme({ ...realScheme, slice: null });
-        // sq1vis.setPiecesColors(realPiecesColors);
         canvasInner.innerHTML = html;
+        updateCanvasCursor();
         return;
     }
 
@@ -330,6 +427,7 @@ function draw() {
 
         const html = sq1vis.getSVG(hex, size, gap, muteActive, isVertical, showSlice, showSides);
         canvasInner.innerHTML = html;
+        updateCanvasCursor();
 
     } catch (err) {
         canvasInner.innerHTML = `<div class="error-banner">⚠ ${err.message}</div>`;

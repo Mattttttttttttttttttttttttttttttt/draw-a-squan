@@ -516,7 +516,7 @@ const Square1Visualizer = (() => {
     }
 
     function getPiecesColors()   { return { edgeColors, cornerColors, sliceColors }; }
-    function setPiecesColors(pc) { edgeColors = pc.edgeColors; cornerColors = pc.cornerColors; }
+function setPiecesColors(pc) { edgeColors = pc.edgeColors; cornerColors = pc.cornerColors; if (pc.sliceColors) sliceColors = pc.sliceColors; }
 
     // =====================================================================
     // === PUBLIC API ======================================================
