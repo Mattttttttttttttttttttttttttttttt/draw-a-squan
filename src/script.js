@@ -69,9 +69,9 @@ document.getElementById('color-scheme-toggle').addEventListener('click', () => {
 /* fill piece color stuff */
 // ── Classical / Custom toggle ──────────────────────────
 const classicalBtn = document.getElementById('scheme-mode-classical');
-const customBtn    = document.getElementById('scheme-mode-custom');
+const customBtn = document.getElementById('scheme-mode-custom');
 const classicalPanel = document.getElementById('scheme-classical-panel');
-const customPanel    = document.getElementById('scheme-custom-panel');
+const customPanel = document.getElementById('scheme-custom-panel');
 const toolbar = document.getElementById('custom-toolbar');
 
 [classicalBtn, customBtn].forEach(btn => {
@@ -81,7 +81,7 @@ const toolbar = document.getElementById('custom-toolbar');
         customBtn.classList.toggle('active', isCustom);
         classicalPanel.style.display = isCustom ? 'none' : '';
         customPanel.style.display    = isCustom ? '' : 'none';
-        toolbar.style.display     = isCustom ? '' : 'none';
+        toolbar.style.display        = isCustom ? '' : 'none';
     });
 });
 
@@ -147,7 +147,7 @@ function doRedo() {
 document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); doUndo(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); doRedo(); }
-}); 
+});
 
 const fillModeBtn = document.getElementById('fill-mode-btn');
 const unfillBtn = document.getElementById('fill-unfill-btn');
@@ -180,12 +180,12 @@ function updateCanvasCursor() {
 // Edit SVGs here, then call encodeCursors() in console
 // to get the encoded strings to paste into style.css
 window.CURSOR_SVG = {
-    fill: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><g transform="scale(-1,1) translate(-24,0)"><path fill="#ffffff" stroke="#000000" stroke-width="0.4" paint-order="stroke" d="M20.911 14.216l-.411-.596-.411.596C19.74 14.72 18 17.3 18 18.5a2.5 2.5 0 0 0 5 0c0-1.2-1.74-3.78-2.089-4.284zM20.5 20a1.502 1.502 0 0 1-1.5-1.5 9.725 9.725 0 0 1 1.5-3.096A9.725 9.725 0 0 1 22 18.5a1.502 1.502 0 0 1-1.5 1.5zm-9-17.207L9.145 5.148a.476.476 0 0 0-.09-.023c-3.475-.17-5.962.425-6.743 1.59-.027.042-.07.077-.092.12a1.394 1.394 0 0 0 .118 1.522c.694.973 2.685 1.732 5.833 1.732a23.887 23.887 0 0 0 2.89-.192 1.494 1.494 0 1 0 .076-1.016c-4.77.618-7.418-.308-7.986-1.104-.812-1.14 3.1-1.71 5.044-1.679L6.32 7.973c.386.05.836.08 1.318.096L11.5 4.207l7.293 7.293-8.09 8.091a1.74 1.74 0 0 1-2.405 0l-4.889-4.888a1.702 1.702 0 0 1 0-2.405l1.514-1.514a9.152 9.152 0 0 1-1.101-.312l-1.12 1.12a2.703 2.703 0 0 0 0 3.818l4.889 4.888a2.7 2.7 0 0 0 3.818 0l8.798-8.798zM12 9.5a.5.5 0 1 1 .5.5.5.5 0 0 1-.5-.5z"/></g></svg>`,
+    fill: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><g transform="scale(-1,1) translate(-24,0)"><path fill="#ffffff" stroke="#000000" stroke-width="3" paint-order="stroke" d="M20.911 14.216l-.411-.596-.411.596C19.74 14.72 18 17.3 18 18.5a2.5 2.5 0 0 0 5 0c0-1.2-1.74-3.78-2.089-4.284zM20.5 20a1.502 1.502 0 0 1-1.5-1.5 9.725 9.725 0 0 1 1.5-3.096A9.725 9.725 0 0 1 22 18.5a1.502 1.502 0 0 1-1.5 1.5zm-9-17.207L9.145 5.148a.476.476 0 0 0-.09-.023c-3.475-.17-5.962.425-6.743 1.59-.027.042-.07.077-.092.12a1.394 1.394 0 0 0 .118 1.522c.694.973 2.685 1.732 5.833 1.732a23.887 23.887 0 0 0 2.89-.192 1.494 1.494 0 1 0 .076-1.016c-4.77.618-7.418-.308-7.986-1.104-.812-1.14 3.1-1.71 5.044-1.679L6.32 7.973c.386.05.836.08 1.318.096L11.5 4.207l7.293 7.293-8.09 8.091a1.74 1.74 0 0 1-2.405 0l-4.889-4.888a1.702 1.702 0 0 1 0-2.405l1.514-1.514a9.152 9.152 0 0 1-1.101-.312l-1.12 1.12a2.703 2.703 0 0 0 0 3.818l4.889 4.888a2.7 2.7 0 0 0 3.818 0l8.798-8.798zM12 9.5a.5.5 0 1 1 .5.5.5.5 0 0 1-.5-.5z"/></g></svg>`,
 
-    unfill: `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="16" height="16" viewBox="0 0 488 488" xml:space="preserve">
+    unfill: `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="20" height="20" viewBox="0 0 488 488" xml:space="preserve">
 <g>
   <g>
-    <path fill="#ffffff" stroke="#000000" stroke-width="18" paint-order="stroke" d="M466.806,93.681L466.806,93.681l-72.48-72.485C380.63,7.499,362.635,0,343.74,0s-36.89,7.498-50.586,21.196l-0.1,0.1
+    <path fill="#ffffff" stroke="#000000" stroke-width="70" paint-order="stroke" d="M466.806,93.681L466.806,93.681l-72.48-72.485C380.63,7.499,362.635,0,343.74,0s-36.89,7.498-50.586,21.196l-0.1,0.1
       l-41.089,42.691L60.619,256.147l-35.89,35.093c0,0-0.1,0-0.1,0.1c-14.596,14.597-23.294,33.493-24.493,52.989
       c-1.2,19.996,5.598,38.392,19.095,51.889l72.48,72.485C104.207,481.201,120.902,488,139.197,488c1.4,0,2.899,0,4.399-0.1
       c19.595-1.1,38.389-9.798,53.085-24.495l41.888-42.691l185.449-184.662l42.688-41.092l0.1-0.1
@@ -203,7 +203,7 @@ window.CURSOR_SVG = {
 </svg>`,
 };
 
-window.encodeCursors = function() {
+window.encodeCursors = function () {
     for (const [name, svg] of Object.entries(window.CURSOR_SVG)) {
         const encoded = 'url("data:image/svg+xml,' + encodeURIComponent(svg.replace(/\n\s*/g, '')) + '")';
         console.log(`--- ${name} ---\n${encoded}\n`);
@@ -259,18 +259,18 @@ fillColorInput.addEventListener("blur", () => {
 })
 
 function renderRecentSlots() {
-  for (let i = 0; i < 3; i++) {
-    const slot = document.getElementById(`ctb-recent-${i}`);
-    if (lastUsedColors[i]) {
-        slot.classList.remove('empty');
-        slot.style.background = lastUsedColors[i];
-        slot.onclick = () => selectRecentColor(lastUsedColors[i], slot);
-    } else {
-        slot.classList.add('empty');
-        slot.style.background = '';
-        slot.onclick = null;
+    for (let i = 0; i < 3; i++) {
+        const slot = document.getElementById(`ctb-recent-${i}`);
+        if (lastUsedColors[i]) {
+            slot.classList.remove('empty');
+            slot.style.background = lastUsedColors[i];
+            slot.onclick = () => selectRecentColor(lastUsedColors[i], slot);
+        } else {
+            slot.classList.add('empty');
+            slot.style.background = '';
+            slot.onclick = null;
+        }
     }
-  }
 }
 
 function selectRecentColor(hex, slotEl) {
@@ -288,17 +288,6 @@ document.getElementById('canvas-inner').addEventListener('click', e => {
         if (!piece) return;
         pushUndo();
         sq1vis.setPieceColor(piece.id, fillColorInput.value);
-        draw();
-    }
-});
-
-document.getElementById('canvas-inner').addEventListener('contextmenu', e => {
-    if (fillModeActive) {
-        const piece = e.target.closest('.sticker');
-        if (!piece) return;
-        e.preventDefault();
-        pushUndo();
-        sq1vis.resetPieceColor(piece.id);
         draw();
     }
 });
@@ -403,9 +392,6 @@ function draw() {
 
     if (!input) {
         // Draw placeholder cube with muted gray scheme
-        // const realScheme = sq1vis.getColorScheme();
-        // const realPiecesColors = sq1vis.getPiecesColors();
-        // sq1vis.setColorScheme(PLACEHOLDER_SCHEME);
         const html = sq1vis.getSVG(PLACEHOLDER_HEX, size, gap, true, isVertical, showSlice, showSides);
         canvasInner.innerHTML = html;
         updateCanvasCursor();
@@ -437,7 +423,7 @@ function draw() {
 
 /* ─── Export state ────────────────────────────────────── */
 let exportLayer = 'both';
-let exportFmt = 'svg';
+let exportFmt = 'png'; // TODO: WHY DOES SVG STILL SHOW ACTIVE
 
 document.querySelectorAll('.export-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -445,7 +431,7 @@ document.querySelectorAll('.export-tab').forEach(btn => {
         document.querySelectorAll(`.export-tab[data-group="${grp}"]`).forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         if (grp === 'layer') exportLayer = btn.dataset.val;
-        if (grp === 'fmt') exportFmt = btn.dataset.val;
+        if (grp === 'fmt') {exportFmt = btn.dataset.val;  updateCopyVisibility();}
     });
 });
 
@@ -470,14 +456,13 @@ function getExportSVGString(layer) {
     const input = document.getElementById('scramble-input').value.trim();
     const mode = MODES[currentModeIndex].value;
 
-    let muted;
+    let muted, hex;
     if (!input) {
         muted = true;
         hex = PLACEHOLDER_HEX;
     }
     else {
         muted = muteActive
-        let hex;
         if (mode === 'hex') {
             hex = input;
         } else if (mode === 'inverse') {
@@ -535,7 +520,6 @@ function getExportSVGString(layer) {
 
 async function doExport(methodOverride) {
     const method = methodOverride || exportMethod;
-    const input = document.getElementById('scramble-input').value.trim();
 
     const svgStr = getExportSVGString(exportLayer);
     if (!svgStr) return;
@@ -565,7 +549,7 @@ async function doExport(methodOverride) {
                     canvas.width  = img.naturalWidth  || img.width  || 800;
                     canvas.height = img.naturalHeight || img.height || 400;
                     const ctx = canvas.getContext('2d');
-                    if (fmt === 'jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+                    if (fmt === 'jpeg' || fmt === 'bmp') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
                     ctx.drawImage(img, 0, 0);
                     URL.revokeObjectURL(url);
                     resolve(canvas);
@@ -594,12 +578,13 @@ async function doExport(methodOverride) {
             const pngBlob = await res.blob();
             try {
                 await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
-                flashBtn('Copied to clipboard!');
+                if (exportFmt === "png") flashBtn('Copied to clipboard!');
+                else flashBtn(`Browser copying ${exportFmt.toLocaleUpperCase()}s isn't possible. Copied PNG instead.`)
             } catch { flashBtn('Failed to copy to clipboard'); }
         } else {
             canvas.toBlob(blob => triggerDownload(blob, `${fname}.${ext}`), mime);
         }
-    } catch(err) {
+    } catch (err) {
         flashBtn('Export failed');
         console.error(err);
     }
@@ -689,32 +674,32 @@ const floatingBtn = document.getElementById('floating-export-btn');
 const isMobile = () => window.innerWidth <= 768;
 
 function setSidebarOpen(open) {
-  if (open) {
-    sidebar.classList.remove('hidden');
-    if (isMobile()) floatingBtn.style.display = 'none';
-    else floatingBtn.style.display = 'none';
-  } else {
-    sidebar.classList.add('hidden');
-    floatingBtn.style.display = 'flex';
-  }
+    if (open) {
+        sidebar.classList.remove('hidden');
+        if (isMobile()) floatingBtn.style.display = 'none';
+        else floatingBtn.style.display = 'none';
+    } else {
+        sidebar.classList.add('hidden');
+        floatingBtn.style.display = 'flex';
+    }
 }
 
-// Start closed on mobile, open on desktop
-setSidebarOpen(!isMobile());
+// // Start closed on mobile, open on desktop
+// setSidebarOpen(!isMobile());
 
 hamburgerBtn.addEventListener('click', () => {
-  setSidebarOpen(sidebar.classList.contains('hidden'));
+    setSidebarOpen(sidebar.classList.contains('hidden'));
 });
 
 // Close sidebar when clicking outside on mobile
 document.addEventListener('click', e => {
-  if (!isMobile()) return;
-  if (!sidebar.classList.contains('hidden') &&
-      !sidebar.contains(e.target) &&
-      e.target !== hamburgerBtn &&
-      !hamburgerBtn.contains(e.target)) {
-    setSidebarOpen(false);
-  }
+    if (!isMobile()) return;
+    if (!sidebar.classList.contains('hidden') &&
+        !sidebar.contains(e.target) &&
+        e.target !== hamburgerBtn &&
+        !hamburgerBtn.contains(e.target)) {
+        setSidebarOpen(false);
+    }
 });
 
 /* ─── Floating export button ──────────────────────── */
@@ -725,45 +710,67 @@ const febSplitBtn = document.getElementById('feb-split-btn');
 const febDropdown = document.getElementById('feb-dropdown');
 
 function setFebMode(mode) {
-  febMode = mode;
-  febActionIcon.src = mode === 'download' ? 'src/download.svg' : 'src/copy.svg';
-  document.querySelectorAll('.feb-option').forEach(o => {
-    o.classList.toggle('active', o.dataset.mode === mode);
-  });
+    febMode = mode;
+    febActionIcon.src = mode === 'download' ? 'src/download.svg' : 'src/copy.svg';
+    document.querySelectorAll('.feb-option').forEach(o => {
+        o.classList.toggle('active', o.dataset.mode === mode);
+    });
 }
 setFebMode('download');
 
+function updateCopyVisibility() {
+    const atBottom = sidebar.scrollHeight - sidebar.scrollTop - sidebar.clientHeight < 2;
+    const hide = exportFmt === 'jpeg' || exportFmt === 'bmp';
+    // Sidebar
+    document.getElementById('do-copy').style.display = hide ? 'none' : '';
+    // Context menu (added via separate snippet)
+    const ctxCopy = document.getElementById('ctx-copy');
+    if (ctxCopy) ctxCopy.style.display = hide ? 'none' : '';
+    // Floating button dropdown option
+    document.querySelectorAll('.feb-option[data-mode="copy"]').forEach(o => {
+        o.style.display = hide ? 'none' : '';
+    });
+    // If FEB is currently in copy mode, kick it back to download
+    if (hide && febMode === 'copy') setFebMode('download');
+    // Hide the split arrow entirely if there's nothing left to switch to
+    febSplitBtn.style.display = hide ? 'none' : '';
+    if (atBottom) sidebar.scrollTop = sidebar.scrollHeight;
+}
+
 let febClickTimer = null;
 febActionBtn.addEventListener('click', () => {
-  if (febClickTimer) return;
-  febClickTimer = setTimeout(() => {
-    febClickTimer = null;
-    doExport(febMode === 'download' ? 'download' : 'clipboard');
-  }, 250);
+    if (febClickTimer) return;
+    febClickTimer = setTimeout(() => {
+        febClickTimer = null;
+        const copyHidden = exportFmt === 'jpeg' || exportFmt === 'bmp';
+        doExport((febMode === 'copy' && !copyHidden) ? 'clipboard' : 'download');
+    }, 250);
 });
 
 febActionBtn.addEventListener('dblclick', e => {
-  e.preventDefault();
-  if (febClickTimer) { clearTimeout(febClickTimer); febClickTimer = null; }
-  setFebMode(febMode === 'download' ? 'copy' : 'download');
+    e.preventDefault();
+    if (febClickTimer) { clearTimeout(febClickTimer); febClickTimer = null; }
+    const copyHidden = exportFmt === 'jpeg' || exportFmt === 'bmp';
+    if (copyHidden) return;
+    setFebMode(febMode === 'download' ? 'copy' : 'download');
 });
 
 febSplitBtn.addEventListener('click', e => {
-  e.stopPropagation();
-  febDropdown.style.display = febDropdown.style.display === 'none' ? 'block' : 'none';
+    e.stopPropagation();
+    febDropdown.style.display = febDropdown.style.display === 'none' ? 'block' : 'none';
 });
 
 document.querySelectorAll('.feb-option').forEach(opt => {
-  opt.addEventListener('click', () => {
-    setFebMode(opt.dataset.mode);
-    febDropdown.style.display = 'none';
-  });
+    opt.addEventListener('click', () => {
+        setFebMode(opt.dataset.mode);
+        febDropdown.style.display = 'none';
+    });
 });
 
 document.addEventListener('click', e => {
-  if (!febDropdown.contains(e.target) && e.target !== febSplitBtn) {
-    febDropdown.style.display = 'none';
-  }
+    if (!febDropdown.contains(e.target) && e.target !== febSplitBtn) {
+        febDropdown.style.display = 'none';
+    }
 });
 
 /* ─── Init ────────────────────────────────────────── */
@@ -799,7 +806,7 @@ document.addEventListener('click', e => {
     }
 
     function svgStringForHex(hex, s) {
-        const PAD = Math.round(s.size * (220/400) * 0.28);
+        const PAD = Math.round(s.size * (220 / 400) * 0.28);
         const tmp = document.createElement('div');
         tmp.innerHTML = sq1vis.getSVG(hex, s.size, s.gap, muteActive, s.isVertical, s.showSlice, s.showSides, PAD);
         const svgs = tmp.querySelectorAll('svg');
@@ -824,25 +831,25 @@ document.addEventListener('click', e => {
     }
 
     async function rasterizeBlob(svgStr, fmt) {
-    return new Promise((res, rej) => {
-        const img = new Image();
-        const url = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
-        img.onload = () => {
-            const c = document.createElement('canvas');
-            c.width  = img.naturalWidth  || img.width;
-            c.height = img.naturalHeight || img.height;
-            const ctx = c.getContext('2d');
-            if (fmt === 'jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height); }
-            ctx.drawImage(img, 0, 0);
-            URL.revokeObjectURL(url);
-            if (fmt === 'bmp') { res(createBMP32(c)); return; }
-            const mime = fmt === 'jpeg' ? 'image/jpeg' : 'image/png';
-            c.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), mime);
-        };
-        img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('img load failed')); };
-        img.src = url;
-    });
-}
+        return new Promise((res, rej) => {
+            const img = new Image();
+            const url = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                c.width = img.naturalWidth || img.width;
+                c.height = img.naturalHeight || img.height;
+                const ctx = c.getContext('2d');
+                if (fmt === 'jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height); }
+                ctx.drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+                if (fmt === 'bmp') { res(createBMP32(c)); return; }
+                const mime = fmt === 'jpeg' ? 'image/jpeg' : 'image/png';
+                c.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), mime);
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('img load failed')); };
+            img.src = url;
+        });
+    }
 
     // ── modal wiring ─────────────────────────────────
     const overlay      = document.getElementById('bulk-modal-overlay');
@@ -861,7 +868,7 @@ document.addEventListener('click', e => {
     const dropLabel    = document.getElementById('bulk-dropzone-label');
 
     let pendingExportFn = null;
-    let loadedXlsxFile  = null;
+    let loadedXlsxFile = null;
 
     openBtn.addEventListener('click', () => overlay.classList.add('open'));
     closeBtn.addEventListener('click', () => overlay.classList.remove('open'));
@@ -913,14 +920,14 @@ document.addEventListener('click', e => {
 
         const s = getCurrentSettings();
         const invalids = [];
-        const valid    = [];
+        const valid = [];
 
         lines.forEach((line, i) => {
             try {
                 const hex = inputToHex(line, s);
-                valid.push({ label: `line-${i+1}`, hex });
+                valid.push({ label: `line-${i + 1}`, hex });
             } catch {
-                invalids.push(`Line ${i+1}: "${line}"`);
+                invalids.push(`Line ${i + 1}: "${line}"`);
             }
         });
 
@@ -929,7 +936,7 @@ document.addEventListener('click', e => {
             for (const item of valid) {
                 try {
                     const svgStr = svgStringForHex(item.hex, s);
-                    const blob   = await rasterizeBlob(svgStr, exportFmt === 'svg' ? 'png' : exportFmt);
+                    const blob = await rasterizeBlob(svgStr, exportFmt === 'svg' ? 'png' : exportFmt);
                     zip.file(`${item.label}.png`, blob);
                 } catch { /* skip render errors silently */ }
             }
@@ -944,309 +951,309 @@ document.addEventListener('click', e => {
 
     // ── XLSX EXPORT ───────────────────────────────────
     async function processXlsx(outputMode) {
-    if (!loadedXlsxFile) return flashBtn('No file selected.');
-    const s   = getCurrentSettings();
-    const fmt = exportFmt === 'svg' ? 'png' : exportFmt; // svg doesn't embed well in xlsx, fallback to png
-    const mimeForFmt = { png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/png' }; // bmp→png for xlsx compat
-    const extForFmt  = { png: 'png', jpeg: 'jpeg', bmp: 'png' };
-    const imgMime    = mimeForFmt[fmt] || 'image/png';
-    const imgExt     = extForFmt[fmt]  || 'png';
-    const imgContentType = imgMime === 'image/jpeg'
-        ? 'image/jpeg'
-        : 'image/png';
-    const xlsxImgType = imgMime === 'image/jpeg' ? 'jpeg' : 'png';
+        if (!loadedXlsxFile) return flashBtn('No file selected.');
+        const s   = getCurrentSettings();
+        const fmt = exportFmt === 'svg' ? 'png' : exportFmt; // svg doesn't embed well in xlsx, fallback to png
+        const mimeForFmt = { png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/png' }; // bmp→png for xlsx compat
+        const extForFmt  = { png: 'png', jpeg: 'jpeg', bmp: 'png' };
+        const imgMime    = mimeForFmt[fmt] || 'image/png';
+        const imgExt     = extForFmt[fmt]  || 'png';
+        const imgContentType = imgMime === 'image/jpeg'
+            ? 'image/jpeg'
+            : 'image/png';
+        const xlsxImgType = imgMime === 'image/jpeg' ? 'jpeg' : 'png';
 
-    const arrayBuf = await loadedXlsxFile.arrayBuffer();
-    const wb       = XLSX.read(arrayBuf, { type: 'array' });
+        const arrayBuf = await loadedXlsxFile.arrayBuffer();
+        const wb = XLSX.read(arrayBuf, { type: 'array' });
 
-    const tasks    = [];
-    const invalids = [];
+        const tasks = [];
+        const invalids = [];
 
-    wb.SheetNames.forEach((sheetName, si) => {
-        const ws = wb.Sheets[sheetName];
-        if (!ws || !ws['!ref']) return;
-        const range = XLSX.utils.decode_range(ws['!ref']);
-        for (let R = range.s.r; R <= range.e.r; R++) {
-            for (let C = range.s.c; C <= range.e.c; C++) {
-                const addr = XLSX.utils.encode_cell({ r: R, c: C });
-                const cell = ws[addr];
-                if (!cell || cell.v === undefined || cell.v === '') continue;
-                const raw = String(cell.v).trim();
-                if (!raw) continue;
-                try {
-                    const hex = inputToHex(raw, s);
-                    tasks.push({ sheetIdx: si, sheetName, cellAddr: addr, row: R, col: C, hex, valid: true });
-                } catch {
-                    invalids.push(`Sheet "${sheetName}" ${addr}: "${raw}"`);
-                    tasks.push({ sheetIdx: si, sheetName, cellAddr: addr, row: R, col: C, hex: null, valid: false, rawVal: raw });
-                }
-            }
-        }
-    });
-
-    const doExport = async () => {
-        // ── Render all images ──────────────────────────────
-        // taskImgMap: taskIdx → { blob, uint8, w, h }
-        const taskImgMap = new Map();
-        for (let i = 0; i < tasks.length; i++) {
-            const t = tasks[i];
-            if (!t.valid) continue;
-            try {
-                const svgStr = svgStringForHex(t.hex, s);
-                const blob   = await rasterizeBlob(svgStr, fmt);
-                const abuf   = await blob.arrayBuffer();
-                const uint8  = new Uint8Array(abuf);
-                // Read dimensions from PNG/JPEG header
-                let w = 400, h = 400;
-                if (imgExt === 'png') {
-                    const dv = new DataView(abuf);
-                    w = dv.getUint32(16); h = dv.getUint32(20);
-                } else if (imgExt === 'jpeg') {
-                    // scan for SOF0/SOF2 marker
-                    const dv = new DataView(abuf);
-                    let off = 2;
-                    while (off < abuf.byteLength - 8) {
-                        const marker = dv.getUint16(off);
-                        const len    = dv.getUint16(off + 2);
-                        if (marker === 0xFFC0 || marker === 0xFFC2) {
-                            h = dv.getUint16(off + 5);
-                            w = dv.getUint16(off + 7);
-                            break;
-                        }
-                        off += 2 + len;
+        wb.SheetNames.forEach((sheetName, si) => {
+            const ws = wb.Sheets[sheetName];
+            if (!ws || !ws['!ref']) return;
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            for (let R = range.s.r; R <= range.e.r; R++) {
+                for (let C = range.s.c; C <= range.e.c; C++) {
+                    const addr = XLSX.utils.encode_cell({ r: R, c: C });
+                    const cell = ws[addr];
+                    if (!cell || cell.v === undefined || cell.v === '') continue;
+                    const raw = String(cell.v).trim();
+                    if (!raw) continue;
+                    try {
+                        const hex = inputToHex(raw, s);
+                        tasks.push({ sheetIdx: si, sheetName, cellAddr: addr, row: R, col: C, hex, valid: true });
+                    } catch {
+                        invalids.push(`Sheet "${sheetName}" ${addr}: "${raw}"`);
+                        tasks.push({ sheetIdx: si, sheetName, cellAddr: addr, row: R, col: C, hex: null, valid: false, rawVal: raw });
                     }
                 }
-                taskImgMap.set(i, { blob, uint8, w, h });
-            } catch (e) { console.warn('render failed for task', i, e); }
-        }
+            }
+        });
 
-        if (outputMode === 'zip') {
-            const zip = new JSZip();
-            for (const [i, img] of taskImgMap) {
+        const doExport = async () => {
+            // ── Render all images ──────────────────────────────
+            // taskImgMap: taskIdx → { blob, uint8, w, h }
+            const taskImgMap = new Map();
+            for (let i = 0; i < tasks.length; i++) {
                 const t = tasks[i];
-                zip.file(`${t.sheetName}-${t.cellAddr}.${imgExt}`, img.blob);
+                if (!t.valid) continue;
+                try {
+                    const svgStr = svgStringForHex(t.hex, s);
+                    const blob = await rasterizeBlob(svgStr, fmt);
+                    const abuf = await blob.arrayBuffer();
+                    const uint8 = new Uint8Array(abuf);
+                    // Read dimensions from PNG/JPEG header
+                    let w = 400, h = 400;
+                    if (imgExt === 'png') {
+                        const dv = new DataView(abuf);
+                        w = dv.getUint32(16); h = dv.getUint32(20);
+                    } else if (imgExt === 'jpeg') {
+                        // scan for SOF0/SOF2 marker
+                        const dv = new DataView(abuf);
+                        let off = 2;
+                        while (off < abuf.byteLength - 8) {
+                            const marker = dv.getUint16(off);
+                            const len = dv.getUint16(off + 2);
+                            if (marker === 0xFFC0 || marker === 0xFFC2) {
+                                h = dv.getUint16(off + 5);
+                                w = dv.getUint16(off + 7);
+                                break;
+                            }
+                            off += 2 + len;
+                        }
+                    }
+                    taskImgMap.set(i, { blob, uint8, w, h });
+                } catch (e) { console.warn('render failed for task', i, e); }
             }
-            const blob = await zip.generateAsync({ type: 'blob' });
-            triggerDownload(blob, 'bulk-export.zip');
-            overlay.classList.remove('open');
-            return;
-        }
 
-        // ── XLSX with embedded images via raw ZIP surgery ──
-
-        // Build clean xlsx — strip valid cell values so image shows over empty cell
-        const newWb = XLSX.utils.book_new();
-        for (let si = 0; si < wb.SheetNames.length; si++) {
-            const sheetName = wb.SheetNames[si];
-            const srcWs = wb.Sheets[sheetName];
-            if (!srcWs) { XLSX.utils.book_append_sheet(newWb, {}, sheetName); continue; }
-            // shallow clone all keys
-            const ws = {};
-            for (const key of Object.keys(srcWs)) ws[key] = srcWs[key];
-            // clear valid task cells
-            tasks.filter(t => t.sheetIdx === si && t.valid).forEach(t => {
-                ws[t.cellAddr] = { t: 's', v: '' };
-            });
-            XLSX.utils.book_append_sheet(newWb, ws, sheetName);
-        }
-        const xlsxBytes = XLSX.write(newWb, { bookType: 'xlsx', type: 'array' });
-
-        // Re-open as JSZip for surgery
-        const xz = await JSZip.loadAsync(xlsxBytes);
-
-        // ── Helpers ────────────────────────────────────────
-        const nsR   = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-        const nsCT  = 'http://schemas.openxmlformats.org/package/2006/content-types';
-        const nsDrw = 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing';
-        const nsA   = 'http://schemas.openxmlformats.org/drawingml/2006/main';
-        const nsRel = 'http://schemas.openxmlformats.org/package/2006/relationships';
-
-        function xmlEscape(s) {
-            return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        }
-
-        // Read workbook.xml.rels to find actual sheet filenames
-        const wbRelsRaw = await xz.file('xl/_rels/workbook.xml.rels').async('string');
-        // Extract all Relationship targets for worksheets
-        const sheetTargets = {}; // sheetIndex (0-based) → e.g. "worksheets/sheet1.xml"
-        const relMatches = [...wbRelsRaw.matchAll(/<Relationship[^>]+Id="([^"]*)"[^>]+Type="([^"]*)"[^>]+Target="([^"]*)"/g)];
-        for (const m of relMatches) {
-            const [, id, type, target] = m;
-            if (type.endsWith('/worksheet')) {
-                // SheetJS orders sheets rId1, rId2... matching SheetNames order
-                const num = parseInt(id.replace('rId',''), 10) - 1;
-                sheetTargets[num] = target.startsWith('/xl/') ? target.slice(4) : target.startsWith('xl/') ? target.slice(3) : target;
+            if (outputMode === 'zip') {
+                const zip = new JSZip();
+                for (const [i, img] of taskImgMap) {
+                    const t = tasks[i];
+                    zip.file(`${t.sheetName}-${t.cellAddr}.${imgExt}`, img.blob);
+                }
+                const blob = await zip.generateAsync({ type: 'blob' });
+                triggerDownload(blob, 'bulk-export.zip');
+                overlay.classList.remove('open');
+                return;
             }
-        }
 
-        // Group tasks by sheet
-        const bySheet = new Map();
-        for (let i = 0; i < tasks.length; i++) {
-            const t = tasks[i];
-            if (!taskImgMap.has(i)) continue;
-            if (!bySheet.has(t.sheetIdx)) bySheet.set(t.sheetIdx, []);
-            bySheet.get(t.sheetIdx).push({ t, imgData: taskImgMap.get(i), globalIdx: i });
-        }
+            // ── XLSX with embedded images via raw ZIP surgery ──
 
-        // Track content-types overrides to add
-        const ctOverrides = []; // { partName, contentType }
-        const ctDefaults  = []; // { ext, contentType }
+            // Build clean xlsx — strip valid cell values so image shows over empty cell
+            const newWb = XLSX.utils.book_new();
+            for (let si = 0; si < wb.SheetNames.length; si++) {
+                const sheetName = wb.SheetNames[si];
+                const srcWs = wb.Sheets[sheetName];
+                if (!srcWs) { XLSX.utils.book_append_sheet(newWb, {}, sheetName); continue; }
+                // shallow clone all keys
+                const ws = {};
+                for (const key of Object.keys(srcWs)) ws[key] = srcWs[key];
+                // clear valid task cells
+                tasks.filter(t => t.sheetIdx === si && t.valid).forEach(t => {
+                    ws[t.cellAddr] = { t: 's', v: '' };
+                });
+                XLSX.utils.book_append_sheet(newWb, ws, sheetName);
+            }
+            const xlsxBytes = XLSX.write(newWb, { bookType: 'xlsx', type: 'array' });
 
-        for (const [si, entries] of bySheet) {
-            const drawingNum  = si + 1;
-            const drawingFile = `drawings/drawing${drawingNum}.xml`;
-            const drawingPath = `xl/${drawingFile}`;
-            const drawingRelsPath = `xl/drawings/_rels/drawing${drawingNum}.xml.rels`;
-            const sheetFile   = sheetTargets[si] || `worksheets/sheet${si+1}.xml`;
-            const sheetPath   = `xl/${sheetFile}`;
-            const sheetRelsPath = `xl/${sheetFile.replace('worksheets/','worksheets/_rels/').replace('.xml','.xml.rels')}`;
+            // Re-open as JSZip for surgery
+            const xz = await JSZip.loadAsync(xlsxBytes);
 
-            // ── Add media files ──────────────────────────────
-            const drawingRelEntries = []; // { rId, target, imgFile }
-            let rIdN = 1;
-            for (const { t, imgData, globalIdx } of entries) {
-                const imgFile = `image_s${si}_${t.cellAddr}.${imgExt}`;
-                xz.file(`xl/media/${imgFile}`, imgData.uint8);
-                drawingRelEntries.push({
-                    rId: `rId${rIdN++}`,
-                    target: `../media/${imgFile}`,
-                    t, imgData, globalIdx
+            // ── Helpers ────────────────────────────────────────
+            const nsR   = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+            const nsCT  = 'http://schemas.openxmlformats.org/package/2006/content-types';
+            const nsDrw = 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing';
+            const nsA   = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+            const nsRel = 'http://schemas.openxmlformats.org/package/2006/relationships';
+
+            function xmlEscape(s) {
+                return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            // Read workbook.xml.rels to find actual sheet filenames
+            const wbRelsRaw = await xz.file('xl/_rels/workbook.xml.rels').async('string');
+            // Extract all Relationship targets for worksheets
+            const sheetTargets = {}; // sheetIndex (0-based) → e.g. "worksheets/sheet1.xml"
+            const relMatches = [...wbRelsRaw.matchAll(/<Relationship[^>]+Id="([^"]*)"[^>]+Type="([^"]*)"[^>]+Target="([^"]*)"/g)];
+            for (const m of relMatches) {
+                const [, id, type, target] = m;
+                if (type.endsWith('/worksheet')) {
+                    // SheetJS orders sheets rId1, rId2... matching SheetNames order
+                    const num = parseInt(id.replace('rId', ''), 10) - 1;
+                    sheetTargets[num] = target.startsWith('/xl/') ? target.slice(4) : target.startsWith('xl/') ? target.slice(3) : target;
+                }
+            }
+
+            // Group tasks by sheet
+            const bySheet = new Map();
+            for (let i = 0; i < tasks.length; i++) {
+                const t = tasks[i];
+                if (!taskImgMap.has(i)) continue;
+                if (!bySheet.has(t.sheetIdx)) bySheet.set(t.sheetIdx, []);
+                bySheet.get(t.sheetIdx).push({ t, imgData: taskImgMap.get(i), globalIdx: i });
+            }
+
+            // Track content-types overrides to add
+            const ctOverrides = []; // { partName, contentType }
+            const ctDefaults = []; // { ext, contentType }
+
+            for (const [si, entries] of bySheet) {
+                const drawingNum = si + 1;
+                const drawingFile = `drawings/drawing${drawingNum}.xml`;
+                const drawingPath = `xl/${drawingFile}`;
+                const drawingRelsPath = `xl/drawings/_rels/drawing${drawingNum}.xml.rels`;
+                const sheetFile = sheetTargets[si] || `worksheets/sheet${si + 1}.xml`;
+                const sheetPath = `xl/${sheetFile}`;
+                const sheetRelsPath = `xl/${sheetFile.replace('worksheets/', 'worksheets/_rels/').replace('.xml', '.xml.rels')}`;
+
+                // ── Add media files ──────────────────────────────
+                const drawingRelEntries = []; // { rId, target, imgFile }
+                let rIdN = 1;
+                for (const { t, imgData, globalIdx } of entries) {
+                    const imgFile = `image_s${si}_${t.cellAddr}.${imgExt}`;
+                    xz.file(`xl/media/${imgFile}`, imgData.uint8);
+                    drawingRelEntries.push({
+                        rId: `rId${rIdN++}`,
+                        target: `../media/${imgFile}`,
+                        t, imgData, globalIdx
+                    });
+                }
+
+                // ── drawing xml ──────────────────────────────────
+                let anchors = '';
+                let picId = 2;
+                for (const { rId, t, imgData } of drawingRelEntries) {
+                    const emuW = Math.round(imgData.w * 9525);
+                    const emuH = Math.round(imgData.h * 9525);
+                    anchors += `<xdr:oneCellAnchor>` +
+                        `<xdr:from><xdr:col>${t.col}</xdr:col><xdr:colOff>0</xdr:colOff>` +
+                        `<xdr:row>${t.row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>` +
+                        `<xdr:ext cx="${emuW}" cy="${emuH}"/>` +
+                        `<xdr:pic>` +
+                        `<xdr:nvPicPr>` +
+                        `<xdr:cNvPr id="${picId++}" name="${xmlEscape('img_' + t.cellAddr)}"/>` +
+                        `<xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr>` +
+                        `</xdr:nvPicPr>` +
+                        `<xdr:blipFill>` +
+                        `<a:blip r:embed="${rId}"/>` +
+                        `<a:stretch><a:fillRect/></a:stretch>` +
+                        `</xdr:blipFill>` +
+                        `<xdr:spPr>` +
+                        `<a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm>` +
+                        `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
+                        `</xdr:spPr>` +
+                        `</xdr:pic>` +
+                        `<xdr:clientData/>` +
+                        `</xdr:oneCellAnchor>`;
+                }
+
+                const drawingXml =
+                    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+                    `<xdr:wsDr` +
+                    ` xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"` +
+                    ` xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"` +
+                    ` xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"` +
+                    `>${anchors}</xdr:wsDr>`;
+                xz.file(drawingPath, drawingXml);
+
+                // ── drawing rels ─────────────────────────────────
+                const drawingRelsXml =
+                    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+                    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+                    drawingRelEntries.map(({ rId, target }) =>
+                        `<Relationship Id="${rId}"` +
+                        ` Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"` +
+                        ` Target="${xmlEscape(target)}"/>`
+                    ).join('') +
+                    `</Relationships>`;
+                xz.file(drawingRelsPath, drawingRelsXml);
+
+                // ── patch sheet xml ──────────────────────────────
+                let sheetXml = await xz.file(sheetPath).async('string');
+
+                // Ensure xmlns:r on worksheet element (only if not already there)
+                if (!sheetXml.includes('xmlns:r=')) {
+                    sheetXml = sheetXml.replace(/(<worksheet\b)/, `$1 xmlns:r="${nsR}"`);
+                }
+                // Remove any existing <drawing .../> tags to avoid duplicates
+                sheetXml = sheetXml.replace(/<drawing\b[^>]*\/>/g, '');
+                // Remove legacy pageMargins / pageSetup blocks to inject cleanly before </worksheet>
+                // Inject <drawing> ref as last child of worksheet (must come after sheetData, after pageMargins etc.)
+                const drawingTag = `<drawing r:id="rId_drw${drawingNum}"/>`;
+                if (sheetXml.includes('</worksheet>')) {
+                    sheetXml = sheetXml.replace('</worksheet>', `${drawingTag}</worksheet>`);
+                } else {
+                    sheetXml += drawingTag;
+                }
+                xz.file(sheetPath, sheetXml);
+
+                // ── patch sheet rels ─────────────────────────────
+                let sheetRelsXml;
+                const sheetRelsFile = xz.file(sheetRelsPath);
+                if (sheetRelsFile) {
+                    sheetRelsXml = await sheetRelsFile.async('string');
+                    // Remove any stale drawing relationships
+                    sheetRelsXml = sheetRelsXml.replace(/<Relationship[^>]*drawing[^>]*\/>/g, '');
+                } else {
+                    sheetRelsXml =
+                        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+                        `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`;
+                }
+                const drawingRelEntry =
+                    `<Relationship Id="rId_drw${drawingNum}"` +
+                    ` Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"` +
+                    ` Target="../${drawingFile}"/>`;
+                sheetRelsXml = sheetRelsXml.replace('</Relationships>', `${drawingRelEntry}</Relationships>`);
+                xz.file(sheetRelsPath, sheetRelsXml);
+
+                // Queue content type entries
+                ctOverrides.push({
+                    partName: `/xl/${drawingFile}`,
+                    contentType: 'application/vnd.openxmlformats-officedocument.drawing+xml'
                 });
             }
 
-            // ── drawing xml ──────────────────────────────────
-            let anchors = '';
-            let picId = 2;
-            for (const { rId, t, imgData } of drawingRelEntries) {
-                const emuW = Math.round(imgData.w * 9525);
-                const emuH = Math.round(imgData.h * 9525);
-                anchors += `<xdr:oneCellAnchor>` +
-                    `<xdr:from><xdr:col>${t.col}</xdr:col><xdr:colOff>0</xdr:colOff>` +
-                    `<xdr:row>${t.row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>` +
-                    `<xdr:ext cx="${emuW}" cy="${emuH}"/>` +
-                    `<xdr:pic>` +
-                    `<xdr:nvPicPr>` +
-                    `<xdr:cNvPr id="${picId++}" name="${xmlEscape('img_'+t.cellAddr)}"/>` +
-                    `<xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr>` +
-                    `</xdr:nvPicPr>` +
-                    `<xdr:blipFill>` +
-                    `<a:blip r:embed="${rId}"/>` +
-                    `<a:stretch><a:fillRect/></a:stretch>` +
-                    `</xdr:blipFill>` +
-                    `<xdr:spPr>` +
-                    `<a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm>` +
-                    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
-                    `</xdr:spPr>` +
-                    `</xdr:pic>` +
-                    `<xdr:clientData/>` +
-                    `</xdr:oneCellAnchor>`;
+            // ── Patch [Content_Types].xml ────────────────────────
+            let ctXml = await xz.file('[Content_Types].xml').async('string');
+
+            // Add image extension default if missing
+            if (!ctXml.includes(`Extension="${imgExt}"`)) {
+                ctDefaults.push({ ext: imgExt, contentType: imgContentType });
             }
-
-            const drawingXml =
-                `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-                `<xdr:wsDr` +
-                ` xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"` +
-                ` xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"` +
-                ` xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"` +
-                `>${anchors}</xdr:wsDr>`;
-            xz.file(drawingPath, drawingXml);
-
-            // ── drawing rels ─────────────────────────────────
-            const drawingRelsXml =
-                `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-                `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-                drawingRelEntries.map(({ rId, target }) =>
-                    `<Relationship Id="${rId}"` +
-                    ` Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"` +
-                    ` Target="${xmlEscape(target)}"/>`
-                ).join('') +
-                `</Relationships>`;
-            xz.file(drawingRelsPath, drawingRelsXml);
-
-            // ── patch sheet xml ──────────────────────────────
-            let sheetXml = await xz.file(sheetPath).async('string');
-
-            // Ensure xmlns:r on worksheet element (only if not already there)
-            if (!sheetXml.includes('xmlns:r=')) {
-                sheetXml = sheetXml.replace(/(<worksheet\b)/, `$1 xmlns:r="${nsR}"`);
-            }
-            // Remove any existing <drawing .../> tags to avoid duplicates
-            sheetXml = sheetXml.replace(/<drawing\b[^>]*\/>/g, '');
-            // Remove legacy pageMargins / pageSetup blocks to inject cleanly before </worksheet>
-            // Inject <drawing> ref as last child of worksheet (must come after sheetData, after pageMargins etc.)
-            const drawingTag = `<drawing r:id="rId_drw${drawingNum}"/>`;
-            if (sheetXml.includes('</worksheet>')) {
-                sheetXml = sheetXml.replace('</worksheet>', `${drawingTag}</worksheet>`);
-            } else {
-                sheetXml += drawingTag;
-            }
-            xz.file(sheetPath, sheetXml);
-
-            // ── patch sheet rels ─────────────────────────────
-            let sheetRelsXml;
-            const sheetRelsFile = xz.file(sheetRelsPath);
-            if (sheetRelsFile) {
-                sheetRelsXml = await sheetRelsFile.async('string');
-                // Remove any stale drawing relationships
-                sheetRelsXml = sheetRelsXml.replace(/<Relationship[^>]*drawing[^>]*\/>/g, '');
-            } else {
-                sheetRelsXml =
-                    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-                    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`;
-            }
-            const drawingRelEntry =
-                `<Relationship Id="rId_drw${drawingNum}"` +
-                ` Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"` +
-                ` Target="../${drawingFile}"/>`;
-            sheetRelsXml = sheetRelsXml.replace('</Relationships>', `${drawingRelEntry}</Relationships>`);
-            xz.file(sheetRelsPath, sheetRelsXml);
-
-            // Queue content type entries
-            ctOverrides.push({
-                partName: `/xl/${drawingFile}`,
-                contentType: 'application/vnd.openxmlformats-officedocument.drawing+xml'
-            });
-        }
-
-        // ── Patch [Content_Types].xml ────────────────────────
-        let ctXml = await xz.file('[Content_Types].xml').async('string');
-
-        // Add image extension default if missing
-        if (!ctXml.includes(`Extension="${imgExt}"`)) {
-            ctDefaults.push({ ext: imgExt, contentType: imgContentType });
-        }
-        for (const { ext, contentType } of ctDefaults) {
-            ctXml = ctXml.replace(
-                '</Types>',
-                `<Default Extension="${ext}" ContentType="${contentType}"/></Types>`
-            );
-        }
-        for (const { partName, contentType } of ctOverrides) {
-            if (!ctXml.includes(`PartName="${partName}"`)) {
+            for (const { ext, contentType } of ctDefaults) {
                 ctXml = ctXml.replace(
                     '</Types>',
-                    `<Override PartName="${partName}" ContentType="${contentType}"/></Types>`
+                    `<Default Extension="${ext}" ContentType="${contentType}"/></Types>`
                 );
             }
-        }
-        xz.file('[Content_Types].xml', ctXml);
+            for (const { partName, contentType } of ctOverrides) {
+                if (!ctXml.includes(`PartName="${partName}"`)) {
+                    ctXml = ctXml.replace(
+                        '</Types>',
+                        `<Override PartName="${partName}" ContentType="${contentType}"/></Types>`
+                    );
+                }
+            }
+            xz.file('[Content_Types].xml', ctXml);
 
-        // ── Generate final xlsx blob ─────────────────────────
-        const finalBlob = await xz.generateAsync({
-            type: 'blob',
-            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            compression: 'DEFLATE',
-            compressionOptions: { level: 6 }
-        });
-        triggerDownload(finalBlob, 'bulk-export.xlsx');
-        overlay.classList.remove('open');
-    };
+            // ── Generate final xlsx blob ─────────────────────────
+            const finalBlob = await xz.generateAsync({
+                type: 'blob',
+                mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 6 }
+            });
+            triggerDownload(finalBlob, 'bulk-export.xlsx');
+            overlay.classList.remove('open');
+        };
 
-    if (invalids.length) showWarn(invalids, doExport);
-    else doExport();
-}
+        if (invalids.length) showWarn(invalids, doExport);
+        else doExport();
+    }
 
-    document.getElementById('bulk-xlsx-export-zip').addEventListener('click',  () => processXlsx('zip'));
+    document.getElementById('bulk-xlsx-export-zip').addEventListener('click', () => processXlsx('zip'));
     document.getElementById('bulk-xlsx-export-xlsx').addEventListener('click', () => processXlsx('xlsx'));
 
 })();
@@ -1300,12 +1307,12 @@ function saveSettings() {
         lastUsedColors,
         // Fill/unfill mode active states (save as inactive — don't restore active tool states)
     };
-    try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch(e) {}
+    try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (e) { }
 }
 
 function loadSettings() {
     let s;
-    try { s = JSON.parse(localStorage.getItem(LS_KEY)); } catch(e) {}
+    try { s = JSON.parse(localStorage.getItem(LS_KEY)); } catch (e) { }
     if (!s) return;
 
     // Display
@@ -1367,12 +1374,14 @@ function loadSettings() {
         document.querySelectorAll('.export-tab[data-group="fmt"]').forEach(b => {
             b.classList.toggle('active', b.dataset.val === exportFmt);
         });
+        updateCopyVisibility();
     }
 
     // Floating button mode
     if (s.febMode) setFebMode(s.febMode);
 
-    // Sidebar state
+    // Sidebar state; this is just to change the floating btn.
+    // Sidebar is already open due to the script in the html
     if (s.sidebarHidden != null) setSidebarOpen(!s.sidebarHidden);
 
     // Mute
@@ -1399,7 +1408,7 @@ function loadSettings() {
 
 // Hook all relevant inputs to save
 function hookSaveListeners() {
-    const ids = ['size-input','size-slider','gap-input','gap-slider','hide-slice','hide-sides'];
+    const ids = ['size-input', 'size-slider', 'gap-input', 'gap-slider', 'hide-slice', 'hide-sides'];
     ids.forEach(id => document.getElementById(id)?.addEventListener('input', saveSettings));
     document.querySelectorAll('input[name=orientation]').forEach(r => r.addEventListener('change', saveSettings));
     document.getElementById('svg-style-select').addEventListener('change', saveSettings);

@@ -62,7 +62,7 @@
     --border: #22262f;
     --border2: #2c3140;
     --text: #d8dce8;
-    --muted: #555d72;
+    --muted: #7a8296;
     --accent: #4fffb0;
     --accent-dim: #1a4d38;
     --danger: #ff5c5c;
@@ -1277,6 +1277,10 @@ input[type=number]::-webkit-outer-spin-button {
     pointer-events: none;
     padding: 0 !important;
     overflow: hidden;
+}
+
+.sidebar.no-transition {
+    transition: none !important;
 }
 
 /* ── SVG Style select proper styling ───────────── */
