@@ -149,6 +149,7 @@ document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); doRedo(); }
 });
 
+const sidebar = document.querySelector('.sidebar');
 const fillModeBtn = document.getElementById('fill-mode-btn');
 const unfillBtn = document.getElementById('fill-unfill-btn');
 const resetBtn = document.getElementById('fill-reset-btn');
@@ -159,9 +160,13 @@ const fillColorSwitch = document.getElementById('fill-color-switch');
 let fillModeActive = false;
 let fillResetActive = false;
 let muteActive = false;
+let exportLayer = 'both';
+let exportFmt = 'png';
+let febMode = 'download'; // 'download' or 'copy'
+let lastUsedColors = [];
+const lastUsedLimit = 3;
 
 const canvasInner = document.getElementById('canvas-inner');
-
 const viewportCanvas = document.getElementById('viewport-canvas');
 
 function updateCanvasCursor() {
@@ -175,6 +180,191 @@ function updateCanvasCursor() {
         viewportCanvas.style.cursor = '';
     }
 }
+/* ─── Sidebar toggle ──────────────────────────────── */
+const hamburgerBtn = document.getElementById('hamburger-btn');
+const floatingBtn = document.getElementById('floating-export-btn');
+const febActionBtn = document.getElementById('feb-action-btn');
+const febActionIcon = document.getElementById('feb-action-icon');
+const febSplitBtn = document.getElementById('feb-split-btn');
+const febDropdown = document.getElementById('feb-dropdown');
+
+const isMobile = () => window.innerWidth <= 768;
+
+function setSidebarOpen(open) {
+    if (open) {
+        sidebar.classList.remove('hidden');
+        if (isMobile()) floatingBtn.style.display = 'none';
+        else floatingBtn.style.display = 'none';
+    } else {
+        sidebar.classList.add('hidden');
+        floatingBtn.style.display = 'flex';
+    }
+}
+
+hamburgerBtn.addEventListener('click', () => {
+    setSidebarOpen(sidebar.classList.contains('hidden'));
+});
+
+// Close sidebar when clicking outside on mobile
+document.addEventListener('click', e => {
+    if (!isMobile()) return;
+    if (!sidebar.classList.contains('hidden') &&
+        !sidebar.contains(e.target) &&
+        e.target !== hamburgerBtn &&
+        !hamburgerBtn.contains(e.target)) {
+        setSidebarOpen(false);
+    }
+});
+
+/* ─── Local Storage persistence ───────────────────── */
+const LS_KEY = 'sq1vis_settings';
+
+function saveSettings() {
+    const settings = {
+        // Display
+        size: document.getElementById('size-input').value,
+        gap: document.getElementById('gap-input').value,
+        orientation: document.querySelector('input[name=orientation]:checked').value,
+        hideSlice: document.getElementById('hide-slice').checked,
+        hideSides: document.getElementById('hide-sides').checked,
+        // Style
+        styleIndex: sq1vis.getActiveStyleIndex(),
+        // Color scheme — save all overrides for all style/variant combos
+        colorOverrides: (() => {
+            const obj = {};
+            for (const style of sq1vis.getStyles()) {
+                for (const withSides of [true, false]) {
+                    const key = `${style.source}_${withSides ? 'with' : 'without'}`;
+                    // temporarily switch to read resolved colors
+                    const prevIdx = sq1vis.getActiveStyleIndex();
+                    const prevSides = sq1vis.getShowSideColors();
+                    sq1vis.setActiveStyle(style.index);
+                    sq1vis.setShowSideColors(withSides);
+                    obj[key] = sq1vis.getColorScheme();
+                    sq1vis.setActiveStyle(prevIdx);
+                    sq1vis.setShowSideColors(prevSides);
+                }
+            }
+            return obj;
+        })(),
+        // Piece fill colors
+        piecesColors: sq1vis.getPiecesColors(),
+        // Export settings
+        exportLayer,
+        exportFmt,
+        // Floating button mode
+        febMode,
+        // Sidebar state
+        sidebarHidden: sidebar.classList.contains('hidden'),
+        // Mute
+        muteActive,
+        // Color scheme panel mode (classical/custom)
+        schemeMode: customBtn.classList.contains('active') ? 'custom' : 'classical',
+        // Recent colors
+        lastUsedColors,
+        // Fill/unfill mode active states (save as inactive — don't restore active tool states)
+    };
+    try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (e) { }
+}
+
+function loadSettings() {
+    let s;
+    try { s = JSON.parse(localStorage.getItem(LS_KEY)); } catch (e) { }
+    if (!s) return;
+
+    // Display
+    if (s.size != null) {
+        document.getElementById('size-input').value = s.size;
+        document.getElementById('size-slider').value = s.size;
+    }
+    if (s.gap != null) {
+        document.getElementById('gap-input').value = s.gap;
+        document.getElementById('gap-slider').value = s.gap;
+    }
+    if (s.orientation) {
+        const r = document.querySelector(`input[name=orientation][value="${s.orientation}"]`);
+        if (r) r.checked = true;
+    }
+    if (s.hideSlice != null) document.getElementById('hide-slice').checked = s.hideSlice;
+    if (s.hideSides != null) {
+        document.getElementById('hide-sides').checked = s.hideSides;
+        sq1vis.setShowSideColors(!s.hideSides);
+    }
+
+    // Style
+    if (s.styleIndex != null) {
+        sq1vis.setActiveStyle(s.styleIndex);
+        document.getElementById('svg-style-select').value = s.styleIndex;
+    }
+
+    // Color overrides — apply all saved overrides
+    if (s.colorOverrides) {
+        for (const style of sq1vis.getStyles()) {
+            for (const withSides of [true, false]) {
+                const key = `${style.source}_${withSides ? 'with' : 'without'}`;
+                const saved = s.colorOverrides[key];
+                if (!saved) continue;
+                const prevIdx = sq1vis.getActiveStyleIndex();
+                const prevSides = sq1vis.getShowSideColors();
+                sq1vis.setActiveStyle(style.index);
+                sq1vis.setShowSideColors(withSides);
+                sq1vis.setColorScheme(saved);
+                sq1vis.setActiveStyle(prevIdx);
+                sq1vis.setShowSideColors(prevSides);
+            }
+        }
+    }
+
+    // Piece fill colors
+    if (s.piecesColors) sq1vis.setPiecesColors(s.piecesColors);
+
+    // Export
+    if (s.exportLayer) {
+        exportLayer = s.exportLayer;
+        document.querySelectorAll('.export-tab[data-group="layer"]').forEach(b => {
+            b.classList.toggle('active', b.dataset.val === exportLayer);
+        });
+    }
+    if (s.exportFmt) {
+        exportFmt = s.exportFmt;
+        document.querySelectorAll('.export-tab[data-group="fmt"]').forEach(b => {
+            b.classList.toggle('active', b.dataset.val === exportFmt);
+        });
+        updateCopyVisibility();
+    }
+
+    // Floating button mode
+    if (s.febMode) setFebMode(s.febMode);
+
+    // Sidebar state; this is just to change the floating btn.
+    // Sidebar is already open due to the script in the html
+    if (s.sidebarHidden != null) setSidebarOpen(!s.sidebarHidden);
+
+    // Mute
+    if (s.muteActive != null) {
+        muteActive = s.muteActive;
+        muteBtn.classList.toggle('active', muteActive);
+    }
+
+    // Scheme mode panel
+    if (s.schemeMode === 'custom') {
+        customBtn.classList.add("no-transition");
+        customBtn.click();
+        customBtn.classList.remove("no-transition");
+    }
+
+    // Recent colors
+    if (s.lastUsedColors) {
+        lastUsedColors = s.lastUsedColors;
+        renderRecentSlots();
+    }
+
+    // Rebuild UI that depends on loaded state
+    updateStyleToggles();
+    buildSchemeGrid();
+}
+
+loadSettings();
 
 // ── Cursor dev helper ─────────────────────────────────
 // Edit SVGs here, then call encodeCursors() in console
@@ -232,9 +422,6 @@ unfillBtn.addEventListener('click', () => {
 
     updateCanvasCursor();
 });
-
-let lastUsedColors = [];
-const lastUsedLimit = 3;
 
 // Keep switch color in sync with the native picker
 fillColorInput.addEventListener('input', () => {
@@ -379,7 +566,12 @@ document.addEventListener('click', () => {
 });
 
 /* ─── Input reactive ──────────────────────────────────── */
-document.getElementById('scramble-input').addEventListener('input', draw);
+document.getElementById('scramble-input').addEventListener('input', (e) => {
+    const currentInput = e.target.value;
+    setTimeout(() => {
+        if (currentInput === document.getElementById('scramble-input').value) draw();
+    }, 200)
+});
 
 function draw() {
     const input = document.getElementById('scramble-input').value;
@@ -410,6 +602,17 @@ function draw() {
             const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
             hex = `${tlHex}|${blHex}`;
         }
+        const hasLoneCorner = (halfLayer) => {
+            for (let c of ['1', '3', '5', '7', '9', 'b', 'd', 'f']) {
+                // if the half layer contains an odd number of this corner
+                if (halfLayer.split(c).length % 2 !== 1) return true;
+            }
+            return false;
+        }
+        if (hasLoneCorner(hex.slice(0, 6)) ||
+            hasLoneCorner(hex.slice(6, 12)) ||
+            hasLoneCorner(hex.slice(13, 19)) ||
+            hasLoneCorner(hex.slice(19, 25))) throw new Error("Invalid position. Double check your scramble!")
 
         const html = sq1vis.getSVG(hex, size, gap, muteActive, isVertical, showSlice, showSides);
         canvasInner.innerHTML = html;
@@ -422,9 +625,6 @@ function draw() {
 }
 
 /* ─── Export state ────────────────────────────────────── */
-let exportLayer = 'both';
-let exportFmt = 'png'; // TODO: WHY DOES SVG STILL SHOW ACTIVE
-
 document.querySelectorAll('.export-tab').forEach(btn => {
     btn.addEventListener('click', () => {
         const grp = btn.dataset.group;
@@ -666,49 +866,7 @@ function flashBtn(msg) {
     flashBtn._t = setTimeout(() => toast.classList.remove('show'), 2200);
 }
 
-/* ─── Sidebar toggle ──────────────────────────────── */
-const sidebar = document.querySelector('.sidebar');
-const hamburgerBtn = document.getElementById('hamburger-btn');
-const floatingBtn = document.getElementById('floating-export-btn');
-
-const isMobile = () => window.innerWidth <= 768;
-
-function setSidebarOpen(open) {
-    if (open) {
-        sidebar.classList.remove('hidden');
-        if (isMobile()) floatingBtn.style.display = 'none';
-        else floatingBtn.style.display = 'none';
-    } else {
-        sidebar.classList.add('hidden');
-        floatingBtn.style.display = 'flex';
-    }
-}
-
-// // Start closed on mobile, open on desktop
-// setSidebarOpen(!isMobile());
-
-hamburgerBtn.addEventListener('click', () => {
-    setSidebarOpen(sidebar.classList.contains('hidden'));
-});
-
-// Close sidebar when clicking outside on mobile
-document.addEventListener('click', e => {
-    if (!isMobile()) return;
-    if (!sidebar.classList.contains('hidden') &&
-        !sidebar.contains(e.target) &&
-        e.target !== hamburgerBtn &&
-        !hamburgerBtn.contains(e.target)) {
-        setSidebarOpen(false);
-    }
-});
-
 /* ─── Floating export button ──────────────────────── */
-let febMode = 'download'; // 'download' or 'copy'
-const febActionBtn = document.getElementById('feb-action-btn');
-const febActionIcon = document.getElementById('feb-action-icon');
-const febSplitBtn = document.getElementById('feb-split-btn');
-const febDropdown = document.getElementById('feb-dropdown');
-
 function setFebMode(mode) {
     febMode = mode;
     febActionIcon.src = mode === 'download' ? 'src/download.svg' : 'src/copy.svg';
@@ -771,6 +929,57 @@ document.addEventListener('click', e => {
     if (!febDropdown.contains(e.target) && e.target !== febSplitBtn) {
         febDropdown.style.display = 'none';
     }
+});
+
+/* ─── Context menu ────────────────────────────────────── */
+const menu = document.getElementById('ctx-menu');
+
+function showMenu(x, y) {
+    menu.style.display = 'block';
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const mw = menu.offsetWidth  || 180;
+    const mh = menu.offsetHeight || 120;
+    menu.style.left = Math.min(x, vw - mw - 8) + 'px';
+    menu.style.top  = Math.min(y, vh - mh - 8) + 'px';
+}
+
+function hideMenu() {
+    menu.style.display = 'none';
+}
+
+function syncFormatFromUI() {
+    const active = document.querySelector('.export-tab.active[data-group="fmt"]');
+    if (active) document.getElementById('ctx-format-select').value = active.dataset.val;
+}
+
+document.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+    const canvas = document.getElementById('viewport-canvas');
+    if (!canvas || !canvas.contains(e.target)) return;
+    syncFormatFromUI();
+    showMenu(e.clientX, e.clientY);
+});
+
+document.addEventListener('mousedown', function (e) {
+    if (!menu.contains(e.target)) hideMenu();
+});
+document.addEventListener('scroll', hideMenu, true);
+window.addEventListener('resize', hideMenu);
+
+document.getElementById('ctx-format-select').addEventListener('change', function () {
+    const matchingTab = document.querySelector(`.export-tab[data-group="fmt"][data-val="${this.value}"]`);
+    if (matchingTab) matchingTab.click();
+    hideMenu();
+});
+
+document.getElementById('ctx-download').addEventListener('click', function () {
+    hideMenu();
+    document.getElementById('do-export').click();
+});
+
+document.getElementById('ctx-copy').addEventListener('click', function () {
+    hideMenu();
+    document.getElementById('do-copy').click();
 });
 
 /* ─── Init ────────────────────────────────────────── */
@@ -1258,154 +1467,6 @@ document.addEventListener('click', e => {
 
 })();
 
-/* ─── Local Storage persistence ───────────────────── */
-const LS_KEY = 'sq1vis_settings';
-
-function saveSettings() {
-    const settings = {
-        // Display
-        size: document.getElementById('size-input').value,
-        gap: document.getElementById('gap-input').value,
-        orientation: document.querySelector('input[name=orientation]:checked').value,
-        hideSlice: document.getElementById('hide-slice').checked,
-        hideSides: document.getElementById('hide-sides').checked,
-        // Style
-        styleIndex: sq1vis.getActiveStyleIndex(),
-        showSideColors: sq1vis.getShowSideColors(),
-        // Color scheme — save all overrides for all style/variant combos
-        colorOverrides: (() => {
-            const obj = {};
-            for (const style of sq1vis.getStyles()) {
-                for (const withSides of [true, false]) {
-                    const key = `${style.source}_${withSides ? 'with' : 'without'}`;
-                    // temporarily switch to read resolved colors
-                    const prevIdx = sq1vis.getActiveStyleIndex();
-                    const prevSides = sq1vis.getShowSideColors();
-                    sq1vis.setActiveStyle(style.index);
-                    sq1vis.setShowSideColors(withSides);
-                    obj[key] = sq1vis.getColorScheme();
-                    sq1vis.setActiveStyle(prevIdx);
-                    sq1vis.setShowSideColors(prevSides);
-                }
-            }
-            return obj;
-        })(),
-        // Piece fill colors
-        piecesColors: sq1vis.getPiecesColors(),
-        // Export settings
-        exportLayer,
-        exportFmt,
-        // Floating button mode
-        febMode,
-        // Sidebar state
-        sidebarHidden: sidebar.classList.contains('hidden'),
-        // Mute
-        muteActive,
-        // Color scheme panel mode (classical/custom)
-        schemeMode: customBtn.classList.contains('active') ? 'custom' : 'classical',
-        // Recent colors
-        lastUsedColors,
-        // Fill/unfill mode active states (save as inactive — don't restore active tool states)
-    };
-    try { localStorage.setItem(LS_KEY, JSON.stringify(settings)); } catch (e) { }
-}
-
-function loadSettings() {
-    let s;
-    try { s = JSON.parse(localStorage.getItem(LS_KEY)); } catch (e) { }
-    if (!s) return;
-
-    // Display
-    if (s.size != null) {
-        document.getElementById('size-input').value = s.size;
-        document.getElementById('size-slider').value = s.size;
-    }
-    if (s.gap != null) {
-        document.getElementById('gap-input').value = s.gap;
-        document.getElementById('gap-slider').value = s.gap;
-    }
-    if (s.orientation) {
-        const r = document.querySelector(`input[name=orientation][value="${s.orientation}"]`);
-        if (r) r.checked = true;
-    }
-    if (s.hideSlice != null) document.getElementById('hide-slice').checked = s.hideSlice;
-    if (s.hideSides != null) {
-        document.getElementById('hide-sides').checked = s.hideSides;
-        sq1vis.setShowSideColors(!s.hideSides);
-    }
-
-    // Style
-    if (s.styleIndex != null) {
-        sq1vis.setActiveStyle(s.styleIndex);
-        document.getElementById('svg-style-select').value = s.styleIndex;
-    }
-    if (s.showSideColors != null) sq1vis.setShowSideColors(s.showSideColors);
-
-    // Color overrides — apply all saved overrides
-    if (s.colorOverrides) {
-        for (const style of sq1vis.getStyles()) {
-            for (const withSides of [true, false]) {
-                const key = `${style.source}_${withSides ? 'with' : 'without'}`;
-                const saved = s.colorOverrides[key];
-                if (!saved) continue;
-                const prevIdx = sq1vis.getActiveStyleIndex();
-                const prevSides = sq1vis.getShowSideColors();
-                sq1vis.setActiveStyle(style.index);
-                sq1vis.setShowSideColors(withSides);
-                sq1vis.setColorScheme(saved);
-                sq1vis.setActiveStyle(prevIdx);
-                sq1vis.setShowSideColors(prevSides);
-            }
-        }
-    }
-
-    // Piece fill colors
-    if (s.piecesColors) sq1vis.setPiecesColors(s.piecesColors);
-
-    // Export
-    if (s.exportLayer) {
-        exportLayer = s.exportLayer;
-        document.querySelectorAll('.export-tab[data-group="layer"]').forEach(b => {
-            b.classList.toggle('active', b.dataset.val === exportLayer);
-        });
-    }
-    if (s.exportFmt) {
-        exportFmt = s.exportFmt;
-        document.querySelectorAll('.export-tab[data-group="fmt"]').forEach(b => {
-            b.classList.toggle('active', b.dataset.val === exportFmt);
-        });
-        updateCopyVisibility();
-    }
-
-    // Floating button mode
-    if (s.febMode) setFebMode(s.febMode);
-
-    // Sidebar state; this is just to change the floating btn.
-    // Sidebar is already open due to the script in the html
-    if (s.sidebarHidden != null) setSidebarOpen(!s.sidebarHidden);
-
-    // Mute
-    if (s.muteActive != null) {
-        muteActive = s.muteActive;
-        muteBtn.classList.toggle('active', muteActive);
-    }
-
-    // Scheme mode panel
-    if (s.schemeMode === 'custom') {
-        customBtn.click();
-    }
-
-    // Recent colors
-    if (s.lastUsedColors) {
-        lastUsedColors = s.lastUsedColors;
-        renderRecentSlots();
-    }
-
-    // Rebuild UI that depends on loaded state
-    updateStyleToggles();
-    buildSchemeGrid();
-}
-
 // Hook all relevant inputs to save
 function hookSaveListeners() {
     const ids = ['size-input', 'size-slider', 'gap-input', 'gap-slider', 'hide-slice', 'hide-sides'];
@@ -1429,5 +1490,4 @@ function hookSaveListeners() {
 }
 
 hookSaveListeners();
-loadSettings();
 draw();
