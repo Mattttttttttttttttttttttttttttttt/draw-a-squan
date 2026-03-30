@@ -96,10 +96,40 @@ const toolbar = document.getElementById('custom-toolbar');
         classicalPanel.style.display = isCustom ? 'none' : '';
         customPanel.style.display    = isCustom ? '' : 'none';
         toolbar.style.display        = isCustom ? '' : 'none';
-        if (!isCustom) {
+
+        if (isCustom && !isCustomMode) {
+            // Switching TO custom: save classical state, restore custom state
+            classicalSnapshot = {
+                piecesColors: JSON.parse(JSON.stringify(sq1vis.getPiecesColors())),
+                mute: muteActive,
+            };
+            classicalMuteActive = muteActive;
+            if (customSnapshot) {
+                sq1vis.setPiecesColors(customSnapshot.piecesColors);
+                muteActive = customSnapshot.mute;
+            } else {
+                muteActive = customMuteActive;
+            }
+            muteBtn.classList.toggle('active', muteActive);
+            isCustomMode = true;
+        } else if (!isCustom && isCustomMode) {
+            // Switching TO classical: save custom state, restore classical
+            customSnapshot = {
+                piecesColors: JSON.parse(JSON.stringify(sq1vis.getPiecesColors())),
+                mute: muteActive,
+            };
+            customMuteActive = muteActive;
             if (fillModeActive) fillModeBtn.click();
             if (fillResetActive) unfillBtn.click();
+            if (classicalSnapshot) {
+                sq1vis.setPiecesColors(classicalSnapshot.piecesColors);
+                muteActive = classicalSnapshot.mute;
+                muteBtn.classList.toggle('active', muteActive);
+            }
+            isCustomMode = false;
         }
+        draw();
+        saveSettings();
     });
 });
 
@@ -616,6 +646,14 @@ document.getElementById('scramble-input').addEventListener('input', (e) => {
     }, 200)
 });
 
+let isCustomMode = false;
+
+// Snapshots for isolating classical/custom state
+let classicalSnapshot = null;
+let customSnapshot = null;
+let customMuteActive = false;
+let classicalMuteActive = false;
+
 function draw() {
     const input = document.getElementById('scramble-input').value;
     const size = parseInt(document.getElementById('size-input').value, 10);
@@ -996,9 +1034,22 @@ function syncFormatFromUI() {
 }
 
 document.addEventListener('contextmenu', function (e) {
-    e.preventDefault();
     const canvas = document.getElementById('viewport-canvas');
     if (!canvas || !canvas.contains(e.target)) return;
+
+    if (isCustomMode && fillModeActive) {
+        const piece = e.target.closest('.sticker[id]');
+        if (piece && piece.id.trim()) {
+            e.preventDefault();
+            pushUndo();
+            sq1vis.resetPieceColor(piece.id);
+            draw();
+            saveSettings();
+            return;
+        }
+    }
+
+    e.preventDefault();
     syncFormatFromUI();
     showMenu(e.clientX, e.clientY);
 });
@@ -1531,6 +1582,16 @@ function hookSaveListeners() {
     // scheme color inputs — delegate since they're rebuilt dynamically
     document.getElementById('scheme-grid').addEventListener('input', saveSettings);
 }
+
+document.getElementById('scheme-reset-default').addEventListener('click', () => {
+    const slots = sq1vis.getColorSlots();
+    const defaults = {};
+    slots.forEach(s => { defaults[s.id] = s.default; });
+    sq1vis.setColorScheme(defaults);
+    buildSchemeGrid();
+    draw();
+    saveSettings();
+});
 
 hookSaveListeners();
 draw();
