@@ -23,8 +23,15 @@ function buildSchemeGrid() {
         const p = createPickr(`#pickr-wrap-${slot.id}`, initial, (color) => {
             sq1vis.setColorScheme({ [slot.id]: color });
             const btn = p.getRoot().button;
-            if (btn) btn.style.setProperty('--pcr-color', color === 'transparent' ? 'rgba(0,0,0,0)' : color);
-            if (btn) btn.style.background = color === 'transparent' ? 'repeating-conic-gradient(#808080 0% 25%, #fff 0% 50%) 0 0 / 8px 8px' : color;
+            if (btn) {
+                if (color === 'transparent') {
+                    btn.style.setProperty('--pcr-color', 'rgba(0,0,0,0)');
+                    btn.style.background = 'repeating-conic-gradient(#808080 0% 25%, #fff 0% 50%) 0 0 / 8px 8px';
+                } else {
+                    btn.style.setProperty('--pcr-color', color);
+                    btn.style.removeProperty('background');
+                }
+            }
             draw();
             saveSettings();
         });
@@ -200,6 +207,7 @@ function createPickr(el, initialColor, onChange) {
         const rgba = color.toRGBA();
         const a = Math.round(rgba[3] * 100) / 100;
         const resolved = a === 0 ? 'transparent' : `rgba(${Math.round(rgba[0])},${Math.round(rgba[1])},${Math.round(rgba[2])},${a})`;
+        p.applyColor(true);
         onChange(resolved);
     });
     p.on('hide', () => {
