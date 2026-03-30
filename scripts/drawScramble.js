@@ -66,7 +66,7 @@ const Square1Visualizer = (() => {
     // -----------------------------------------------------------------
     // SAC2'S STYLE
     // -----------------------------------------------------------------
-    const SAC2Style = {
+const SAC2Style = {
     name: "SAC2's Design",
     placeholderScheme: { sticker: '#2a2a2a', slice: '#666666', border: '#000000' },
     source: 'SAC2',
@@ -202,7 +202,7 @@ const Square1Visualizer = (() => {
                     <g mask="url(#${maskId}-${rot})">
                         <path fill="${muted ? ph.border : colors.border}" d="${arrowBasePath}"/>
                     </g>
-                    <path fill="${color}" d="${arrowColorPath}"/>
+                    <path class="sticker" id="slice ${layer}" fill="${color}" d="${arrowColorPath}"/>
                 </g>
             `;
 
@@ -321,7 +321,7 @@ const Square1Visualizer = (() => {
                     <g mask="url(#${maskId}-${rot})">
                         <path fill="${muted ? ph.border : colors.border}" d="${arrowBasePath}"/>
                     </g>
-                    <path fill="${color}" d="${arrowColorPath}"/>
+                    <path class="sticker" id="slice ${layer}" fill="${color}" d="${arrowColorPath}"/>
                 </g>
             `;
 
@@ -329,8 +329,6 @@ const Square1Visualizer = (() => {
         },
     },
 };
-
-
 
     // -----------------------------------------------------------------
     // ABID'S STYLE
