@@ -366,5 +366,126 @@
   <script src="scripts/parseScramble.js"></script>
   <script src="scripts/drawScramble.js"></script>
   <script src="scripts/script.js"></script>
+  <script>
+      (function () {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('input')) return;
+
+    // Parse params
+    const rawInput = params.get('input');          // may contain slashes
+    const mode     = params.get('mode')   || 'scramble'; // scramble | inverse | hex
+    const size     = parseInt(params.get('size')  || '400', 10);
+    const gap      = parseInt(params.get('gap')   || '100', 10);
+    const layer    = params.get('layer')  || 'both';   // both | top | bottom
+    const fmt      = params.get('fmt')    || 'png';    // png | jpeg | bmp | svg
+    const vert     = params.get('orient') === 'vertical';
+
+    // Build hex from input+mode
+    function inputToHex(input, mode) {
+      if (mode === 'hex') return input;
+      if (mode === 'inverse') {
+        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(sq1vis.unkarnify(input)));
+        return `${tlHex}|${blHex}`;
+      }
+      const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
+      return `${tlHex}|${blHex}`;
+    }
+
+    function getDeeplinkSVGString(hex, layer) {
+      const sc = Math.round(size * (220 / 400));
+      const PAD = Math.round(sc * 0.28);
+      const tmp = document.createElement('div');
+      tmp.innerHTML = sq1vis.getSVG(hex, size, gap, false, vert, true, true, PAD);
+      const svgs = tmp.querySelectorAll('svg');
+      const svg0 = svgs[0], svg1 = svgs[1];
+
+      if (layer !== 'both') {
+        const svgEl = layer === 'top' ? svg0 : svg1;
+        svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        return svgEl.outerHTML;
+      }
+
+      const vb    = svg0.getAttribute('viewBox').split(' ').map(parseFloat);
+      const vbX   = vb[0], vbY = vb[1], vbW = vb[2], vbH = vb[3];
+      const padT  = -vbY, padO = -vbX;
+      const margin = sc * (0.44 * (2 + gap / 100) - 1);
+      const g0shift = `translate(${padO},${padT})`;
+      const g1shift = vert
+        ? `translate(${padO},${padT + sc + margin})`
+        : `translate(${padO + sc + margin},${padT})`;
+      const totalW = vert ? vbW : padO + sc + margin + sc + padO;
+      const totalH = vert ? padT + sc + margin + sc + padO : vbH;
+
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">` +
+        `<g transform="${g0shift}">${svg0.innerHTML}</g>` +
+        `<g transform="${g1shift}">${svg1.innerHTML}</g></svg>`;
+    }
+
+    async function rasterize(svgStr, fmt) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
+        const img = new Image();
+        img.onload = () => {
+          setTimeout(() => {
+            const canvas = document.createElement('canvas');
+            canvas.width  = img.naturalWidth  || img.width  || 800;
+            canvas.height = img.naturalHeight || img.height || 400;
+            const ctx = canvas.getContext('2d');
+            if (fmt === 'jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+            ctx.drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+            resolve(canvas);
+          }, 100);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img load failed')); };
+        img.src = url;
+      });
+    }
+
+    async function run() {
+      try {
+        const hex = inputToHex(rawInput, mode);
+        const svgStr = getDeeplinkSVGString(hex, layer);
+        const fname = `sq1-${layer}`;
+
+        let blob;
+        if (fmt === 'svg') {
+          blob = new Blob([svgStr], { type: 'image/svg+xml' });
+        } else {
+          const canvas = await rasterize(svgStr, fmt);
+          if (fmt === 'bmp') {
+            blob = createBMP32(canvas);
+          } else {
+            const mime = fmt === 'jpeg' ? 'image/jpeg' : 'image/png';
+            blob = await new Promise(res => canvas.toBlob(res, mime));
+          }
+        }
+
+        // Trigger download
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${fname}.${fmt === 'jpeg' ? 'jpg' : fmt}`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          URL.revokeObjectURL(a.href);
+          a.remove();
+          // Redirect away — back to browser homepage equivalent
+          window.location.replace('about:blank');
+        }, 1000);
+
+      } catch (err) {
+        console.error('Deeplink export failed:', err);
+        window.location.replace('about:blank');
+      }
+    }
+
+    // Wait for scripts to finish initializing then run
+    window.addEventListener('load', run);
+  })();
+
+  //usage example
+  // squan-go.web.app/draw/?input=(4,-3)/(0,3)/(-1,-4)/(0,-3)/(0,-3)/(3,0)/(-2,0)/(-3,-3)/(5,0)/(-4,-4)/(0,-4)/(4,0)/&size=400&gap=100&layer=both&fmt=png
+  </script>
 </body>
 </html>
