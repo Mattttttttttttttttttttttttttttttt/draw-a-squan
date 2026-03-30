@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SQ1 — Square-1 Visualizer</title>
-  <link rel="stylesheet" href="src/style.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/pickr.css"/>
 </head>
 <body>
 
@@ -63,8 +64,7 @@
           Fill Piece
         </button>
         <div class="ctb-color-wrap">
-          <button class="ctb-color-switch" id="fill-color-switch"></button>
-          <input type="color" id="fill-color-input" class="fill-color-input" value="#CC0000" />
+          <div id="fill-pickr-el"></div>
         </div>
       </div>
 
@@ -347,22 +347,23 @@
   <div id="toast" class="toast"></div>
   <div class="floating-export-btn" id="floating-export-btn" style="display:none;">
     <button class="feb-action" id="feb-action-btn" title="Export">
-      <img id="feb-action-icon" src="src/download.svg" width="18" height="18" style="display:block;" />
+      <img id="feb-action-icon" src="img/download.svg" width="18" height="18" style="display:block;" />
     </button>
     <button class="feb-split" id="feb-split-btn" title="Switch mode">▾</button>
     <div class="feb-dropdown" id="feb-dropdown" style="display:none;">
       <div class="feb-option" data-mode="download">
-        <img src="src/download.svg" width="14" height="14" /> Download
+        <img src="img/download.svg" width="14" height="14" /> Download
       </div>
       <div class="feb-option" data-mode="copy">
-        <img src="src/copy.svg" width="14" height="14" /> Copy
+        <img src="img/copy.svg" width="14" height="14" /> Copy
       </div>
     </div>
   </div>
+  <script src="scripts/pickr.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="src/parseScramble.js"></script>
-  <script src="src/drawScramble.js"></script>
-  <script src="src/script.js"></script>
+  <script src="scripts/parseScramble.js"></script>
+  <script src="scripts/drawScramble.js"></script>
+  <script src="scripts/script.js"></script>
 </body>
 </html>

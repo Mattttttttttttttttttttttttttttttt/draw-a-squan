@@ -1,6 +1,12 @@
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
+var schemePickrs = {};
+var fillPickr = null;
 
 function buildSchemeGrid() {
+    if (typeof Pickr === 'undefined') { console.error('Pickr not loaded'); return; }
+    // Destroy old pickr instances to avoid leaks
+    for (const [id, p] of Object.entries(schemePickrs)) { try { p.destroyAndRemove(); } catch(e){} delete schemePickrs[id]; }
+
     const grid = document.getElementById('scheme-grid');
     grid.innerHTML = '';
     const slots = sq1vis.getColorSlots();
@@ -10,19 +16,19 @@ function buildSchemeGrid() {
         row.className = 'scheme-row';
         row.innerHTML = `
           <span class="scheme-face-label">${slot.label}</span>
-          <div class="scheme-switch-btn" id="switch-${slot.id}" style="background:${scheme[slot.id]}">
-            <input class="scheme-color-input" type="color" value="${scheme[slot.id]}" data-face="${slot.id}" />
-          </div>`;
+          <div class="scheme-pickr-wrap" id="pickr-wrap-${slot.id}"></div>`;
         grid.appendChild(row);
-    });
-    grid.querySelectorAll('.scheme-color-input').forEach(inp => {
-        inp.addEventListener('input', e => {
-            const face = e.target.dataset.face;
-            const color = e.target.value;
-            document.getElementById(`switch-${face}`).style.background = color;
-            sq1vis.setColorScheme({ [face]: color });
+
+        const initial = scheme[slot.id] === 'transparent' ? 'rgba(0,0,0,0)' : scheme[slot.id];
+        const p = createPickr(`#pickr-wrap-${slot.id}`, initial, (color) => {
+            sq1vis.setColorScheme({ [slot.id]: color });
+            const btn = p.getRoot().button;
+            if (btn) btn.style.setProperty('--pcr-color', color === 'transparent' ? 'rgba(0,0,0,0)' : color);
             draw();
+            saveSettings();
         });
+        schemePickrs[slot.id] = p;
+        schemePickrs[slot.id] = p;
     });
 }
 buildSchemeGrid();
@@ -154,12 +160,20 @@ const fillModeBtn = document.getElementById('fill-mode-btn');
 const unfillBtn = document.getElementById('fill-unfill-btn');
 const resetBtn = document.getElementById('fill-reset-btn');
 const muteBtn = document.getElementById('fill-mute-btn');
-const fillColorInput = document.getElementById('fill-color-input');
-const fillColorSwitch = document.getElementById('fill-color-switch');
+const fillColorInput = { value: '#CC0000', _transparent: false };
+const fillColorSwitch = { style: {} }; // replaced by Pickr
 
 let fillModeActive = false;
 let fillResetActive = false;
 let muteActive = false;
+
+// Init fill Pickr (deferred so DOM is ready)
+setTimeout(() => {
+    fillPickr = createPickr('#fill-pickr-el', '#CC0000', (color) => {
+        fillColorInput.value = color;
+        if (!fillModeActive) activateFill();
+    });
+}, 0);
 let exportLayer = 'both';
 let exportFmt = 'png';
 let febMode = 'download'; // 'download' or 'copy'
@@ -168,6 +182,39 @@ const lastUsedLimit = 3;
 
 const canvasInner = document.getElementById('canvas-inner');
 const viewportCanvas = document.getElementById('viewport-canvas');
+
+function createPickr(el, initialColor, onChange) {
+    const p = Pickr.create({
+        el,
+        theme: 'nano',
+        default: initialColor || '#CC0000',
+        defaultRepresentation: 'HEXA',
+        components: {
+            preview: true, opacity: true, hue: true,
+            interaction: { hex: true, rgba: true, input: true, save: false, clear: false },
+        },
+    });
+    p.on('change', (color) => {
+        console.log('change fired', color, color?.toHEXA?.().toString());
+        if (!color) { onChange('transparent'); return; }
+        const hex = color.toHEXA().toString();
+        const resolved = hex.length === 9 && hex.endsWith('00') ? 'transparent' : hex;
+        console.log('calling onChange with', resolved);
+        onChange(resolved);
+    });
+    p.on('hide', () => {
+        console.log('hide fired');
+        const c = p.getColor();
+        console.log('color on hide', c, c?.toHEXA?.().toString());
+        if (!c) { onChange('transparent'); return; }
+        const hex = c.toHEXA().toString();
+        const resolved = hex.length === 9 && hex.endsWith('00') ? 'transparent' : hex;
+        onChange(resolved);
+    });
+    p.on('init', () => console.log('pickr init fired', el));
+    p.on('show', () => console.log('pickr show fired'));
+    return p;
+}
 
 function updateCanvasCursor() {
     if (fillModeActive) {
@@ -423,11 +470,6 @@ unfillBtn.addEventListener('click', () => {
     updateCanvasCursor();
 });
 
-// Keep switch color in sync with the native picker
-fillColorInput.addEventListener('input', () => {
-    fillColorSwitch.style.background = fillColorInput.value;
-});
-
 function updateLastUsed() {
     let value = fillColorInput.value;
     if (lastUsedColors.includes(value)) {
@@ -439,11 +481,6 @@ function updateLastUsed() {
     }
     renderRecentSlots();
 }
-
-fillColorInput.addEventListener("blur", () => {
-    updateLastUsed();
-    if (!fillModeActive) activateFill();
-})
 
 function renderRecentSlots() {
     for (let i = 0; i < 3; i++) {
@@ -461,8 +498,8 @@ function renderRecentSlots() {
 }
 
 function selectRecentColor(hex, slotEl) {
-    document.getElementById('fill-color-input').value = hex;
-    document.getElementById('fill-color-switch').style.background = hex;
+    fillColorInput.value = hex;
+    if (fillPickr) fillPickr.setColor(hex);
     document.querySelectorAll('.ctb-recent-slot').forEach(s => s.classList.remove('active-recent'));
     slotEl.classList.add('active-recent');
     updateLastUsed();
@@ -474,7 +511,7 @@ document.getElementById('canvas-inner').addEventListener('click', e => {
         const piece = e.target.closest('.sticker');
         if (!piece) return;
         pushUndo();
-        sq1vis.setPieceColor(piece.id, fillColorInput.value);
+        sq1vis.setPieceColor(piece.id, fillColorInput.value || 'transparent');
         draw();
     }
 });
@@ -869,7 +906,7 @@ function flashBtn(msg) {
 /* ─── Floating export button ──────────────────────── */
 function setFebMode(mode) {
     febMode = mode;
-    febActionIcon.src = mode === 'download' ? 'src/download.svg' : 'src/copy.svg';
+    febActionIcon.src = mode === 'download' ? 'img/download.svg' : 'img/copy.svg';
     document.querySelectorAll('.feb-option').forEach(o => {
         o.classList.toggle('active', o.dataset.mode === mode);
     });
