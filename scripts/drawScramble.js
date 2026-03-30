@@ -67,303 +67,269 @@ const Square1Visualizer = (() => {
     // SAC2'S STYLE
     // -----------------------------------------------------------------
     const SAC2Style = {
-        name: "SAC2's Design",
-        placeholderScheme: { sticker: '#2a2a2a', slice: '#666666', border: '#000000' },
-        source: 'SAC2',
-        hidableSideColor: true,
-        hasSliceIndicator: true,
+    name: "SAC2's Design",
+    placeholderScheme: { sticker: '#2a2a2a', slice: '#666666', border: '#000000' },
+    source: 'SAC2',
+    hidableSideColor: true,
+    hasSliceIndicator: true,
 
-        withSideColor: {
-            layerScale: 1,
-            colorSlots: [
-                { id: 'top', label: 'Top', default: '#4d4d4d' },
-                { id: 'bottom', label: 'Bottom', default: '#FFFFFF' },
-                { id: 'front', label: 'Front', default: '#CC0000' },
-                { id: 'right', label: 'Right', default: '#00AA00' },
-                { id: 'back', label: 'Back', default: '#FF8C00' },
-                { id: 'left', label: 'Left', default: '#0066CC' },
-                { id: 'border', label: 'Border', default: '#000000' },
-            ],
+    withSideColor: {
+        layerScale: 1,
+        colorSlots: [
+            { id: 'top',    label: 'Top',    default: '#4d4d4d' },
+            { id: 'bottom', label: 'Bottom', default: '#FFFFFF' },
+            { id: 'front',  label: 'Front',  default: '#CC0000' },
+            { id: 'right',  label: 'Right',  default: '#00AA00' },
+            { id: 'back',   label: 'Back',   default: '#FF8C00' },
+            { id: 'left',   label: 'Left',   default: '#0066CC' },
+            { id: 'border', label: 'Border', default: '#000000' },
+        ],
 
-            drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
-                const maskId = `mask-edge-${piece}-${Math.random().toString(36).slice(2)}`;
+        drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
 
-                let innerColor = resolveColor(edgeColors[piece].inner, colors);
-                let outerColor = resolveColor(edgeColors[piece].outer, colors);
+            let innerColor = resolveColor(edgeColors[piece].inner, colors);
+            let outerColor = resolveColor(edgeColors[piece].outer, colors);
 
-                if (muted) {
-                    const def = defaultPieceColors().edgeColors[piece];
-                    if (innerColor === colors[def.inner]) innerColor = ph.sticker;
-                    if (outerColor === colors[def.outer]) outerColor = ph.sticker;
-                }
-
-                const borderColor = muted ? ph.border : colors.border;
-
-                const scale = 54 / 27 * (size / 220);
-                const ox = (50.0 / 100) * 27;
-                const oy = (117.0 / 100) * 42.61;
-                const tx = -ox * scale, ty = -oy * scale;
-
-                const outerD = `M21.3,10.94c.88,0,1.66-.59,1.88-1.45l.78-2.92.51-1.91c.33-1.24-.6-2.45-1.88-2.45H4.41c-1.28,0-2.22,1.22-1.88,2.45l.51,1.91.78,2.92c.23.85,1,1.45,1.88,1.45h15.6Z`;
-                const innerD = `M19.67,13.14H7.34c-1.28,0-2.22,1.22-1.88,2.45l6.17,23.01c.52,1.93,3.25,1.93,3.77,0l6.17-23.01c.33-1.24-.6-2.45-1.88-2.45Z`;
-
-                return `
-                    <g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
-                        <defs>
-                            <mask id="${maskId}">
-                                <rect width="100%" height="100%" fill="white"/>
-                                <path d="${outerD}" fill="black"/>
-                                <path d="${innerD}" fill="black"/>
-                            </mask>
-                        </defs>
-
-                        <g mask="url(#${maskId})">
-                            <path fill="${borderColor}" d="M.11,4.17l2.4,8.97h21.97l2.4-8.97c.56-2.1-1.02-4.17-3.2-4.17H3.31C1.14,0-.45,2.07.11,4.17Z"/>
-                            <path fill="${borderColor}" d="M3.05,15.11l6.57,24.52c1.07,3.98,6.71,3.98,7.77,0l6.57-24.52c.56-2.1-1.02-4.17-3.2-4.17H6.24c-2.18,0-3.76,2.07-3.2,4.17Z"/>
-                        </g>
-
-                        <path class="sticker" fill="${outerColor}" d="${outerD}"/>
-                        <path class="sticker" fill="${innerColor}" d="${innerD}"/>
-                    </g>`;
-            },
-
-            drawCorner(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
-                const maskId = `mask-corner-${piece}-${Math.random().toString(36).slice(2)}`;
-
-                let topColor = resolveColor(cornerColors[piece].top, colors);
-                let leftColor = resolveColor(cornerColors[piece].left, colors);
-                let rightColor = resolveColor(cornerColors[piece].right, colors);
-
-                if (muted) {
-                    const def = defaultPieceColors().cornerColors[piece];
-                    if (topColor === colors[def.top]) topColor = ph.sticker;
-                    if (leftColor === colors[def.left]) leftColor = ph.sticker;
-                    if (rightColor === colors[def.right]) rightColor = ph.sticker;
-                }
-
-                const borderColor = muted ? ph.border : colors.border;
-
-                const scale = 96 / 48.5 * (size / 220);
-                const ox = (-3.5 / 100) * 48.5;
-                const oy = (103.5 / 100) * 48.5;
-                const tx = -ox * scale, ty = -oy * scale;
-
-                const rightD = `M35.2,10.94c.52,0,1.01-.21,1.38-.57l.71-.71,5.72-5.72c.64-.64.19-1.73-.72-1.73H14.03c-.88,0-1.66.59-1.88,1.45l-.78,2.92-.51,1.91c-.33,1.24.6,2.45,1.88,2.45h22.47Z`;
-                const leftD = `M37.57,35.77c0,1.28,1.22,2.22,2.45,1.88l1.91-.51,2.92-.78c.85-.23,1.45-1,1.45-1.88V6.21c0-.9-1.09-1.36-1.73-.72l-5.72,5.72-.71.71c-.37.37-.57.86-.57,1.38v22.47Z`;
-                const topD = `M33.92,39.28c.85-.23,1.45-1,1.45-1.88V15.09c0-1.08-.87-1.95-1.95-1.95H11.1c-.88,0-1.66.59-1.88,1.45l-7,26.12c-.91,3.39,2.19,6.49,5.58,5.58l26.12-7Z`;
-
-                return `
-                    <g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)}) rotate(-45,${ox.toFixed(2)},${oy.toFixed(2)})">
-                        <defs>
-                            <mask id="${maskId}">
-                                <rect width="100%" height="100%" fill="white"/>
-                                <path d="${rightD}" fill="black"/>
-                                <path d="${leftD}" fill="black"/>
-                                <path d="${topD}" fill="black"/>
-                            </mask>
-                        </defs>
-
-                        <g mask="url(#${maskId})">
-                            <path fill="${borderColor}" d="M10.19,2.45l-2.86,10.68h24.73c1.83,0,3.31,1.48,3.31,3.31v24.73l10.68-2.86c1.45-.39,2.45-1.7,2.45-3.2V3.31c0-1.83-1.48-3.31-3.31-3.31H13.39c-1.5,0-2.81,1.01-3.2,2.45Z"/>
-                            <path fill="${borderColor}" d="M7.26,13.39L.25,39.56c-1.41,5.28,3.42,10.11,8.7,8.7l26.16-7.01c1.45-.39,2.45-1.7,2.45-3.2V14.25c0-1.83-1.48-3.31-3.31-3.31H10.46c-1.5,0-2.81,1.01-3.2,2.45Z"/>
-                        </g>
-
-                        <path class="sticker" fill="${rightColor}" d="${rightD}"/>
-                        <path class="sticker" fill="${leftColor}"  d="${leftD}"/>
-                        <path class="sticker" fill="${topColor}"   d="${topD}"/>
-                    </g>`;
-            },
-
-            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER, relScale = 1.965) {
-                const scale = (size / 220) * relScale;
-
-                let topColor = resolveColor(sliceColors.top, colors);
-                let botColor = resolveColor(sliceColors.bottom, colors);
-
-                if (muted) {
-                    const def = defaultPieceColors().sliceColors;
-                    if (topColor === colors[def.top]) topColor = ph.slice;
-                    if (botColor === colors[def.bottom]) botColor = ph.slice;
-                }
-
-                const color = layer === 'top' ? topColor : botColor;
-                const angle = layer === 'top' ? 0 : -30;
-
-                const tx = (cx + 29.5 / 220 * size).toFixed(2);
-                const ty = (cy - 114 / 220 * size).toFixed(2);
-
-                const maskId = `mask-slice-${Math.random().toString(36).slice(2)}`;
-
-                const borderD = `M7.32.86C6.69.13,5.72-.16,4.79.09c-.48.13-.91.4-1.23.77L.61,4.26C-.03,5.01-.18,6.03.23,6.92c.41.9,1.28,1.45,2.26,1.45h5.9c.22,0,.44-.03.65-.08.83-.22,1.47-.85,1.73-1.67.25-.82.07-1.7-.5-2.35L7.32.86Z`;
-
-                const innerD = `M6.18,1.84c-.26-.3-.65-.4-1-.31-.18.05-.35.15-.49.31l-2.95,3.41c-.55.64-.1,1.63.74,1.63h5.9c.09,0,.18-.01.26-.03.67-.18.97-1.03.48-1.59l-2.95-3.41Z`;
-
-                const transformBase = `
-                    rotate(%ROT%, ${cx}, ${cy})
-                    translate(${tx}, ${ty})
-                    scale(${scale.toFixed(4)})
-                    translate(5.43, 4.19)
-                    rotate(-165)
-                `;
-
-                function buildArrow(rot) {
-                    return `
-                        <g transform="${transformBase.replace('%ROT%', rot)}">
-                            <defs>
-                                <mask id="${maskId}-${rot}">
-                                    <rect width="100%" height="100%" fill="white"/>
-                                    <path d="${innerD}" fill="black"/>
-                                </mask>
-                            </defs>
-
-                            <g mask="url(#${maskId}-${rot})">
-                                <path fill="${muted ? ph.border : colors.border}" d="${borderD}"/>
-                            </g>
-
-                            <path fill="${color}" d="${innerD}"/>
-                        </g>`;
-                }
-                return buildArrow(angle) + buildArrow(angle + 180);
+            if (muted) {
+                const def = defaultPieceColors().edgeColors[piece];
+                if (innerColor === colors[def.inner]) innerColor = ph.sticker;
+                if (outerColor === colors[def.outer]) outerColor = ph.sticker;
             }
+
+            const scale = 54 / 27 * (size / 220);
+            const ox = (50.0 / 100) * 27;
+            const oy = (117.0 / 100) * 42.61;
+            const tx = -ox * scale, ty = -oy * scale;
+
+            const maskId = `mask-wsc-edge-${piece}-${Math.random().toString(36).slice(2)}`;
+
+            return `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
+
+                <defs>
+                    <mask id="${maskId}">
+                        <rect width="100%" height="100%" fill="white"/>
+                        <path d="M21.3,10.94c.88,0,1.66-.59,1.88-1.45l.78-2.92.51-1.91c.33-1.24-.6-2.45-1.88-2.45H4.41c-1.28,0-2.22,1.22-1.88,2.45l.51,1.91.78,2.92c.23.85,1,1.45,1.88,1.45h15.6Z" fill="black"/>
+                        <path d="M19.67,13.14H7.34c-1.28,0-2.22,1.22-1.88,2.45l6.17,23.01c.52,1.93,3.25,1.93,3.77,0l6.17-23.01c.33-1.24-.6-2.45-1.88-2.45Z" fill="black"/>
+                    </mask>
+                </defs>
+
+                <g mask="url(#${maskId})">
+                    <path fill="${muted ? ph.border : colors.border}" d="M.11,4.17l2.4,8.97h21.97l2.4-8.97c.56-2.1-1.02-4.17-3.2-4.17H3.31C1.14,0-.45,2.07.11,4.17Z"/>
+                    <path fill="${muted ? ph.border : colors.border}" d="M3.05,15.11l6.57,24.52c1.07,3.98,6.71,3.98,7.77,0l6.57-24.52c.56-2.1-1.02-4.17-3.2-4.17H6.24c-2.18,0-3.76,2.07-3.2,4.17Z"/>
+                </g>
+
+                <path class="sticker" id="${piece} outer" fill="${outerColor}" d="M21.3,10.94c.88,0,1.66-.59,1.88-1.45l.78-2.92.51-1.91c.33-1.24-.6-2.45-1.88-2.45H4.41c-1.28,0-2.22,1.22-1.88,2.45l.51,1.91.78,2.92c.23.85,1,1.45,1.88,1.45h15.6Z"/>
+                <path class="sticker" id="${piece} inner" fill="${innerColor}" d="M19.67,13.14H7.34c-1.28,0-2.22,1.22-1.88,2.45l6.17,23.01c.52,1.93,3.25,1.93,3.77,0l6.17-23.01c.33-1.24-.6-2.45-1.88-2.45Z"/>
+            </g>`;
         },
 
-        withoutSideColor: {
-            layerScale: 0.93,
+        drawCorner(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
 
-            colorSlots: [
-                { id: 'top', label: 'Top', default: '#4d4d4d' },
-                { id: 'bottom', label: 'Bottom', default: '#FFFFFF' },
-                { id: 'border', label: 'Border', default: '#000000' },
-            ],
+            let topColor   = resolveColor(cornerColors[piece].top,   colors);
+            let leftColor  = resolveColor(cornerColors[piece].left,  colors);
+            let rightColor = resolveColor(cornerColors[piece].right, colors);
 
-            drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
-                const maskId = `mask-edge-noside-${piece}-${Math.random().toString(36).slice(2)}`;
+            if (muted) {
+                const def = defaultPieceColors().cornerColors[piece];
+                if (topColor   === colors[def.top])   topColor   = ph.sticker;
+                if (leftColor  === colors[def.left])  leftColor  = ph.sticker;
+                if (rightColor === colors[def.right]) rightColor = ph.sticker;
+            }
 
-                let innerColor = resolveColor(edgeColors[piece].inner, colors);
+            const scale = 96 / 48.5 * (size / 220);
+            const ox = (-3.5 / 100) * 48.5;
+            const oy = (103.5 / 100) * 48.5;
+            const tx = -ox * scale, ty = -oy * scale;
 
-                if (muted) {
-                    const def = defaultPieceColors().edgeColors[piece];
-                    if (innerColor === colors[def.inner]) innerColor = ph.sticker;
-                }
+            const maskId = `mask-wsc-corner-${piece}-${Math.random().toString(36).slice(2)}`;
 
-                const borderColor = muted ? ph.border : colors.border;
+            return `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)}) rotate(-45,${ox.toFixed(2)},${oy.toFixed(2)})">
 
-                const scale = 54 / 27 * (size / 220) * 1.38;
-                const ox = (50.0 / 100) * 27;
-                const oy = (117.0 / 100) * 42.61;
-                const tx = -ox * scale, ty = -oy * scale;
+                <defs>
+                    <mask id="${maskId}">
+                        <rect width="100%" height="100%" fill="white"/>
+                        <path d="M35.2,10.94c.52,0,1.01-.21,1.38-.57l.71-.71,5.72-5.72c.64-.64.19-1.73-.72-1.73H14.03c-.88,0-1.66.59-1.88,1.45l-.78,2.92-.51,1.91c-.33,1.24.6,2.45,1.88,2.45h22.47Z" fill="black"/>
+                        <path d="M37.57,35.77c0,1.28,1.22,2.22,2.45,1.88l1.91-.51,2.92-.78c.85-.23,1.45-1,1.45-1.88V6.21c0-.9-1.09-1.36-1.73-.72l-5.72,5.72-.71.71c-.37.37-.57.86-.57,1.38v22.47Z" fill="black"/>
+                        <path d="M33.92,39.28c.85-.23,1.45-1,1.45-1.88V15.09c0-1.08-.87-1.95-1.95-1.95H11.1c-.88,0-1.66.59-1.88,1.45l-7,26.12c-.91,3.39,2.19,6.49,5.58,5.58l26.12-7Z" fill="black"/>
+                    </mask>
+                </defs>
 
-                const innerD = `M19.67,13.14H7.34c-1.28,0-2.22,1.22-1.88,2.45l6.17,23.01c.52,1.93,3.25,1.93,3.77,0l6.17-23.01c.33-1.24-.6-2.45-1.88-2.45Z`;
+                <g mask="url(#${maskId})">
+                    <path fill="${muted ? ph.border : colors.border}" d="M10.19,2.45l-2.86,10.68h24.73c1.83,0,3.31,1.48,3.31,3.31v24.73l10.68-2.86c1.45-.39,2.45-1.7,2.45-3.2V3.31c0-1.83-1.48-3.31-3.31-3.31H13.39c-1.5,0-2.81,1.01-3.2,2.45Z"/>
+                    <path fill="${muted ? ph.border : colors.border}" d="M7.26,13.39L.25,39.56c-1.41,5.28,3.42,10.11,8.7,8.7l26.16-7.01c1.45-.39,2.45-1.7,2.45-3.2V14.25c0-1.83-1.48-3.31-3.31-3.31H10.46c-1.5,0-2.81,1.01-3.2,2.45Z"/>
+                </g>
 
-                return `
-                    <g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
-                        <defs>
-                            <mask id="${maskId}">
-                                <rect width="100%" height="100%" fill="white"/>
-                                <path d="${innerD}" fill="black"/>
-                            </mask>
-                        </defs>
-
-                        <g mask="url(#${maskId})">
-                            <path fill="${borderColor}" d="M3.05,15.11l6.57,24.52c1.07,3.98,6.71,3.98,7.77,0l6.57-24.52c.56-2.1-1.02-4.17-3.2-4.17H6.24c-2.18,0-3.76,2.07-3.2,4.17Z"/>
-                        </g>
-
-                        <path class="sticker" fill="${innerColor}" d="${innerD}"/>
-                    </g>`;
-            },
-
-            drawCorner(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
-                const maskId = `mask-corner-noside-${piece}-${Math.random().toString(36).slice(2)}`;
-
-                let topColor = resolveColor(cornerColors[piece].top, colors);
-
-                if (muted) {
-                    const def = defaultPieceColors().cornerColors[piece];
-                    if (topColor === colors[def.top]) topColor = ph.sticker;
-                }
-
-                const borderColor = muted ? ph.border : colors.border;
-
-                const scale = 96 / 48.5 * (size / 220) * 1.38;
-                const ox = (-3.5 / 100) * 48.5;
-                const oy = (103.5 / 100) * 48.5;
-                const tx = -ox * scale, ty = -oy * scale;
-
-                const topD = `M33.92,39.28c.85-.23,1.45-1,1.45-1.88V15.09c0-1.08-.87-1.95-1.95-1.95H11.1c-.88,0-1.66.59-1.88,1.45l-7,26.12c-.91,3.39,2.19,6.49,5.58,5.58l26.12-7Z`;
-
-                return `
-                    <g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)}) rotate(-45,${ox.toFixed(2)},${oy.toFixed(2)})">
-                        <defs>
-                            <mask id="${maskId}">
-                                <rect width="100%" height="100%" fill="white"/>
-                                <path d="${topD}" fill="black"/>
-                            </mask>
-                        </defs>
-
-                        <g mask="url(#${maskId})">
-                            <path fill="${borderColor}" d="M7.26,13.39L.25,39.56c-1.41,5.28,3.42,10.11,8.7,8.7l26.16-7.01c1.45-.39,2.45-1.7,2.45-3.2V14.25c0-1.83-1.48-3.31-3.31-3.31H10.46c-1.5,0-2.81,1.01-3.2,2.45Z"/>
-                        </g>
-
-                        <path class="sticker" fill="${topColor}" d="${topD}"/>
-                    </g>`;
-            },
-
-            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER) {
-                const relScale = 1.968 * 1.38 / 0.93;
-
-                const scale = (size / 220) * relScale;
-
-                let topColor = resolveColor(sliceColors.top, colors);
-                let botColor = resolveColor(sliceColors.bottom, colors);
-
-                if (muted) {
-                    const def = defaultPieceColors().sliceColors;
-                    if (topColor === colors[def.top]) topColor = ph.slice;
-                    if (botColor === colors[def.bottom]) botColor = ph.slice;
-                }
-
-                const color = layer === 'top' ? topColor : botColor;
-                const angle = layer === 'top' ? 0 : -30;
-
-                const tx = (cx + 29.5 / 220 * size).toFixed(2);
-                const ty = (cy - 114 / 220 * size).toFixed(2);
-
-                const maskId = `mask-slice-noside-${Math.random().toString(36).slice(2)}`;
-
-                const borderD = `M7.32.86C6.69.13,5.72-.16,4.79.09c-.48.13-.91.4-1.23.77L.61,4.26C-.03,5.01-.18,6.03.23,6.92c.41.9,1.28,1.45,2.26,1.45h5.9c.22,0,.44-.03.65-.08.83-.22,1.47-.85,1.73-1.67.25-.82.07-1.7-.5-2.35L7.32.86Z`;
-
-                const innerD = `M6.18,1.84c-.26-.3-.65-.4-1-.31-.18.05-.35.15-.49.31l-2.95,3.41c-.55.64-.1,1.63.74,1.63h5.9c.09,0,.18-.01.26-.03.67-.18.97-1.03.48-1.59l-2.95-3.41Z`;
-
-                const transform = `
-                    rotate(%ROT%, ${cx}, ${cy})
-                    translate(${tx}, ${ty})
-                    scale(${scale.toFixed(4)})
-                    translate(5.43, 4.19)
-                    rotate(-165)
-                `;
-
-                function build(rot) {
-                    return `
-                        <g transform="${transform.replace('%ROT%', rot)}">
-                            <defs>
-                                <mask id="${maskId}-${rot}">
-                                    <rect width="100%" height="100%" fill="white"/>
-                                    <path d="${innerD}" fill="black"/>
-                                </mask>
-                            </defs>
-
-                            <g mask="url(#${maskId}-${rot})">
-                                <path fill="${muted ? ph.border : colors.border}" d="${borderD}"/>
-                            </g>
-
-                            <path fill="${color}" d="${innerD}"/>
-                        </g>`;
-                }
-                return build(angle) + build(angle + 180);
-            },
+                <path class="sticker" id="${piece} right" fill="${rightColor}" d="M35.2,10.94c.52,0,1.01-.21,1.38-.57l.71-.71,5.72-5.72c.64-.64.19-1.73-.72-1.73H14.03c-.88,0-1.66.59-1.88,1.45l-.78,2.92-.51,1.91c-.33,1.24.6,2.45,1.88,2.45h22.47Z"/>
+                <path class="sticker" id="${piece} left"  fill="${leftColor}"  d="M37.57,35.77c0,1.28,1.22,2.22,2.45,1.88l1.91-.51,2.92-.78c.85-.23,1.45-1,1.45-1.88V6.21c0-.9-1.09-1.36-1.73-.72l-5.72,5.72-.71.71c-.37.37-.57.86-.57,1.38v22.47Z"/>
+                <path class="sticker" id="${piece} top"   fill="${topColor}"   d="M33.92,39.28c.85-.23,1.45-1,1.45-1.88V15.09c0-1.08-.87-1.95-1.95-1.95H11.1c-.88,0-1.66.59-1.88,1.45l-7,26.12c-.91,3.39,2.19,6.49,5.58,5.58l26.12-7Z"/>
+            </g>`;
         },
 
-    };
+        drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER, relScale = 1.965) {
+            const scale = (size / 220) * relScale;
+
+            let topColor = resolveColor(sliceColors.top, colors);
+            let botColor = resolveColor(sliceColors.bottom, colors);
+
+            if (muted) {
+                const def = defaultPieceColors().sliceColors;
+                if (topColor === colors[def.top])    topColor = ph.slice;
+                if (botColor === colors[def.bottom]) botColor = ph.slice;
+            }
+
+            const color = layer === 'top' ? topColor : botColor;
+            const angle = layer === 'top' ? 0 : -30;
+
+            const tx = (cx + 29.5 / 220 * size).toFixed(2);
+            const ty = (cy - 114 / 220 * size).toFixed(2);
+
+            const maskId = `slice-mask-${layer}-${Math.random().toString(36).slice(2)}`;
+
+            const arrowBasePath = `M7.32.86C6.69.13,5.72-.16,4.79.09c-.48.13-.91.4-1.23.77L.61,4.26C-.03,5.01-.18,6.03.23,6.92c.41.9,1.28,1.45,2.26,1.45h5.9c.22,0,.44-.03.65-.08.83-.22,1.47-.85,1.73-1.67.25-.82.07-1.7-.5-2.35L7.32.86Z`;
+
+            const arrowColorPath = `M6.18,1.84c-.26-.3-.65-.4-1-.31-.18.05-.35.15-.49.31l-2.95,3.41c-.55.64-.1,1.63.74,1.63h5.9c.09,0,.18-.01.26-.03.67-.18.97-1.03.48-1.59l-2.95-3.41Z`;
+
+            const transform = `rotate(%ROT%, ${cx}, ${cy}) translate(${tx}, ${ty}) scale(${scale.toFixed(4)}) translate(5.43, 4.19) rotate(-165)`;
+
+            const maskedArrow = (rot) => `
+                <defs>
+                    <mask id="${maskId}-${rot}">
+                        <rect width="100%" height="100%" fill="white"/>
+                        <path d="${arrowColorPath}" fill="black"/>
+                    </mask>
+                </defs>
+                <g transform="${transform.replace('%ROT%', rot)}">
+                    <g mask="url(#${maskId}-${rot})">
+                        <path fill="${muted ? ph.border : colors.border}" d="${arrowBasePath}"/>
+                    </g>
+                    <path fill="${color}" d="${arrowColorPath}"/>
+                </g>
+            `;
+
+            return maskedArrow(angle) + maskedArrow(angle + 180);
+        },
+    },
+
+    withoutSideColor: {
+        layerScale: 0.93,
+        colorSlots: [
+            { id: 'top',    label: 'Top',    default: '#4d4d4d' },
+            { id: 'bottom', label: 'Bottom', default: '#FFFFFF' },
+            { id: 'border', label: 'Border', default: '#000000' },
+        ],
+
+        drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
+
+            let innerColor = resolveColor(edgeColors[piece].inner, colors);
+
+            if (muted) {
+                const def = defaultPieceColors().edgeColors[piece];
+                if (innerColor === colors[def.inner]) innerColor = ph.sticker;
+            }
+
+            const scale = 54 / 27 * (size / 220) * 1.38;
+            const ox = (50.0 / 100) * 27;
+            const oy = (117.0 / 100) * 42.61;
+            const tx = -ox * scale, ty = -oy * scale;
+
+            const maskId = `mask-wosc-edge-${piece}-${Math.random().toString(36).slice(2)}`;
+
+            return `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)})">
+
+                <defs>
+                    <mask id="${maskId}">
+                        <rect width="100%" height="100%" fill="white"/>
+                        <path d="M19.67,13.14H7.34c-1.28,0-2.22,1.22-1.88,2.45l6.17,23.01c.52,1.93,3.25,1.93,3.77,0l6.17-23.01c.33-1.24-.6-2.45-1.88-2.45Z" fill="black"/>
+                    </mask>
+                </defs>
+
+                <g mask="url(#${maskId})">
+                    <path fill="${muted ? ph.border : colors.border}" d="M3.05,15.11l6.57,24.52c1.07,3.98,6.71,3.98,7.77,0l6.57-24.52c.56-2.1-1.02-4.17-3.2-4.17H6.24c-2.18,0-3.76,2.07-3.2,4.17Z"/>
+                </g>
+
+                <path class="sticker" id="${piece} inner" fill="${innerColor}" d="M19.67,13.14H7.34c-1.28,0-2.22,1.22-1.88,2.45l6.17,23.01c.52,1.93,3.25,1.93,3.77,0l6.17-23.01c.33-1.24-.6-2.45-1.88-2.45Z"/>
+            </g>`;
+        },
+
+        drawCorner(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
+
+            let topColor = resolveColor(cornerColors[piece].top, colors);
+
+            if (muted) {
+                const def = defaultPieceColors().cornerColors[piece];
+                if (topColor === colors[def.top]) topColor = ph.sticker;
+            }
+
+            const scale = 96 / 48.5 * (size / 220) * 1.38;
+            const ox = (-3.5 / 100) * 48.5;
+            const oy = (103.5 / 100) * 48.5;
+            const tx = -ox * scale, ty = -oy * scale;
+
+            const maskId = `mask-wosc-corner-${piece}-${Math.random().toString(36).slice(2)}`;
+
+            return `<g transform="translate(${tx.toFixed(2)},${ty.toFixed(2)}) scale(${scale.toFixed(4)}) rotate(-45,${ox.toFixed(2)},${oy.toFixed(2)})">
+
+                <defs>
+                    <mask id="${maskId}">
+                        <rect width="100%" height="100%" fill="white"/>
+                        <path d="M33.92,39.28c.85-.23,1.45-1,1.45-1.88V15.09c0-1.08-.87-1.95-1.95-1.95H11.1c-.88,0-1.66.59-1.88,1.45l-7,26.12c-.91,3.39,2.19,6.49,5.58,5.58l26.12-7Z" fill="black"/>
+                    </mask>
+                </defs>
+
+                <g mask="url(#${maskId})">
+                    <path fill="${muted ? ph.border : colors.border}" d="M7.26,13.39L.25,39.56c-1.41,5.28,3.42,10.11,8.7,8.7l26.16-7.01c1.45-.39,2.45-1.7,2.45-3.2V14.25c0-1.83-1.48-3.31-3.31-3.31H10.46c-1.5,0-2.81,1.01-3.2,2.45Z"/>
+                </g>
+
+                <path class="sticker" id="${piece} top" fill="${topColor}" d="M33.92,39.28c.85-.23,1.45-1,1.45-1.88V15.09c0-1.08-.87-1.95-1.95-1.95H11.1c-.88,0-1.66.59-1.88,1.45l-7,26.12c-.91,3.39,2.19,6.49,5.58,5.58l26.12-7Z"/>
+            </g>`;
+        },
+
+        drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER) {
+            const scale = (size / 220) * (1.968 * 1.38 / 0.93);
+
+            let topColor = resolveColor(sliceColors.top, colors);
+            let botColor = resolveColor(sliceColors.bottom, colors);
+
+            if (muted) {
+                const def = defaultPieceColors().sliceColors;
+                if (topColor === colors[def.top])    topColor = ph.slice;
+                if (botColor === colors[def.bottom]) botColor = ph.slice;
+            }
+
+            const color = layer === 'top' ? topColor : botColor;
+            const angle = layer === 'top' ? 0 : -30;
+
+            const tx = (cx + 29.5 / 220 * size).toFixed(2);
+            const ty = (cy - 114 / 220 * size).toFixed(2);
+
+            const maskId = `slice-mask-noside-${layer}-${Math.random().toString(36).slice(2)}`;
+
+            const arrowBasePath = `M7.32.86C6.69.13,5.72-.16,4.79.09c-.48.13-.91.4-1.23.77L.61,4.26C-.03,5.01-.18,6.03.23,6.92c.41.9,1.28,1.45,2.26,1.45h5.9c.22,0,.44-.03.65-.08.83-.22,1.47-.85,1.73-1.67.25-.82.07-1.7-.5-2.35L7.32.86Z`;
+
+            const arrowColorPath = `M6.18,1.84c-.26-.3-.65-.4-1-.31-.18.05-.35.15-.49.31l-2.95,3.41c-.55.64-.1,1.63.74,1.63h5.9c.09,0,.18-.01.26-.03.67-.18.97-1.03.48-1.59l-2.95-3.41Z`;
+
+            const transform = `rotate(%ROT%, ${cx}, ${cy}) translate(${tx}, ${ty}) scale(${scale.toFixed(4)}) translate(5.43, 4.19) rotate(-165)`;
+
+            const maskedArrow = (rot) => `
+                <defs>
+                    <mask id="${maskId}-${rot}">
+                        <rect width="100%" height="100%" fill="white"/>
+                        <path d="${arrowColorPath}" fill="black"/>
+                    </mask>
+                </defs>
+                <g transform="${transform.replace('%ROT%', rot)}">
+                    <g mask="url(#${maskId}-${rot})">
+                        <path fill="${muted ? ph.border : colors.border}" d="${arrowBasePath}"/>
+                    </g>
+                    <path fill="${color}" d="${arrowColorPath}"/>
+                </g>
+            `;
+
+            return maskedArrow(angle) + maskedArrow(angle + 180);
+        },
+    },
+};
+
 
 
     // -----------------------------------------------------------------

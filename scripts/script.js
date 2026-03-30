@@ -96,6 +96,10 @@ const toolbar = document.getElementById('custom-toolbar');
         classicalPanel.style.display = isCustom ? 'none' : '';
         customPanel.style.display    = isCustom ? '' : 'none';
         toolbar.style.display        = isCustom ? '' : 'none';
+        if (!isCustom) {
+            if (fillModeActive) fillModeBtn.click();
+            if (fillResetActive) unfillBtn.click();
+        }
     });
 });
 
@@ -510,8 +514,8 @@ function selectRecentColor(hex, slotEl) {
 
 document.getElementById('canvas-inner').addEventListener('click', e => {
     if (fillModeActive) {
-        const piece = e.target.closest('.sticker');
-        if (!piece) return;
+        const piece = e.target.closest('.sticker[id]');
+        if (!piece || !piece.id.trim()) return;
         pushUndo();
         sq1vis.setPieceColor(piece.id, fillColorInput.value || 'transparent');
         draw();
@@ -520,8 +524,8 @@ document.getElementById('canvas-inner').addEventListener('click', e => {
 
 document.getElementById('canvas-inner').addEventListener('click', e => {
     if (fillResetActive) {
-        const piece = e.target.closest('.sticker');
-        if (!piece) return;
+        const piece = e.target.closest('.sticker[id]');
+        if (!piece || !piece.id.trim()) return;
         pushUndo();
         sq1vis.resetPieceColor(piece.id);
         draw();
