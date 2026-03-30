@@ -24,6 +24,7 @@ function buildSchemeGrid() {
             sq1vis.setColorScheme({ [slot.id]: color });
             const btn = p.getRoot().button;
             if (btn) btn.style.setProperty('--pcr-color', color === 'transparent' ? 'rgba(0,0,0,0)' : color);
+            if (btn) btn.style.background = color === 'transparent' ? 'repeating-conic-gradient(#808080 0% 25%, #fff 0% 50%) 0 0 / 8px 8px' : color;
             draw();
             saveSettings();
         });
@@ -195,24 +196,20 @@ function createPickr(el, initialColor, onChange) {
         },
     });
     p.on('change', (color) => {
-        console.log('change fired', color, color?.toHEXA?.().toString());
         if (!color) { onChange('transparent'); return; }
-        const hex = color.toHEXA().toString();
-        const resolved = hex.length === 9 && hex.endsWith('00') ? 'transparent' : hex;
-        console.log('calling onChange with', resolved);
+        const rgba = color.toRGBA();
+        const a = Math.round(rgba[3] * 100) / 100;
+        const resolved = a === 0 ? 'transparent' : `rgba(${Math.round(rgba[0])},${Math.round(rgba[1])},${Math.round(rgba[2])},${a})`;
         onChange(resolved);
     });
     p.on('hide', () => {
-        console.log('hide fired');
         const c = p.getColor();
-        console.log('color on hide', c, c?.toHEXA?.().toString());
         if (!c) { onChange('transparent'); return; }
-        const hex = c.toHEXA().toString();
-        const resolved = hex.length === 9 && hex.endsWith('00') ? 'transparent' : hex;
+        const rgba = c.toRGBA();
+        const a = Math.round(rgba[3] * 100) / 100;
+        const resolved = a === 0 ? 'transparent' : `rgba(${Math.round(rgba[0])},${Math.round(rgba[1])},${Math.round(rgba[2])},${a})`;
         onChange(resolved);
     });
-    p.on('init', () => console.log('pickr init fired', el));
-    p.on('show', () => console.log('pickr show fired'));
     return p;
 }
 
@@ -414,8 +411,6 @@ function loadSettings() {
 loadSettings();
 
 // ── Cursor dev helper ─────────────────────────────────
-// Edit SVGs here, then call encodeCursors() in console
-// to get the encoded strings to paste into style.css
 window.CURSOR_SVG = {
     fill: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><g transform="scale(-1,1) translate(-24,0)"><path fill="#ffffff" stroke="#000000" stroke-width="3" paint-order="stroke" d="M20.911 14.216l-.411-.596-.411.596C19.74 14.72 18 17.3 18 18.5a2.5 2.5 0 0 0 5 0c0-1.2-1.74-3.78-2.089-4.284zM20.5 20a1.502 1.502 0 0 1-1.5-1.5 9.725 9.725 0 0 1 1.5-3.096A9.725 9.725 0 0 1 22 18.5a1.502 1.502 0 0 1-1.5 1.5zm-9-17.207L9.145 5.148a.476.476 0 0 0-.09-.023c-3.475-.17-5.962.425-6.743 1.59-.027.042-.07.077-.092.12a1.394 1.394 0 0 0 .118 1.522c.694.973 2.685 1.732 5.833 1.732a23.887 23.887 0 0 0 2.89-.192 1.494 1.494 0 1 0 .076-1.016c-4.77.618-7.418-.308-7.986-1.104-.812-1.14 3.1-1.71 5.044-1.679L6.32 7.973c.386.05.836.08 1.318.096L11.5 4.207l7.293 7.293-8.09 8.091a1.74 1.74 0 0 1-2.405 0l-4.889-4.888a1.702 1.702 0 0 1 0-2.405l1.514-1.514a9.152 9.152 0 0 1-1.101-.312l-1.12 1.12a2.703 2.703 0 0 0 0 3.818l4.889 4.888a2.7 2.7 0 0 0 3.818 0l8.798-8.798zM12 9.5a.5.5 0 1 1 .5.5.5.5 0 0 1-.5-.5z"/></g></svg>`,
 
@@ -443,7 +438,6 @@ window.CURSOR_SVG = {
 window.encodeCursors = function () {
     for (const [name, svg] of Object.entries(window.CURSOR_SVG)) {
         const encoded = 'url("data:image/svg+xml,' + encodeURIComponent(svg.replace(/\n\s*/g, '')) + '")';
-        console.log(`--- ${name} ---\n${encoded}\n`);
     }
 };
 
