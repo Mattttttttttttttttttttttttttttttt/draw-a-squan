@@ -2,6 +2,12 @@ const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
 var schemePickrs = {};
 var fillPickr = null;
 
+let isCustomMode = false;
+let classicalSnapshot = null;
+let customSnapshot = null;
+let customMuteActive = false;
+let classicalMuteActive = false;
+
 function buildSchemeGrid() {
     if (typeof Pickr === 'undefined') { console.error('Pickr not loaded'); return; }
     // Destroy old pickr instances to avoid leaks
@@ -333,8 +339,9 @@ function saveSettings() {
             }
             return obj;
         })(),
-        // Piece fill colors
-        piecesColors: sq1vis.getPiecesColors(),
+        // Piece fill colors — save separately per mode
+        classicalPiecesColors: isCustomMode ? (classicalSnapshot ? classicalSnapshot.piecesColors : null) : sq1vis.getPiecesColors(),
+        customPiecesColors: isCustomMode ? sq1vis.getPiecesColors() : (customSnapshot ? customSnapshot.piecesColors : null),
         // Export settings
         exportLayer,
         exportFmt,
@@ -401,8 +408,9 @@ function loadSettings() {
         }
     }
 
-    // Piece fill colors
-    if (s.piecesColors) sq1vis.setPiecesColors(s.piecesColors);
+    // Piece fill colors — restore classical only on load; custom restored on mode switch
+    if (s.classicalPiecesColors) sq1vis.setPiecesColors(s.classicalPiecesColors);
+    if (s.customPiecesColors) customSnapshot = { piecesColors: s.customPiecesColors, mute: s.muteActive || false };
 
     // Export
     if (s.exportLayer) {
@@ -435,6 +443,8 @@ function loadSettings() {
     // Scheme mode panel
     if (s.schemeMode === 'custom') {
         customBtn.classList.add("no-transition");
+        // Restore custom snapshot before clicking so the switch finds it
+        if (s.customPiecesColors) customSnapshot = { piecesColors: s.customPiecesColors, mute: s.muteActive || false };
         customBtn.click();
         customBtn.classList.remove("no-transition");
     }
@@ -645,14 +655,6 @@ document.getElementById('scramble-input').addEventListener('input', (e) => {
         if (currentInput === document.getElementById('scramble-input').value) draw();
     }, 200)
 });
-
-let isCustomMode = false;
-
-// Snapshots for isolating classical/custom state
-let classicalSnapshot = null;
-let customSnapshot = null;
-let customMuteActive = false;
-let classicalMuteActive = false;
 
 function draw() {
     const input = document.getElementById('scramble-input').value;
