@@ -559,7 +559,9 @@ document.getElementById('canvas-inner').addEventListener('click', e => {
         if (!piece || !piece.id.trim()) return;
         pushUndo();
         sq1vis.setPieceColor(piece.id, fillColorInput.value || 'transparent');
+        updateLastUsed();
         draw();
+        saveSettings();
     }
 });
 
