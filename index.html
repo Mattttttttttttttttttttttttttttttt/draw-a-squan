@@ -4,16 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SQ1 — Square-1 Visualizer</title>
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/pickr.css"/>
-  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/pickr.css"/>
+  <link rel="icon" href="./favicon.ico">
 </head>
 <body>
 
   <!-- ═══ HEADER ═══ -->
   <header>
     <button class="hamburger-btn" id="hamburger-btn" title="Toggle sidebar">
-  <img src="img/menu.svg">
+  <img src="./img/menu.svg">
 </button>
 <div class="logo">DRAW-A-SQUAN <span class="logo-by">by Matt &amp; Abid</span></div>
   </header>
@@ -349,24 +349,24 @@
   <div id="toast" class="toast"></div>
   <div class="floating-export-btn" id="floating-export-btn" style="display:none;">
     <button class="feb-action" id="feb-action-btn" title="Export">
-      <img id="feb-action-icon" src="img/download.svg" width="18" height="18" style="display:block;" />
+      <img id="feb-action-icon" src="./img/download.svg" width="18" height="18" style="display:block;" />
     </button>
     <button class="feb-split" id="feb-split-btn" title="Switch mode">▾</button>
     <div class="feb-dropdown" id="feb-dropdown" style="display:none;">
       <div class="feb-option" data-mode="download">
-        <img src="img/download.svg" width="14" height="14" /> Download
+        <img src="./img/download.svg" width="14" height="14" /> Download
       </div>
       <div class="feb-option" data-mode="copy">
-        <img src="img/copy.svg" width="14" height="14" /> Copy
+        <img src="./img/copy.svg" width="14" height="14" /> Copy
       </div>
     </div>
   </div>
-  <script src="scripts/pickr.js"></script>
-  <script src="scripts/jszip-lib.js"></script>
-  <script src="scripts/xlsx-min.js"></script>
-  <script src="scripts/parseScramble.js"></script>
-  <script src="scripts/drawScramble.js"></script>
-  <script src="scripts/script.js"></script>
+  <script src="./scripts/pickr.js"></script>
+  <script src="./scripts/jszip-lib.js"></script>
+  <script src="./scripts/xlsx-min.js"></script>
+  <script src="./scripts/parseScramble.js"></script>
+  <script src="./scripts/drawScramble.js"></script>
+  <script src="./scripts/script.js"></script>
   <script>
       (function () {
     const params = new URLSearchParams(window.location.search);
