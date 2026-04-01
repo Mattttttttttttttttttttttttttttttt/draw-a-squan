@@ -583,6 +583,26 @@ const SAC2Style = {
     // === MAIN SVG BUILDER ================================================
     // =====================================================================
 
+    function getSingleLayerSVG(rawHex, size = 400, muted, showSlice, whichLayer = 'top', exportPad = 0) {
+        const hex = rawHex.replace(/[|/]/, '');
+        if (hex.length !== 24) throw new Error('Hex must be 24 data characters.');
+        const parsed = parseHex(rawHex);
+        const variant = getActiveVariant();
+        const colors = getResolvedColors();
+        size = size * (220 / 400);
+        const cx = size / 2, cy = size / 2;
+        const isBottom = whichLayer === 'bottom';
+        const tokens = isBottom ? parsed.bottom : parsed.top;
+        let content = '';
+        if (showSlice) content += variant.drawSlice(whichLayer, cx, cy, size, colors, muted, getPlaceholderScheme());
+        content += drawLayer(tokens, isBottom, cx, cy, size, muted);
+        // Tight viewBox: content is centred at cx,cy, radius ~= size*0.5
+        const r = size * 0.52 + exportPad;
+        const vbX = (cx - r).toFixed(2), vbY = (cy - r).toFixed(2);
+        const vbS = (r * 2).toFixed(2);
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${vbS}" height="${vbS}" viewBox="${vbX} ${vbY} ${vbS} ${vbS}" style="overflow:visible;" class="squan">${content}</svg>`;
+    }
+
     function getSVG(rawHex, size = 400, ringDistance = 5, muted, isVert, showSlice, _showSides, exportPad = 0) {
         // _showSides is ignored — controlled via setShowSideColors()
         const hex = rawHex.replace(/[|/]/, '');
@@ -659,7 +679,7 @@ const SAC2Style = {
 
     return {
         // Core rendering
-        getSVG, parseHex, algToHex, invertScramble, unkarnify,
+        getSVG, getSingleLayerSVG, parseHex, algToHex, invertScramble, unkarnify,
         // Color scheme
         getColorSlots() { return getActiveVariant().colorSlots; },
         getColorScheme() { return getResolvedColors(); },

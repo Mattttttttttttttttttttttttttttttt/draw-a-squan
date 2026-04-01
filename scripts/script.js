@@ -828,10 +828,9 @@ function getExportSVGString(layer) {
         return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">` +
             `<g transform="${g0shift}">${inner0}</g><g transform="${g1shift}">${inner1}</g></svg>`;
     } else {
-        const idx = layer === 'top' ? 0 : 1;
-        svgEl = svgs[idx];
-        svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-        return svgEl.outerHTML;
+        const scaledSize = size * (220 / 400);
+        const PAD = Math.round(scaledSize * 0.28);
+        return sq1vis.getSingleLayerSVG(hex, size, muted, showSlice, layer, PAD);
     }
 }
 
