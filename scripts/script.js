@@ -239,13 +239,12 @@ const viewportCanvas = document.getElementById('viewport-canvas');
 function createPickr(el, initialColor, onChange) {
     const p = Pickr.create({
         el,
-        el,
         theme: 'nano',
         default: initialColor || '#CC0000',
-        defaultRepresentation: 'HEXA',
+        defaultRepresentation: 'RGBA',
         components: {
             preview: true, opacity: true, hue: true,
-            interaction: { hex: true, rgba: true, input: true, save: false, clear: false },
+            interaction: { hex: false, rgba: false, input: true, save: false, clear: false },
         },
     });
     p.on('change', (color) => {
