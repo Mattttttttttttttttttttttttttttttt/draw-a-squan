@@ -654,6 +654,13 @@ document.addEventListener('click', () => {
 });
 
 /* ─── Input reactive ──────────────────────────────────── */
+document.getElementById('scramble-input').addEventListener('focus', () => {
+    document.getElementById('bulk-export-btn').style.borderColor = 'var(--accent)';
+});
+document.getElementById('scramble-input').addEventListener('blur', () => {
+    document.getElementById('bulk-export-btn').style.borderColor = '';
+});
+
 document.getElementById('scramble-input').addEventListener('input', (e) => {
     const currentInput = e.target.value;
     setTimeout(() => {
