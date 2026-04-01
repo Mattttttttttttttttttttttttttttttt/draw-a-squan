@@ -140,7 +140,7 @@ const toolbar = document.getElementById('custom-toolbar');
 
 // Keys 1/2/3 select recent colors
 document.addEventListener('keydown', e => {
-    if (['1','2','3'].includes(e.key) && !e.ctrlKey && !e.metaKey) {
+    if (['1','2','3'].includes(e.key) && !e.ctrlKey && !e.metaKey && isCustomMode) {
         const idx = parseInt(e.key) - 1;
         if (lastUsedColors[idx]) {
             const slot = document.getElementById(`ctb-recent-${idx}`);
@@ -214,10 +214,16 @@ let fillModeActive = false;
 let fillResetActive = false;
 let muteActive = false;
 
+function setFillColor(hex) {
+    fillColorInput.value = hex;
+    if (fillPickr) fillPickr.setColor(hex);
+}
+
 // Init fill Pickr (deferred so DOM is ready)
 setTimeout(() => {
     fillPickr = createPickr('#fill-pickr-el', '#CC0000', (color) => {
         fillColorInput.value = color;
+        updateLastUsed();
         if (!fillModeActive) activateFill();
     });
 }, 0);
@@ -545,11 +551,9 @@ function renderRecentSlots() {
 }
 
 function selectRecentColor(hex, slotEl) {
-    fillColorInput.value = hex;
-    if (fillPickr) fillPickr.setColor(hex);
+    setFillColor(hex);
     document.querySelectorAll('.ctb-recent-slot').forEach(s => s.classList.remove('active-recent'));
     slotEl.classList.add('active-recent');
-    updateLastUsed();
     if (!fillModeActive) activateFill();
 }
 
