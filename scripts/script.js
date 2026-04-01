@@ -239,6 +239,7 @@ const viewportCanvas = document.getElementById('viewport-canvas');
 function createPickr(el, initialColor, onChange) {
     const p = Pickr.create({
         el,
+        el,
         theme: 'nano',
         default: initialColor || '#CC0000',
         defaultRepresentation: 'HEXA',
@@ -255,6 +256,16 @@ function createPickr(el, initialColor, onChange) {
         p.applyColor(true);
         onChange(resolved);
     });
+    p.on('show', () => {
+        const btn = p.getRoot().button;
+        console.log('[pickr show]', 'btn:', btn, 'classes before:', btn?.className);
+        if (btn) {
+            btn.classList.add('pcr-open');
+            console.log('[pickr show]', 'classes after:', btn.className);
+        } else {
+            console.warn('[pickr show] no button found!');
+        }
+    });
     p.on('hide', () => {
         const c = p.getColor();
         if (!c) { onChange('transparent'); return; }
@@ -262,6 +273,12 @@ function createPickr(el, initialColor, onChange) {
         const a = Math.round(rgba[3] * 100) / 100;
         const resolved = a === 0 ? 'transparent' : `rgba(${Math.round(rgba[0])},${Math.round(rgba[1])},${Math.round(rgba[2])},${a})`;
         onChange(resolved);
+        const btn = p.getRoot().button;
+        console.log('[pickr hide]', 'btn:', btn, 'classes before:', btn?.className);
+        if (btn) {
+            btn.classList.remove('pcr-open');
+            console.log('[pickr hide]', 'classes after:', btn.className);
+        }
     });
     return p;
 }
