@@ -45,7 +45,6 @@ function buildSchemeGrid() {
         schemePickrs[slot.id] = p;
     });
 }
-buildSchemeGrid();
 
 // ── Style dropdown ──────────────────────────────────────
 function buildStyleDropdown() {
@@ -75,9 +74,6 @@ function updateStyleToggles() {
     hideSliceRow.style.display = style.hasSliceIndicator ? '' : 'none';
 }
 
-buildStyleDropdown();
-updateStyleToggles();
-
 document.getElementById('color-scheme-toggle').addEventListener('click', () => {
     const body = document.getElementById('color-scheme-body');
     const arrow = document.querySelector('#color-scheme-toggle .section-arrow');
@@ -105,11 +101,14 @@ const toolbar = document.getElementById('custom-toolbar');
 
         if (isCustom && !isCustomMode) {
             // Switching TO custom: save classical state, restore custom state
-            classicalSnapshot = {
-                piecesColors: JSON.parse(JSON.stringify(sq1vis.getPiecesColors())),
-                mute: muteActive,
-            };
-            classicalMuteActive = muteActive;
+            // Only overwrite classicalSnapshot if it hasn't already been seeded by loadSettings
+            if (!classicalSnapshot) {
+                classicalSnapshot = {
+                    piecesColors: JSON.parse(JSON.stringify(sq1vis.getPiecesColors())),
+                    mute: muteActive,
+                };
+            }
+            classicalMuteActive = classicalSnapshot.mute;
             if (customSnapshot) {
                 sq1vis.setPiecesColors(customSnapshot.piecesColors);
                 muteActive = customSnapshot.mute;
@@ -443,6 +442,8 @@ function loadSettings() {
     // Scheme mode panel
     if (s.schemeMode === 'custom') {
         customBtn.classList.add("no-transition");
+        // Seed classicalSnapshot so switching back to classical works correctly
+        if (s.classicalPiecesColors) classicalSnapshot = { piecesColors: s.classicalPiecesColors, mute: false };
         // Restore custom snapshot before clicking so the switch finds it
         if (s.customPiecesColors) customSnapshot = { piecesColors: s.customPiecesColors, mute: s.muteActive || false };
         customBtn.click();
@@ -613,6 +614,10 @@ const MODES = [
     { value: 'hex', label: 'Hex', placeholder: '211033455677|99ebbaddcff8' },
 ];
 let currentModeIndex = 0;
+
+buildSchemeGrid();
+buildStyleDropdown();
+updateStyleToggles();
 
 function setMode(index) {
     currentModeIndex = ((index % MODES.length) + MODES.length) % MODES.length;
