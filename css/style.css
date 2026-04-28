@@ -1099,6 +1099,14 @@ input[type=number]::-webkit-outer-spin-button {
 
 .topbar-input:focus {
     border-color: var(--accent);
+    border-right-color: var(--accent);
+    z-index: 1;
+}
+
+.topbar-input:focus ~ .bulk-export-open-btn,
+.topbar-input.focused-sibling {
+    border-color: var(--accent);
+    border-left-color: var(--accent);
 }
 
 /* ─── Viewport ────────────────────────────────────────── */
@@ -1553,6 +1561,7 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 .bulk-export-open-btn:hover { background: var(--border); color: var(--text); }
+.bulk-export-open-btn { transition: background var(--transition), color var(--transition), border-color var(--transition); }
 
 .topbar-input + .bulk-export-open-btn {
     margin-left: calc(-0.5rem - 1px);
@@ -1756,6 +1765,57 @@ input[type=number]::-webkit-outer-spin-button {
     font-size: .72rem;
     color: var(--danger);
     line-height: 1.4;
+}
+
+/* ── Pickr dark theme overrides ───────────────────── */
+.pcr-app {
+    background: #1e1e1e !important;
+    border: 1px solid #3a3a3a !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+}
+.pcr-app .pcr-interaction input {
+    background: #2a2a2a !important;
+    border: 1px solid #444 !important;
+    color: #eee !important;
+    border-radius: 4px !important;
+}
+.pcr-app .pcr-interaction input:focus {
+    border-color: #888 !important;
+    outline: none !important;
+}
+.pcr-app .pcr-interaction .pcr-save {
+    background: #555 !important;
+    color: #fff !important;
+    border-radius: 4px !important;
+}
+.pcr-app .pcr-interaction .pcr-save:hover { background: #777 !important; }
+.pcr-app .pcr-interaction .pcr-clear {
+    background: #3a1a1a !important;
+    color: #f88 !important;
+    border-radius: 4px !important;
+}
+.pcr-app .pcr-interaction .pcr-clear:hover { background: #5a2a2a !important; }
+.pcr-app .pcr-selection .pcr-color-preview { border-radius: 4px !important; }
+.pcr-result { width: 100% !important; }
+
+.scheme-pickr-wrap .pickr .pcr-button,
+#fill-pickr-el .pickr .pcr-button {
+    width: 28px !important;
+    height: 28px !important;
+    border: 2px solid #555 !important;
+    transition: border-color 0.15s !important;
+}
+
+.pcr-button.pcr-open {
+    box-shadow: 0 0 0 0px var(--bg), 0 0 0 2px var(--accent) !important;
+    border-color: transparent !important;
+}
+.scheme-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
 }
 
 @media (max-width: 700px) {

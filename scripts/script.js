@@ -1,6 +1,18 @@
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
+var schemePickrs = {};
+var fillPickr = null;
+
+let isCustomMode = false;
+let classicalSnapshot = null;
+let customSnapshot = null;
+let customMuteActive = false;
+let classicalMuteActive = false;
 
 function buildSchemeGrid() {
+    if (typeof Pickr === 'undefined') { console.error('Pickr not loaded'); return; }
+    // Destroy old pickr instances to avoid leaks
+    for (const [id, p] of Object.entries(schemePickrs)) { try { p.destroyAndRemove(); } catch(e){} delete schemePickrs[id]; }
+
     const grid = document.getElementById('scheme-grid');
     grid.innerHTML = '';
     const slots = sq1vis.getColorSlots();
@@ -10,22 +22,29 @@ function buildSchemeGrid() {
         row.className = 'scheme-row';
         row.innerHTML = `
           <span class="scheme-face-label">${slot.label}</span>
-          <div class="scheme-switch-btn" id="switch-${slot.id}" style="background:${scheme[slot.id]}">
-            <input class="scheme-color-input" type="color" value="${scheme[slot.id]}" data-face="${slot.id}" />
-          </div>`;
+          <div class="scheme-pickr-wrap" id="pickr-wrap-${slot.id}"></div>`;
         grid.appendChild(row);
-    });
-    grid.querySelectorAll('.scheme-color-input').forEach(inp => {
-        inp.addEventListener('input', e => {
-            const face = e.target.dataset.face;
-            const color = e.target.value;
-            document.getElementById(`switch-${face}`).style.background = color;
-            sq1vis.setColorScheme({ [face]: color });
+
+        const initial = scheme[slot.id] === 'transparent' ? 'rgba(0,0,0,0)' : scheme[slot.id];
+        const p = createPickr(`#pickr-wrap-${slot.id}`, initial, (color) => {
+            sq1vis.setColorScheme({ [slot.id]: color });
+            const btn = p.getRoot().button;
+            if (btn) {
+                if (color === 'transparent') {
+                    btn.style.setProperty('--pcr-color', 'rgba(0,0,0,0)');
+                    btn.style.background = 'repeating-conic-gradient(#808080 0% 25%, #fff 0% 50%) 0 0 / 8px 8px';
+                } else {
+                    btn.style.setProperty('--pcr-color', color);
+                    btn.style.removeProperty('background');
+                }
+            }
             draw();
+            saveSettings();
         });
+        schemePickrs[slot.id] = p;
+        schemePickrs[slot.id] = p;
     });
 }
-buildSchemeGrid();
 
 // ── Style dropdown ──────────────────────────────────────
 function buildStyleDropdown() {
@@ -55,9 +74,6 @@ function updateStyleToggles() {
     hideSliceRow.style.display = style.hasSliceIndicator ? '' : 'none';
 }
 
-buildStyleDropdown();
-updateStyleToggles();
-
 document.getElementById('color-scheme-toggle').addEventListener('click', () => {
     const body = document.getElementById('color-scheme-body');
     const arrow = document.querySelector('#color-scheme-toggle .section-arrow');
@@ -82,12 +98,49 @@ const toolbar = document.getElementById('custom-toolbar');
         classicalPanel.style.display = isCustom ? 'none' : '';
         customPanel.style.display    = isCustom ? '' : 'none';
         toolbar.style.display        = isCustom ? '' : 'none';
+
+        if (isCustom && !isCustomMode) {
+            // Switching TO custom: save classical state, restore custom state
+            // Only overwrite classicalSnapshot if it hasn't already been seeded by loadSettings
+            if (!classicalSnapshot) {
+                classicalSnapshot = {
+                    piecesColors: JSON.parse(JSON.stringify(sq1vis.getPiecesColors())),
+                    mute: muteActive,
+                };
+            }
+            classicalMuteActive = classicalSnapshot.mute;
+            if (customSnapshot) {
+                sq1vis.setPiecesColors(customSnapshot.piecesColors);
+                muteActive = customSnapshot.mute;
+            } else {
+                muteActive = customMuteActive;
+            }
+            muteBtn.classList.toggle('active', muteActive);
+            isCustomMode = true;
+        } else if (!isCustom && isCustomMode) {
+            // Switching TO classical: save custom state, restore classical
+            customSnapshot = {
+                piecesColors: JSON.parse(JSON.stringify(sq1vis.getPiecesColors())),
+                mute: muteActive,
+            };
+            customMuteActive = muteActive;
+            if (fillModeActive) fillModeBtn.click();
+            if (fillResetActive) unfillBtn.click();
+            if (classicalSnapshot) {
+                sq1vis.setPiecesColors(classicalSnapshot.piecesColors);
+                muteActive = classicalSnapshot.mute;
+                muteBtn.classList.toggle('active', muteActive);
+            }
+            isCustomMode = false;
+        }
+        draw();
+        saveSettings();
     });
 });
 
 // Keys 1/2/3 select recent colors
 document.addEventListener('keydown', e => {
-    if (['1','2','3'].includes(e.key) && !e.ctrlKey && !e.metaKey) {
+    if (['1','2','3'].includes(e.key) && !e.ctrlKey && !e.metaKey && isCustomMode) {
         const idx = parseInt(e.key) - 1;
         if (lastUsedColors[idx]) {
             const slot = document.getElementById(`ctb-recent-${idx}`);
@@ -154,12 +207,26 @@ const fillModeBtn = document.getElementById('fill-mode-btn');
 const unfillBtn = document.getElementById('fill-unfill-btn');
 const resetBtn = document.getElementById('fill-reset-btn');
 const muteBtn = document.getElementById('fill-mute-btn');
-const fillColorInput = document.getElementById('fill-color-input');
-const fillColorSwitch = document.getElementById('fill-color-switch');
+const fillColorInput = { value: '#CC0000', _transparent: false };
+const fillColorSwitch = { style: {} }; // replaced by Pickr
 
 let fillModeActive = false;
 let fillResetActive = false;
 let muteActive = false;
+
+function setFillColor(hex) {
+    fillColorInput.value = hex;
+    if (fillPickr) fillPickr.setColor(hex);
+}
+
+// Init fill Pickr (deferred so DOM is ready)
+setTimeout(() => {
+    fillPickr = createPickr('#fill-pickr-el', '#CC0000', (color) => {
+        fillColorInput.value = color;
+        updateLastUsed();
+        if (!fillModeActive) activateFill();
+    });
+}, 0);
 let exportLayer = 'both';
 let exportFmt = 'png';
 let febMode = 'download'; // 'download' or 'copy'
@@ -168,6 +235,52 @@ const lastUsedLimit = 3;
 
 const canvasInner = document.getElementById('canvas-inner');
 const viewportCanvas = document.getElementById('viewport-canvas');
+
+function createPickr(el, initialColor, onChange) {
+    const p = Pickr.create({
+        el,
+        theme: 'nano',
+        default: initialColor || '#CC0000',
+        defaultRepresentation: 'RGBA',
+        components: {
+            preview: true, opacity: true, hue: true,
+            interaction: { hex: false, rgba: false, input: true, save: false, clear: false },
+        },
+    });
+    p.on('change', (color) => {
+        if (!color) { onChange('transparent'); return; }
+        const rgba = color.toRGBA();
+        const a = Math.round(rgba[3] * 100) / 100;
+        const resolved = a === 0 ? 'transparent' : `rgba(${Math.round(rgba[0])},${Math.round(rgba[1])},${Math.round(rgba[2])},${a})`;
+        p.applyColor(true);
+        onChange(resolved);
+    });
+    p.on('show', () => {
+        const btn = p.getRoot().button;
+        console.log('[pickr show]', 'btn:', btn, 'classes before:', btn?.className);
+        if (btn) {
+            btn.classList.add('pcr-open');
+            console.log('[pickr show]', 'classes after:', btn.className);
+        } else {
+            console.warn('[pickr show] no button found!');
+        }
+    });
+    p.on('hide', () => {
+        const c = p.getColor();
+        if (!c) { onChange('transparent'); return; }
+        const rgba = c.toRGBA();
+        const a = Math.round(rgba[3] * 100) / 100;
+        const resolved = a === 0 ? 'transparent' : `rgba(${Math.round(rgba[0])},${Math.round(rgba[1])},${Math.round(rgba[2])},${a})`;
+        onChange(resolved);
+        const btn = p.getRoot().button;
+        console.log('[pickr hide]', 'btn:', btn, 'classes before:', btn?.className);
+        if (btn) {
+            btn.classList.remove('pcr-open');
+            console.log('[pickr hide]', 'classes after:', btn.className);
+        }
+    });
+    return p;
+}
 
 function updateCanvasCursor() {
     if (fillModeActive) {
@@ -247,8 +360,9 @@ function saveSettings() {
             }
             return obj;
         })(),
-        // Piece fill colors
-        piecesColors: sq1vis.getPiecesColors(),
+        // Piece fill colors — save separately per mode
+        classicalPiecesColors: isCustomMode ? (classicalSnapshot ? classicalSnapshot.piecesColors : null) : sq1vis.getPiecesColors(),
+        customPiecesColors: isCustomMode ? sq1vis.getPiecesColors() : (customSnapshot ? customSnapshot.piecesColors : null),
         // Export settings
         exportLayer,
         exportFmt,
@@ -315,8 +429,9 @@ function loadSettings() {
         }
     }
 
-    // Piece fill colors
-    if (s.piecesColors) sq1vis.setPiecesColors(s.piecesColors);
+    // Piece fill colors — restore classical only on load; custom restored on mode switch
+    if (s.classicalPiecesColors) sq1vis.setPiecesColors(s.classicalPiecesColors);
+    if (s.customPiecesColors) customSnapshot = { piecesColors: s.customPiecesColors, mute: s.muteActive || false };
 
     // Export
     if (s.exportLayer) {
@@ -349,6 +464,10 @@ function loadSettings() {
     // Scheme mode panel
     if (s.schemeMode === 'custom') {
         customBtn.classList.add("no-transition");
+        // Seed classicalSnapshot so switching back to classical works correctly
+        if (s.classicalPiecesColors) classicalSnapshot = { piecesColors: s.classicalPiecesColors, mute: false };
+        // Restore custom snapshot before clicking so the switch finds it
+        if (s.customPiecesColors) customSnapshot = { piecesColors: s.customPiecesColors, mute: s.muteActive || false };
         customBtn.click();
         customBtn.classList.remove("no-transition");
     }
@@ -367,8 +486,6 @@ function loadSettings() {
 loadSettings();
 
 // ── Cursor dev helper ─────────────────────────────────
-// Edit SVGs here, then call encodeCursors() in console
-// to get the encoded strings to paste into style.css
 window.CURSOR_SVG = {
     fill: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><g transform="scale(-1,1) translate(-24,0)"><path fill="#ffffff" stroke="#000000" stroke-width="3" paint-order="stroke" d="M20.911 14.216l-.411-.596-.411.596C19.74 14.72 18 17.3 18 18.5a2.5 2.5 0 0 0 5 0c0-1.2-1.74-3.78-2.089-4.284zM20.5 20a1.502 1.502 0 0 1-1.5-1.5 9.725 9.725 0 0 1 1.5-3.096A9.725 9.725 0 0 1 22 18.5a1.502 1.502 0 0 1-1.5 1.5zm-9-17.207L9.145 5.148a.476.476 0 0 0-.09-.023c-3.475-.17-5.962.425-6.743 1.59-.027.042-.07.077-.092.12a1.394 1.394 0 0 0 .118 1.522c.694.973 2.685 1.732 5.833 1.732a23.887 23.887 0 0 0 2.89-.192 1.494 1.494 0 1 0 .076-1.016c-4.77.618-7.418-.308-7.986-1.104-.812-1.14 3.1-1.71 5.044-1.679L6.32 7.973c.386.05.836.08 1.318.096L11.5 4.207l7.293 7.293-8.09 8.091a1.74 1.74 0 0 1-2.405 0l-4.889-4.888a1.702 1.702 0 0 1 0-2.405l1.514-1.514a9.152 9.152 0 0 1-1.101-.312l-1.12 1.12a2.703 2.703 0 0 0 0 3.818l4.889 4.888a2.7 2.7 0 0 0 3.818 0l8.798-8.798zM12 9.5a.5.5 0 1 1 .5.5.5.5 0 0 1-.5-.5z"/></g></svg>`,
 
@@ -396,7 +513,6 @@ window.CURSOR_SVG = {
 window.encodeCursors = function () {
     for (const [name, svg] of Object.entries(window.CURSOR_SVG)) {
         const encoded = 'url("data:image/svg+xml,' + encodeURIComponent(svg.replace(/\n\s*/g, '')) + '")';
-        console.log(`--- ${name} ---\n${encoded}\n`);
     }
 };
 
@@ -423,11 +539,6 @@ unfillBtn.addEventListener('click', () => {
     updateCanvasCursor();
 });
 
-// Keep switch color in sync with the native picker
-fillColorInput.addEventListener('input', () => {
-    fillColorSwitch.style.background = fillColorInput.value;
-});
-
 function updateLastUsed() {
     let value = fillColorInput.value;
     if (lastUsedColors.includes(value)) {
@@ -439,11 +550,6 @@ function updateLastUsed() {
     }
     renderRecentSlots();
 }
-
-fillColorInput.addEventListener("blur", () => {
-    updateLastUsed();
-    if (!fillModeActive) activateFill();
-})
 
 function renderRecentSlots() {
     for (let i = 0; i < 3; i++) {
@@ -461,28 +567,28 @@ function renderRecentSlots() {
 }
 
 function selectRecentColor(hex, slotEl) {
-    document.getElementById('fill-color-input').value = hex;
-    document.getElementById('fill-color-switch').style.background = hex;
+    setFillColor(hex);
     document.querySelectorAll('.ctb-recent-slot').forEach(s => s.classList.remove('active-recent'));
     slotEl.classList.add('active-recent');
-    updateLastUsed();
     if (!fillModeActive) activateFill();
 }
 
 document.getElementById('canvas-inner').addEventListener('click', e => {
     if (fillModeActive) {
-        const piece = e.target.closest('.sticker');
-        if (!piece) return;
+        const piece = e.target.closest('.sticker[id]');
+        if (!piece || !piece.id.trim()) return;
         pushUndo();
-        sq1vis.setPieceColor(piece.id, fillColorInput.value);
+        sq1vis.setPieceColor(piece.id, fillColorInput.value || 'transparent');
+        updateLastUsed();
         draw();
+        saveSettings();
     }
 });
 
 document.getElementById('canvas-inner').addEventListener('click', e => {
     if (fillResetActive) {
-        const piece = e.target.closest('.sticker');
-        if (!piece) return;
+        const piece = e.target.closest('.sticker[id]');
+        if (!piece || !piece.id.trim()) return;
         pushUndo();
         sq1vis.resetPieceColor(piece.id);
         draw();
@@ -531,6 +637,10 @@ const MODES = [
 ];
 let currentModeIndex = 0;
 
+buildSchemeGrid();
+buildStyleDropdown();
+updateStyleToggles();
+
 function setMode(index) {
     currentModeIndex = ((index % MODES.length) + MODES.length) % MODES.length;
     const m = MODES[currentModeIndex];
@@ -566,6 +676,13 @@ document.addEventListener('click', () => {
 });
 
 /* ─── Input reactive ──────────────────────────────────── */
+document.getElementById('scramble-input').addEventListener('focus', () => {
+    document.getElementById('bulk-export-btn').style.borderColor = 'var(--accent)';
+});
+document.getElementById('scramble-input').addEventListener('blur', () => {
+    document.getElementById('bulk-export-btn').style.borderColor = '';
+});
+
 document.getElementById('scramble-input').addEventListener('input', (e) => {
     const currentInput = e.target.value;
     setTimeout(() => {
@@ -711,10 +828,9 @@ function getExportSVGString(layer) {
         return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">` +
             `<g transform="${g0shift}">${inner0}</g><g transform="${g1shift}">${inner1}</g></svg>`;
     } else {
-        const idx = layer === 'top' ? 0 : 1;
-        svgEl = svgs[idx];
-        svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-        return svgEl.outerHTML;
+        const scaledSize = size * (220 / 400);
+        const PAD = Math.round(scaledSize * 0.28);
+        return sq1vis.getSingleLayerSVG(hex, size, muted, showSlice, layer, PAD);
     }
 }
 
@@ -869,7 +985,7 @@ function flashBtn(msg) {
 /* ─── Floating export button ──────────────────────── */
 function setFebMode(mode) {
     febMode = mode;
-    febActionIcon.src = mode === 'download' ? 'src/download.svg' : 'src/copy.svg';
+    febActionIcon.src = mode === 'download' ? 'img/download.svg' : 'img/copy.svg';
     document.querySelectorAll('.feb-option').forEach(o => {
         o.classList.toggle('active', o.dataset.mode === mode);
     });
@@ -953,9 +1069,22 @@ function syncFormatFromUI() {
 }
 
 document.addEventListener('contextmenu', function (e) {
-    e.preventDefault();
     const canvas = document.getElementById('viewport-canvas');
     if (!canvas || !canvas.contains(e.target)) return;
+
+    if (isCustomMode && fillModeActive) {
+        const piece = e.target.closest('.sticker[id]');
+        if (piece && piece.id.trim()) {
+            e.preventDefault();
+            pushUndo();
+            sq1vis.resetPieceColor(piece.id);
+            draw();
+            saveSettings();
+            return;
+        }
+    }
+
+    e.preventDefault();
     syncFormatFromUI();
     showMenu(e.clientX, e.clientY);
 });
@@ -1488,6 +1617,16 @@ function hookSaveListeners() {
     // scheme color inputs — delegate since they're rebuilt dynamically
     document.getElementById('scheme-grid').addEventListener('input', saveSettings);
 }
+
+document.getElementById('scheme-reset-default').addEventListener('click', () => {
+    const slots = sq1vis.getColorSlots();
+    const defaults = {};
+    slots.forEach(s => { defaults[s.id] = s.default; });
+    sq1vis.setColorScheme(defaults);
+    buildSchemeGrid();
+    draw();
+    saveSettings();
+});
 
 hookSaveListeners();
 draw();

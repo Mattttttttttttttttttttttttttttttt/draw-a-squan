@@ -4,14 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SQ1 — Square-1 Visualizer</title>
-  <link rel="stylesheet" href="src/style.css">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/pickr.css"/>
+  <link rel="icon" href="./favicon.ico">
 </head>
 <body>
 
   <!-- ═══ HEADER ═══ -->
   <header>
     <button class="hamburger-btn" id="hamburger-btn" title="Toggle sidebar">
-  <span></span><span></span><span></span>
+  <img src="./img/menu.svg">
 </button>
 <div class="logo">DRAW-A-SQUAN <span class="logo-by">by Matt &amp; Abid</span></div>
   </header>
@@ -63,8 +65,7 @@
           Fill Piece
         </button>
         <div class="ctb-color-wrap">
-          <button class="ctb-color-switch" id="fill-color-switch"></button>
-          <input type="color" id="fill-color-input" class="fill-color-input" value="#CC0000" />
+          <div id="fill-pickr-el"></div>
         </div>
       </div>
 
@@ -190,6 +191,7 @@
           <!-- Classical panel -->
           <div id="scheme-classical-panel">
             <div id="scheme-grid"></div>
+            <button class="btn btn-secondary" id="scheme-reset-default" style="margin-top:.75rem;font-size:.7rem;padding:.45rem .8rem;letter-spacing:.04em;">Reset to Default</button>
           </div>
 
           <!-- Custom panel -->
@@ -347,22 +349,144 @@
   <div id="toast" class="toast"></div>
   <div class="floating-export-btn" id="floating-export-btn" style="display:none;">
     <button class="feb-action" id="feb-action-btn" title="Export">
-      <img id="feb-action-icon" src="src/download.svg" width="18" height="18" style="display:block;" />
+      <img id="feb-action-icon" src="./img/download.svg" width="18" height="18" style="display:block;" />
     </button>
     <button class="feb-split" id="feb-split-btn" title="Switch mode">▾</button>
     <div class="feb-dropdown" id="feb-dropdown" style="display:none;">
       <div class="feb-option" data-mode="download">
-        <img src="src/download.svg" width="14" height="14" /> Download
+        <img src="./img/download.svg" width="14" height="14" /> Download
       </div>
       <div class="feb-option" data-mode="copy">
-        <img src="src/copy.svg" width="14" height="14" /> Copy
+        <img src="./img/copy.svg" width="14" height="14" /> Copy
       </div>
     </div>
   </div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="src/parseScramble.js"></script>
-  <script src="src/drawScramble.js"></script>
-  <script src="src/script.js"></script>
+  <script src="./scripts/pickr.js"></script>
+  <script src="./scripts/jszip-lib.js"></script>
+  <script src="./scripts/xlsx-min.js"></script>
+  <script src="./scripts/parseScramble.js"></script>
+  <script src="./scripts/drawScramble.js"></script>
+  <script src="./scripts/script.js"></script>
+  <script>
+      (function () {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('input')) return;
+
+    // Parse params
+    const rawInput = params.get('input');          // may contain slashes
+    const mode     = params.get('mode')   || 'scramble'; // scramble | inverse | hex
+    const size     = parseInt(params.get('size')  || '400', 10);
+    const gap      = parseInt(params.get('gap')   || '100', 10);
+    const layer    = params.get('layer')  || 'both';   // both | top | bottom
+    const fmt      = params.get('fmt')    || 'png';    // png | jpeg | bmp | svg
+    const vert     = params.get('orient') === 'vertical';
+
+    // Build hex from input+mode
+    function inputToHex(input, mode) {
+      if (mode === 'hex') return input;
+      if (mode === 'inverse') {
+        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(sq1vis.unkarnify(input)));
+        return `${tlHex}|${blHex}`;
+      }
+      const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
+      return `${tlHex}|${blHex}`;
+    }
+
+    function getDeeplinkSVGString(hex, layer) {
+      const sc = Math.round(size * (220 / 400));
+      const PAD = Math.round(sc * 0.28);
+      const tmp = document.createElement('div');
+      tmp.innerHTML = sq1vis.getSVG(hex, size, gap, false, vert, true, true, PAD);
+      const svgs = tmp.querySelectorAll('svg');
+      const svg0 = svgs[0], svg1 = svgs[1];
+
+      if (layer !== 'both') {
+        const svgEl = layer === 'top' ? svg0 : svg1;
+        svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        return svgEl.outerHTML;
+      }
+
+      const vb    = svg0.getAttribute('viewBox').split(' ').map(parseFloat);
+      const vbX   = vb[0], vbY = vb[1], vbW = vb[2], vbH = vb[3];
+      const padT  = -vbY, padO = -vbX;
+      const margin = sc * (0.44 * (2 + gap / 100) - 1);
+      const g0shift = `translate(${padO},${padT})`;
+      const g1shift = vert
+        ? `translate(${padO},${padT + sc + margin})`
+        : `translate(${padO + sc + margin},${padT})`;
+      const totalW = vert ? vbW : padO + sc + margin + sc + padO;
+      const totalH = vert ? padT + sc + margin + sc + padO : vbH;
+
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">` +
+        `<g transform="${g0shift}">${svg0.innerHTML}</g>` +
+        `<g transform="${g1shift}">${svg1.innerHTML}</g></svg>`;
+    }
+
+    async function rasterize(svgStr, fmt) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
+        const img = new Image();
+        img.onload = () => {
+          setTimeout(() => {
+            const canvas = document.createElement('canvas');
+            canvas.width  = img.naturalWidth  || img.width  || 800;
+            canvas.height = img.naturalHeight || img.height || 400;
+            const ctx = canvas.getContext('2d');
+            if (fmt === 'jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+            ctx.drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+            resolve(canvas);
+          }, 100);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img load failed')); };
+        img.src = url;
+      });
+    }
+
+    async function run() {
+      try {
+        const hex = inputToHex(rawInput, mode);
+        const svgStr = getDeeplinkSVGString(hex, layer);
+        const fname = `sq1-${layer}`;
+
+        let blob;
+        if (fmt === 'svg') {
+          blob = new Blob([svgStr], { type: 'image/svg+xml' });
+        } else {
+          const canvas = await rasterize(svgStr, fmt);
+          if (fmt === 'bmp') {
+            blob = createBMP32(canvas);
+          } else {
+            const mime = fmt === 'jpeg' ? 'image/jpeg' : 'image/png';
+            blob = await new Promise(res => canvas.toBlob(res, mime));
+          }
+        }
+
+        // Trigger download
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${fname}.${fmt === 'jpeg' ? 'jpg' : fmt}`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          URL.revokeObjectURL(a.href);
+          a.remove();
+          // Redirect away — back to browser homepage equivalent
+          window.location.replace('about:blank');
+        }, 1000);
+
+      } catch (err) {
+        console.error('Deeplink export failed:', err);
+        window.location.replace('about:blank');
+      }
+    }
+
+    // Wait for scripts to finish initializing then run
+    window.addEventListener('load', run);
+  })();
+
+  //usage example
+  // squan-go.web.app/draw/?input=(4,-3)/(0,3)/(-1,-4)/(0,-3)/(0,-3)/(3,0)/(-2,0)/(-3,-3)/(5,0)/(-4,-4)/(0,-4)/(4,0)/&size=400&gap=100&layer=both&fmt=png
+  </script>
 </body>
 </html>
