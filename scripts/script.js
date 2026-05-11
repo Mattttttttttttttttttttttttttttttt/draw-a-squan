@@ -1,3 +1,5 @@
+import { sq1vis } from './drawScrambleCustomization.js';
+
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
 var schemePickrs = {};
 var fillPickr = null;
@@ -835,7 +837,7 @@ function getExportSVGString(layer) {
 }
 
 async function doExport(methodOverride) {
-    const method = methodOverride || exportMethod;
+    const method = methodOverride || 'download';
 
     const svgStr = getExportSVGString(exportLayer);
     if (!svgStr) return;
@@ -965,6 +967,8 @@ function createBMP32(canvas) {
 
     return new Blob([buf], { type: 'image/bmp' });
 }
+
+if (typeof window !== 'undefined') window.createBMP32 = createBMP32;
 
 function triggerDownload(blob, filename) {
     const a = document.createElement('a');

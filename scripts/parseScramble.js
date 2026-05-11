@@ -2,7 +2,7 @@
     // === SCRAMBLE / ALG LOGIC ============================================
     // =====================================================================
 
-    function algToHex(scramble) {
+    export function algToHex(scramble) {
         let tlHex = '011233455677';
         let blHex = '998bbaddcffe';
         for (const move of parseScramble(scramble)) {
@@ -16,7 +16,7 @@
         return { tlHex, blHex };
     }
 
-    function parseScramble(scramble) {
+    export function parseScramble(scramble) {
         const moves = [];
         const parts = scramble.replace(/\//g, ' / ').trim().split(/\s+/).filter(Boolean);
         for (const part of parts) {
@@ -39,7 +39,7 @@
         return hex.slice(n) + hex.slice(0, n);
     }
 
-    function invertScramble(str) {
+    export function invertScramble(str) {
         if (!str) return str;
         return String(str).trim().split('/').reverse().map(part => {
             part = part.trim();
@@ -99,7 +99,7 @@
         "vv10": "/u M u m' E'/",    "zz10": "/u M t' M D'/",    "zz0-1": "/D' M t' M u/",
     };
 
-    function unkarnify(scramble) {
+    export function unkarnify(scramble) {
         scramble = scramble.replaceAll(/[\/\\]/g, ' ').replaceAll(/[()]/g, '').replaceAll(/ +/g, ' ');
         scramble = addCommas(scramble);
         return replaceShorthands(dictReplace(' ' + scramble + ' ', karnToWCA).slice(1, -1));

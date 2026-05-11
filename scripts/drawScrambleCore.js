@@ -2,7 +2,7 @@
  * Square-1 Scramble Visualizer — Modular Style System
  */
 
-const Square1Visualizer = (() => {
+export function createSquare1Core(initialState = {}) {
 
     // =====================================================================
     // === CONSTANTS & DEFAULTS ============================================
@@ -52,6 +52,7 @@ const Square1Visualizer = (() => {
         ({ edgeColors, cornerColors, sliceColors } = defaultPieceColors());
     }
     resetPiecesColors();
+    if (initialState.piecesColors) setPiecesColors(initialState.piecesColors);
 
     // =====================================================================
     // === STYLE DEFINITIONS ===============================================
@@ -641,35 +642,6 @@ const SAC2Style = {
         return html;
     }
 
-    // =====================================================================
-    // === PIECE FILL API ==================================================
-    // =====================================================================
-
-    function setPieceColor(id, color) {
-        const [piece, sticker] = id.split(' ');
-        if (!sticker) throw new Error(`piece id ${id} is not valid.`);
-        if (piece === 'slice') {
-            sliceColors = { ...sliceColors, [sticker]: color };
-        } else if (parseInt(piece, 16) % 2 === 0) {
-            edgeColors = { ...edgeColors, [piece]: { ...edgeColors[piece], [sticker]: color } };
-        } else {
-            cornerColors = { ...cornerColors, [piece]: { ...cornerColors[piece], [sticker]: color } };
-        }
-    }
-
-    function resetPieceColor(id) {
-        const [piece, sticker] = id.split(' ');
-        if (!sticker) throw new Error(`piece id ${id} is not valid.`);
-        const def = defaultPieceColors();
-        if (piece === 'slice') {
-            sliceColors = { ...sliceColors, [sticker]: def.sliceColors[sticker] };
-        } else if (parseInt(piece, 16) % 2 === 0) {
-            edgeColors = { ...edgeColors, [piece]: { ...edgeColors[piece], [sticker]: def.edgeColors[piece][sticker] } };
-        } else {
-            cornerColors = { ...cornerColors, [piece]: { ...cornerColors[piece], [sticker]: def.cornerColors[piece][sticker] } };
-        }
-    }
-
     function getPiecesColors() { return { edgeColors, cornerColors, sliceColors }; }
     function setPiecesColors(pc) { edgeColors = pc.edgeColors; cornerColors = pc.cornerColors; if (pc.sliceColors) sliceColors = pc.sliceColors; }
 
@@ -679,7 +651,7 @@ const SAC2Style = {
 
     return {
         // Core rendering
-        getSVG, getSingleLayerSVG, parseHex, algToHex, invertScramble, unkarnify,
+        getSVG, getSingleLayerSVG, parseHex,
         // Color scheme
         getColorSlots() { return getActiveVariant().colorSlots; },
         getColorScheme() { return getResolvedColors(); },
@@ -691,10 +663,45 @@ const SAC2Style = {
         getActiveStyle() { return STYLES[activeStyleIndex]; },
         setShowSideColors(v) { showSideColors = v; },
         getShowSideColors() { return showSideColors; },
-        // Piece fill
-        setPieceColor, resetPieceColor, resetPiecesColors, getPiecesColors, setPiecesColors,
+        // Piece color config
+        getPiecesColors, setPiecesColors,
+        createDefaultPieceColors: defaultPieceColors,
     };
 
-})();
+}
 
-if (typeof window !== 'undefined') window.sq1vis = Square1Visualizer;
+export const sq1core = createSquare1Core();
+
+function createConfiguredCore(options = {}) {
+    const core = createSquare1Core({ piecesColors: options.piecesColors });
+    if (options.styleIndex != null) core.setActiveStyle(options.styleIndex);
+    if (options.showSideColors != null) core.setShowSideColors(options.showSideColors);
+    if (options.colorScheme) core.setColorScheme(options.colorScheme);
+    return core;
+}
+
+export function renderSquare1SVG(rawHex, options = {}) {
+    const core = createConfiguredCore(options);
+    return core.getSVG(
+        rawHex,
+        options.size ?? 400,
+        options.ringDistance ?? 5,
+        options.muted ?? false,
+        options.isVertical ?? false,
+        options.showSlice ?? true,
+        options.showSideColors ?? true,
+        options.exportPad ?? 0,
+    );
+}
+
+export function renderSquare1LayerSVG(rawHex, options = {}) {
+    const core = createConfiguredCore(options);
+    return core.getSingleLayerSVG(
+        rawHex,
+        options.size ?? 400,
+        options.muted ?? false,
+        options.showSlice ?? true,
+        options.layer ?? 'top',
+        options.exportPad ?? 0,
+    );
+}

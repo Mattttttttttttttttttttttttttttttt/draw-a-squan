@@ -1,0 +1,35 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true
+  },
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "globals": {
+    "sq1vis": "readonly",
+    "Pickr": "readonly",
+    "JSZip": "readonly",
+    "XLSX": "readonly"
+  },
+  "rules": {
+    "no-unused-vars": [
+      "warn",
+      {
+        "args": "none",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "no-undef": "error"
+  },
+  "overrides": [
+    {
+      "files": ["scripts/jszip-lib.js", "scripts/xlsx-min.js", "scripts/pickr.js"],
+      "rules": {
+        "no-undef": "off",
+        "no-unused-vars": "off"
+      }
+    }
+  ]
+}
