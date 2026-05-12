@@ -399,7 +399,7 @@
             svg += `<polygon points="${ps([pi, psR, psB, pAp, pOR])}" fill="${c.right}" opacity="0.95"/>`;
             svg += `<polygon points="${ps([pi, psL, psB, psR])}"     fill="${c.top}"   opacity="0.95"/>`;
             // Internal separators between the colored regions
-            svg += `<polyline points="${ps([pi, psL, psB, psR, pi])}" fill="none" stroke="${c.border}" stroke-width="${swInner}" ${strokeAttrs()}/>`;
+            svg += `<polyline points="${ps([psL, psB, psR])}" fill="none" stroke="${c.border}" stroke-width="${swInner}" ${strokeAttrs()}/>`;
             svg += `<line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="${c.border}" stroke-width="${swInner}" stroke-linecap="${state.roundCorners ? 'round' : 'butt'}"/>`;
             // Outer kite outline
             svg += `<polygon points="${ps([pi, pOL, pAp, pOR])}"     fill="none"       stroke="${c.border}" stroke-width="${swOuter}" ${strokeAttrs()}/>`;

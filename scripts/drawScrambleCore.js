@@ -358,7 +358,8 @@ const SAC2Style = {
         hasSliceIndicator: true,
         controls: [
             { id: 'layerRatio', label: 'Layer Ratio', min: 0.1, max: 1, step: 0.01, default: 0.8, decimals: 2 },
-            { id: 'strokeWidth', label: 'Stroke Width', min: 0, max: 0.02, step: 0.0005, default: 0.004, decimals: 4 },
+            { id: 'strokeWidthOuter', label: 'Outer Stroke', min: 0, max: 0.02, step: 0.0005, default: 0.004, decimals: 4 },
+            { id: 'strokeWidthInner', label: 'Inner Stroke', min: 0, max: 0.02, step: 0.0005, default: 0.003, decimals: 4 },
         ],
 
         withSideColor: {
@@ -392,10 +393,23 @@ const SAC2Style = {
                 const pi = { x: 0, y: 0 };
                 const pA = pt(rOuter, -half), pB = pt(rOuter, half);
                 const pmA = pt(midR, -half), pmB = pt(midR, half);
-                const sw = (size * settings.strokeWidth).toFixed(2);
+                const swOuter = (size * settings.strokeWidthOuter).toFixed(2);
+                const swInner = (size * settings.strokeWidthInner).toFixed(2);
+                const maskId = `mask-abid-edge-${piece}-${Math.random().toString(36).slice(2)}`;
                 const strokeAttrs = 'stroke-linejoin="round" stroke-linecap="round"';
-                return `<polygon class="sticker" id="${piece} outer" points="${ps([pmA, pA, pB, pmB])}" fill="${outerColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}" ${strokeAttrs}/>` +
-                    `<polygon class="sticker" id="${piece} inner" points="${ps([pi, pmA, pmB])}"      fill="${innerColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}" ${strokeAttrs}/>`;
+                const col = muted ? ph.border : colors.border;
+                return `
+                    <defs>
+                        <mask id="${maskId}">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="${ps([pi, pmA, pmB])}" fill="black"/>
+                        </mask>
+                    </defs>
+                    <polygon class="sticker" id="${piece} outer" points="${ps([pmA, pA, pB, pmB])}" fill="${outerColor}" mask="url(#${maskId})"/>
+                    <polygon class="sticker" id="${piece} inner" points="${ps([pi, pmA, pmB])}" fill="${innerColor}"/>
+                    <line x1="${pmA.x}" y1="${pmA.y}" x2="${pmB.x}" y2="${pmB.y}" stroke="${col}" stroke-width="${swInner}" stroke-linecap="round"/>
+                    <polygon points="${ps([pi, pA, pB])}" fill="none" stroke="${col}" stroke-width="${swOuter}" ${strokeAttrs}/>
+                `;
             },
 
             drawCorner(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER, settings = {}) {
@@ -422,14 +436,34 @@ const SAC2Style = {
                 const pi = { x: 0, y: 0 };
                 const pOR = pt(rOuter, -half), pAp = pt(rApex, 0), pOL = pt(rOuter, half);
                 const psL = lerp(pi, pOL, sf), psR = lerp(pi, pOR, sf), psB = lerp(pi, pAp, sf);
-                const swM = (size * settings.strokeWidth).toFixed(2), swT = (size * settings.strokeWidth * 0.75).toFixed(2);
+                const swOuter = (size * settings.strokeWidthOuter).toFixed(2);
+                const swInner = (size * settings.strokeWidthInner).toFixed(2);
+                const leftMaskId = `mask-abid-corner-left-${piece}-${Math.random().toString(36).slice(2)}`;
+                const rightMaskId = `mask-abid-corner-right-${piece}-${Math.random().toString(36).slice(2)}`;
                 const col = muted ? ph.border : colors.border;
                 const strokeAttrs = 'stroke-linejoin="round" stroke-linecap="round"';
-                return `<polygon class="sticker" id="${piece} left"  points="${ps([pi, pOL, pAp, psB, psL])}" fill="${leftColor}"  stroke="${col}" stroke-width="${swM}" ${strokeAttrs}/>` +
-                    `<polygon class="sticker" id="${piece} right" points="${ps([pi, psR, psB, pAp, pOR])}" fill="${rightColor}" stroke="${col}" stroke-width="${swM}" ${strokeAttrs}/>` +
-                    `<polygon class="sticker" id="${piece} top"   points="${ps([pi, psL, psB, psR])}"      fill="${topColor}"   stroke="${col}" stroke-width="${swT}" ${strokeAttrs}/>` +
-                    `<polygon                                      points="${ps([pi, pOL, pAp, pOR])}"      fill="none"         stroke="${col}" stroke-width="${swM}" ${strokeAttrs}/>` +
-                    `<line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="${col}" stroke-width="${swM}" stroke-linecap="round"/>`;
+                const leftPts = ps([pi, pOL, pAp, psB, psL]);
+                const rightPts = ps([pi, psR, psB, pAp, pOR]);
+                const topPts = ps([pi, psL, psB, psR]);
+                return `
+                    <defs>
+                        <mask id="${leftMaskId}">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="${rightPts}" fill="black"/>
+                            <polygon points="${topPts}" fill="black"/>
+                        </mask>
+                        <mask id="${rightMaskId}">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="${topPts}" fill="black"/>
+                        </mask>
+                    </defs>
+                    <polygon class="sticker" id="${piece} left"  points="${leftPts}" fill="${leftColor}" mask="url(#${leftMaskId})"/>
+                    <polygon class="sticker" id="${piece} right" points="${rightPts}" fill="${rightColor}" mask="url(#${rightMaskId})"/>
+                    <polygon class="sticker" id="${piece} top"   points="${topPts}" fill="${topColor}"/>
+                    <polyline points="${ps([psL, psB, psR])}" fill="none" stroke="${col}" stroke-width="${swInner}" ${strokeAttrs}/>
+                    <line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="${col}" stroke-width="${swInner}" stroke-linecap="round"/>
+                    <polygon points="${ps([pi, pOL, pAp, pOR])}" fill="none" stroke="${col}" stroke-width="${swOuter}" ${strokeAttrs}/>
+                `;
             },
 
             drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER) {
