@@ -1276,10 +1276,23 @@ input[type=number]::-webkit-outer-spin-button {
     color: var(--muted);
 }
 
+.loading-placeholder {
+    max-width: min(26rem, 70vw);
+    padding: 1.5rem;
+}
+
 .placeholder-icon {
     font-size: 3rem;
     margin-bottom: .75rem;
     opacity: .3;
+}
+
+.placeholder-title {
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: .95rem;
+    font-weight: 700;
+    margin-bottom: .45rem;
 }
 
 .placeholder-text {

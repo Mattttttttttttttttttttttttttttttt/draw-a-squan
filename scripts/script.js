@@ -333,6 +333,41 @@ const lastUsedLimit = 3;
 
 const canvasInner = document.getElementById('canvas-inner');
 const viewportCanvas = document.getElementById('viewport-canvas');
+const LOADING_TIPS = window.SQ1_LOADING_TIPS || [
+    'Tip: right-click the mode button to cycle backward.',
+    'Fun fact: Draw-a-Squan understands karn notation too.',
+    'Hidden feature: Ctrl+S downloads the current image.',
+    'Hidden feature: press Ctrl+C outside the input to copy the image.',
+    'Tip: double-click the floating export button to switch between copy and download.',
+    'Fun fact: bulk export can place squans directly into an XLSX file.',
+    'Tip: turn on Fill Piece, then click stickers to recolor individual pieces.',
+    'Hidden feature: recent fill colors can be reused with the 1, 2, and 3 keys.',
+];
+let initialWindowLoaded = document.readyState === 'complete';
+
+function getInitialLoadingTip() {
+    const existingTip = canvasInner.querySelector('.loading-placeholder .placeholder-text')?.textContent?.trim();
+    return existingTip || getLoadingTip();
+}
+
+function getLoadingTip() {
+    return LOADING_TIPS[Math.floor(Math.random() * LOADING_TIPS.length)];
+}
+
+function showLoadingPlaceholder() {
+    canvasInner.innerHTML = `
+        <div class="placeholder loading-placeholder">
+            <div class="placeholder-title">Loading...</div>
+            <div class="placeholder-text">${getInitialLoadingTip()}</div>
+        </div>`;
+}
+
+if (!initialWindowLoaded) {
+    window.addEventListener('load', () => {
+        initialWindowLoaded = true;
+        draw();
+    }, { once: true });
+}
 
 function createPickr(el, initialColor, onChange) {
     const p = Pickr.create({
@@ -848,6 +883,10 @@ function draw() {
     const showSides = !document.getElementById("hide-sides").checked;
 
     if (!input) {
+        if (!initialWindowLoaded) {
+            showLoadingPlaceholder();
+            return;
+        }
         // Draw placeholder cube with muted gray scheme
         const html = sq1vis.getSVG(PLACEHOLDER_HEX, size, gap, true, isVertical, showSlice, showSides);
         canvasInner.innerHTML = html;
