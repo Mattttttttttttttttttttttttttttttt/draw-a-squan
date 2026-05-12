@@ -620,7 +620,7 @@ const SAC2Style = {
         const isBottom = whichLayer === 'bottom';
         const tokens = isBottom ? parsed.bottom : parsed.top;
         let content = '';
-        if (showSlice) content += variant.drawSlice(whichLayer, cx, cy, size, colors, muted, getPlaceholderScheme(), settings);
+        if (showSlice) content += variant.drawSlice(whichLayer, cx, cy, size, colors, muted, getPlaceholderScheme());
         content += drawLayer(tokens, isBottom, cx, cy, size, muted);
         // Tight viewBox: content is centred at cx,cy, radius ~= size*0.5
         const r = size * 0.52 + exportPad;
@@ -656,12 +656,12 @@ const SAC2Style = {
         const gap = isVert ? `margin-top:${margin.toFixed(1)}px;` : `margin-left:${margin.toFixed(1)}px;`;
 
         html += `<svg ${svgAttrs}>`;
-        if (showSlice) html += variant.drawSlice('top', cx, cy, size, colors, muted, getPlaceholderScheme(), settings);
+        if (showSlice) html += variant.drawSlice('top', cx, cy, size, colors, muted, getPlaceholderScheme());
         html += drawLayer(parsed.top, false, cx, cy, size, muted);
         html += `</svg>`;
 
         html += `<svg ${svgAttrs.replace('style="overflow:visible;"', `style="overflow:visible;${gap}"`)}>`;
-        if (showSlice) html += variant.drawSlice('bottom', cx, cy, size, colors, muted, getPlaceholderScheme(), settings);
+        if (showSlice) html += variant.drawSlice('bottom', cx, cy, size, colors, muted, getPlaceholderScheme());
         html += drawLayer(parsed.bottom, true, cx, cy, size, muted);
         html += `</svg></div>`;
 
