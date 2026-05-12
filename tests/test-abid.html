@@ -249,9 +249,14 @@
         <div class="section">
             <div class="section-title">Display</div>
             <div class="row">
-                <label>strokeWidth</label>
-                <input type="range" id="sl-stroke-width" min="0" max="0.02" value="0.004" step="0.0005" />
-                <span class="val" id="v-stroke-width">0.004</span>
+                <label>outer stroke</label>
+                <input type="range" id="sl-stroke-width-outer" min="0" max="0.02" value="0.004" step="0.0005" />
+                <span class="val" id="v-stroke-width-outer">0.004</span>
+            </div>
+            <div class="row">
+                <label>inner stroke</label>
+                <input type="range" id="sl-stroke-width-inner" min="0" max="0.02" value="0.003" step="0.0005" />
+                <span class="val" id="v-stroke-width-inner">0.003</span>
             </div>
             <div class="toggle-row">
                 <button class="toggle-btn active" id="btn-axes">Axes</button>
@@ -317,7 +322,8 @@
             size: 400,
             showAxes: true, showDots: true, showLabels: false, scaledStroke: true,
             roundCorners: true,
-            strokeWidth: 0.004,
+            strokeWidthOuter: 0.004,
+            strokeWidthInner: 0.003,
             rotationEdge: 0, rotationCorner: 0,
             edge: { routerFactor: 0.28, half: 15 },
             corner: { routerFactor: 0.28, rApexMult: 1.366025404, half: 30 },
@@ -334,9 +340,9 @@
             return { x: +((a.x + (b.x - a.x) * t).toFixed(3)), y: +((a.y + (b.y - a.y) * t).toFixed(3)) };
         }
         function ps(pts) { return pts.map(p => `${p.x},${p.y}`).join(' '); }
-        function strokeWidth(mult = 1) {
+        function strokeWidth(kind) {
             const baseSize = state.scaledStroke ? state.size : 400;
-            return (baseSize * state.strokeWidth * mult).toFixed(2);
+            return (baseSize * state[kind]).toFixed(2);
         }
         function strokeAttrs() {
             return state.roundCorners ? 'stroke-linejoin="round" stroke-linecap="round"' : 'stroke-linejoin="miter"';
@@ -350,13 +356,18 @@
             const pi = { x: 0, y: 0 };
             const pA = pt(rOuter, -half), pB = pt(rOuter, half);
             const pmA = pt(midR, -half), pmB = pt(midR, half);
-            const sw = strokeWidth();
+            const swOuter = strokeWidth('strokeWidthOuter');
+            const swInner = strokeWidth('strokeWidthInner');
 
             let svg = '';
             // Outer sticker (side color)
-            svg += `<polygon points="${ps([pmA, pA, pB, pmB])}" fill="${c.outer}" stroke="${c.border}" stroke-width="${sw}" ${strokeAttrs()} opacity="0.95"/>`;
+            svg += `<polygon points="${ps([pmA, pA, pB, pmB])}" fill="${c.outer}" opacity="0.95"/>`;
             // Inner sticker (top/bottom color)
-            svg += `<polygon points="${ps([pi, pmA, pmB])}" fill="${c.top}" stroke="${c.border}" stroke-width="${sw}" ${strokeAttrs()} opacity="0.95"/>`;
+            svg += `<polygon points="${ps([pi, pmA, pmB])}" fill="${c.top}" opacity="0.95"/>`;
+            // Inner divider between the two colored layers
+            svg += `<line x1="${pmA.x}" y1="${pmA.y}" x2="${pmB.x}" y2="${pmB.y}" stroke="${c.border}" stroke-width="${swInner}" stroke-linecap="${state.roundCorners ? 'round' : 'butt'}"/>`;
+            // Outer triangle outline
+            svg += `<polygon points="${ps([pi, pA, pB])}" fill="none" stroke="${c.border}" stroke-width="${swOuter}" ${strokeAttrs()}/>`;
 
             if (state.showAxes) {
                 // radial lines
@@ -380,14 +391,18 @@
             const pi = { x: 0, y: 0 };
             const pOR = pt(rOuter, -half), pAp = pt(rApex, 0), pOL = pt(rOuter, half);
             const psL = lerp(pi, pOL, sf), psR = lerp(pi, pOR, sf), psB = lerp(pi, pAp, sf);
-            const swM = strokeWidth(), swT = strokeWidth(0.75);
+            const swOuter = strokeWidth('strokeWidthOuter');
+            const swInner = strokeWidth('strokeWidthInner');
 
             let svg = '';
-            svg += `<polygon points="${ps([pi, pOL, pAp, psB, psL])}" fill="${c.left}"  stroke="${c.border}" stroke-width="${swM}" ${strokeAttrs()} opacity="0.95"/>`;
-            svg += `<polygon points="${ps([pi, psR, psB, pAp, pOR])}" fill="${c.right}" stroke="${c.border}" stroke-width="${swM}" ${strokeAttrs()} opacity="0.95"/>`;
-            svg += `<polygon points="${ps([pi, psL, psB, psR])}"     fill="${c.top}"   stroke="${c.border}" stroke-width="${swT}" ${strokeAttrs()} opacity="0.95"/>`;
-            svg += `<polygon points="${ps([pi, pOL, pAp, pOR])}"     fill="none"       stroke="${c.border}" stroke-width="${swM}" ${strokeAttrs()}/>`;
-            svg += `<line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="${c.border}" stroke-width="${swM}" stroke-linecap="${state.roundCorners ? 'round' : 'butt'}"/>`;
+            svg += `<polygon points="${ps([pi, pOL, pAp, psB, psL])}" fill="${c.left}"  opacity="0.95"/>`;
+            svg += `<polygon points="${ps([pi, psR, psB, pAp, pOR])}" fill="${c.right}" opacity="0.95"/>`;
+            svg += `<polygon points="${ps([pi, psL, psB, psR])}"     fill="${c.top}"   opacity="0.95"/>`;
+            // Internal separators between the colored regions
+            svg += `<polyline points="${ps([pi, psL, psB, psR, pi])}" fill="none" stroke="${c.border}" stroke-width="${swInner}" ${strokeAttrs()}/>`;
+            svg += `<line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="${c.border}" stroke-width="${swInner}" stroke-linecap="${state.roundCorners ? 'round' : 'butt'}"/>`;
+            // Outer kite outline
+            svg += `<polygon points="${ps([pi, pOL, pAp, pOR])}"     fill="none"       stroke="${c.border}" stroke-width="${swOuter}" ${strokeAttrs()}/>`;
 
             if (state.showAxes) {
                 svg += axisLine(0, 0, pt(rOuter * 1.4, -half), '#555');
@@ -460,7 +475,7 @@
                 for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
                 obj[parts[parts.length - 1]] = v;
                 const leaf = parts[parts.length - 1];
-                vEl.textContent = v.toFixed(leaf === 'strokeWidth' ? 4 : leaf.includes('half') || leaf === 'gap' || leaf === 'size' || leaf === 'rotation' ? 0 : 3);
+                vEl.textContent = v.toFixed(leaf.startsWith('strokeWidth') ? 4 : leaf.includes('half') || leaf === 'gap' || leaf === 'size' || leaf === 'rotation' ? 0 : 3);
                 render();
             });
         }
@@ -474,7 +489,8 @@
         wire('sl-c-router', 'corner.routerFactor', 'v-c-router');
         wire('sl-c-rapex', 'corner.rApexMult', 'v-c-rapex');
         wire('sl-c-half', 'corner.half', 'v-c-half', parseInt);
-        wire('sl-stroke-width', 'strokeWidth', 'v-stroke-width');
+        wire('sl-stroke-width-outer', 'strokeWidthOuter', 'v-stroke-width-outer');
+        wire('sl-stroke-width-inner', 'strokeWidthInner', 'v-stroke-width-inner');
 
         for (const [id, key] of [
             ['col-top', 'top'], ['col-left', 'left'], ['col-right', 'right'],
