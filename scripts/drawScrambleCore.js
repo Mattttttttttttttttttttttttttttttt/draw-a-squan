@@ -674,6 +674,65 @@ const SAC2Style = {
         return svg;
     }
 
+    function getAbidPieceOcclusion(token, isBottom, cx, cy, size, settings) {
+        const span = token.type === 'corner' ? 2 : 1;
+        const layerOffset = isBottom ? -195 : 15;
+        const angle = -slotCentreAngle(token.position, span) + layerOffset;
+        const rOuter = size * 0.4 * 0.7;
+
+        function pt(r, deg) {
+            const rad = deg * Math.PI / 180;
+            return { x: +(r * Math.sin(rad)).toFixed(2), y: +(-r * Math.cos(rad)).toFixed(2) };
+        }
+        function ps(pts) { return pts.map(p => `${p.x},${p.y}`).join(' '); }
+
+        const pi = { x: 0, y: 0 };
+        let shape;
+        if (token.type === 'edge') {
+            const half = 15;
+            const pA = pt(rOuter, -half), pB = pt(rOuter, half);
+            shape = `<polygon points="${ps([pi, pA, pB])}" fill="black"/>`;
+        } else {
+            const half = 30;
+            const rApex = rOuter * 1.366025404;
+            const pOR = pt(rOuter, -half), pAp = pt(rApex, 0), pOL = pt(rOuter, half);
+            shape = `<polygon points="${ps([pi, pOL, pAp, pOR])}" fill="black"/>`;
+        }
+
+        return `<g transform="translate(${cx},${cy}) rotate(${angle.toFixed(2)})">${shape}</g>`;
+    }
+
+    function getLayerSliceMask(tokens, isBottom, cx, cy, size, maskId) {
+        const style = STYLES[activeStyleIndex];
+        if (style.source !== 'Abid') return '';
+
+        const variant = getActiveVariant();
+        const settings = getActiveStyleSettings();
+        const layerScale = variant.layerScale ?? 1;
+        let occlusion = tokens.map(token => getAbidPieceOcclusion(token, isBottom, cx, cy, size, settings)).join('');
+        if (layerScale !== 1) {
+            occlusion = `<g transform="translate(${cx},${cy}) scale(${layerScale}) translate(${-cx},${-cy})">${occlusion}</g>`;
+        }
+
+        return `
+            <defs>
+                <mask id="${maskId}">
+                    <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                    ${occlusion}
+                </mask>
+            </defs>
+        `;
+    }
+
+    function drawSliceWithLayerMask(layer, tokens, isBottom, cx, cy, size, colors, muted) {
+        const variant = getActiveVariant();
+        const slice = variant.drawSlice(layer, cx, cy, size, colors, muted, getPlaceholderScheme());
+        const maskId = `mask-abid-slice-${layer}-${Math.random().toString(36).slice(2)}`;
+        const maskDef = getLayerSliceMask(tokens, isBottom, cx, cy, size, maskId);
+        if (!maskDef) return slice;
+        return `${maskDef}<g mask="url(#${maskId})">${slice}</g>`;
+    }
+
     // =====================================================================
     // === MAIN SVG BUILDER ================================================
     // =====================================================================
@@ -690,7 +749,7 @@ const SAC2Style = {
         const isBottom = whichLayer === 'bottom';
         const tokens = isBottom ? parsed.bottom : parsed.top;
         let content = '';
-        if (showSlice) content += variant.drawSlice(whichLayer, cx, cy, size, colors, muted, getPlaceholderScheme());
+        if (showSlice) content += drawSliceWithLayerMask(whichLayer, tokens, isBottom, cx, cy, size, colors, muted);
         content += drawLayer(tokens, isBottom, cx, cy, size, muted);
         // Tight viewBox: content is centred at cx,cy, radius ~= size*0.5
         const r = size * 0.52 + exportPad;
@@ -726,12 +785,12 @@ const SAC2Style = {
         const gap = isVert ? `margin-top:${margin.toFixed(1)}px;` : `margin-left:${margin.toFixed(1)}px;`;
 
         html += `<svg ${svgAttrs}>`;
-        if (showSlice) html += variant.drawSlice('top', cx, cy, size, colors, muted, getPlaceholderScheme());
+        if (showSlice) html += drawSliceWithLayerMask('top', parsed.top, false, cx, cy, size, colors, muted);
         html += drawLayer(parsed.top, false, cx, cy, size, muted);
         html += `</svg>`;
 
         html += `<svg ${svgAttrs.replace('style="overflow:visible;"', `style="overflow:visible;${gap}"`)}>`;
-        if (showSlice) html += variant.drawSlice('bottom', cx, cy, size, colors, muted, getPlaceholderScheme());
+        if (showSlice) html += drawSliceWithLayerMask('bottom', parsed.bottom, true, cx, cy, size, colors, muted);
         html += drawLayer(parsed.bottom, true, cx, cy, size, muted);
         html += `</svg></div>`;
 
