@@ -64,6 +64,30 @@ export function createSquare1Core(initialState = {}) {
         return val.charAt(0) === '#' ? val : (colors[val] ?? val);
     }
 
+    function getStyleControlDefaults(style) {
+        const defaults = {};
+        for (const control of style.controls ?? []) {
+            if (control.parts) {
+                for (const part of Object.values(control.parts)) {
+                    defaults[part.id] = part.default;
+                }
+            } else {
+                defaults[control.id] = control.default;
+            }
+        }
+        return defaults;
+    }
+
+    function getActiveStyleSettings() {
+        const style = STYLES[activeStyleIndex];
+        return { ...getStyleControlDefaults(style), ...(styleControlOverrides.get(style.source) ?? {}) };
+    }
+
+    function activeVariantUsesSideColors() {
+        const style = STYLES[activeStyleIndex];
+        return !style.hidableSideColor || showSideColors;
+    }
+
     // -----------------------------------------------------------------
     // SAC2'S STYLE
     // -----------------------------------------------------------------
@@ -336,25 +360,68 @@ const SAC2Style = {
     // -----------------------------------------------------------------
     const AbidStyle = {
         name: "Abid's Design",
-        placeholderScheme: { sticker: '#0d0d0dff', slice: '#4e0000ff', border: '#d0d0d0ff' },
+        placeholderScheme: { sticker: '#4d4d4d', slice: 'rgb(94, 94, 94)', border: '#000000' },
         source: 'Abid',
-        hidableSideColor: true,
+        hidableSideColor: false,
         hasSliceIndicator: true,
+        controls: [
+            { id: 'layerRatio', label: 'Layer Ratio', min: 0.0, max: 1, step: 0.01, default: 0.76, decimals: 2 },
+            {
+                type: 'linkedStrokeWidthSlider',
+                label: 'Stroke Widths',
+                tooltip: 'Adjust outer, slice, and inner stroke widths',
+                parts: {
+                    top: {
+                        id: 'strokeWidthOuter',
+                        label: 'Outer Stroke',
+                        shortLabel: 'Outer',
+                        tooltip: 'Outer stroke width',
+                        min: 0,
+                        max: 0.02,
+                        step: 0.0005,
+                        default: 0.016,
+                        decimals: 4,
+                    },
+                    middle: {
+                        id: 'sliceStrokeWidth',
+                        label: 'Slice Stroke',
+                        shortLabel: 'Slice',
+                        tooltip: 'Slice stroke width',
+                        min: 0,
+                        max: 0.03,
+                        step: 0.0005,
+                        default: 0.016,
+                        decimals: 4,
+                    },
+                    bottom: {
+                        id: 'strokeWidthInner',
+                        label: 'Inner Stroke',
+                        shortLabel: 'Inner',
+                        tooltip: 'Inner stroke width',
+                        min: 0,
+                        max: 0.02,
+                        step: 0.0005,
+                        default: 0.0135,
+                        decimals: 4,
+                    },
+                },
+            },
+        ],
 
         withSideColor: {
             layerScale: 1.64,
             colorSlots: [
-                { id: 'top', label: 'Top', default: '#000000ff' },
+                { id: 'top', label: 'Top', default: 'rgba(71,71,71,1)' },
                 { id: 'bottom', label: 'Bottom', default: '#FFFFFF' },
-                { id: 'front', label: 'Front', default: '#CC0000' },
-                { id: 'right', label: 'Right', default: '#00AA00' },
-                { id: 'back', label: 'Back', default: '#FF8C00' },
-                { id: 'left', label: 'Left', default: '#0066CC' },
-                { id: 'border', label: 'Border', default: '#333333' },
-                { id: 'slice-indicator', label: 'Slice Indicator', default: '#6f0000ff' },
+                { id: 'front', label: 'Front', default: 'rgba(204,0,0,1)' },
+                { id: 'right', label: 'Right', default: 'rgba(0,170,0,0.98)' },
+                { id: 'back', label: 'Back', default: 'rgba(255,140,0,1)' },
+                { id: 'left', label: 'Left', default: 'rgba(0,128,255,1)' },
+                { id: 'border', label: 'Border', default: 'rgba(0,0,0,1)' },
+                { id: 'slice-indicator', label: 'Slice Indicator', default: 'rgba(111,0,0,1)' },
             ],
 
-            drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
+            drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER, settings = {}) {
                 let innerColor = resolveColor(edgeColors[piece].inner, colors);
                 let outerColor = resolveColor(edgeColors[piece].outer, colors);
                 if (muted) {
@@ -363,7 +430,7 @@ const SAC2Style = {
                     if (outerColor === colors[def.outer]) outerColor = ph.sticker;
                 }
                 const rOuter = size * 0.4 * 0.7, half = 15;
-                const midR = rOuter * 0.8;
+                const midR = rOuter * settings.layerRatio;
                 function pt(r, deg) {
                     const rad = deg * Math.PI / 180;
                     return { x: +(r * Math.sin(rad)).toFixed(2), y: +(-r * Math.cos(rad)).toFixed(2) };
@@ -372,12 +439,36 @@ const SAC2Style = {
                 const pi = { x: 0, y: 0 };
                 const pA = pt(rOuter, -half), pB = pt(rOuter, half);
                 const pmA = pt(midR, -half), pmB = pt(midR, half);
-                const sw = (size * 0.004).toFixed(2);
-                return `<polygon class="sticker" id="${piece} outer" points="${ps([pmA, pA, pB, pmB])}" fill="${outerColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}"/>` +
-                    `<polygon class="sticker" id="${piece} inner" points="${ps([pi, pmA, pmB])}"      fill="${innerColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}"/>`;
+                const swOuter = (size * settings.strokeWidthOuter).toFixed(2);
+                const swInner = (size * settings.strokeWidthInner).toFixed(2);
+                const maskSeed = Math.random().toString(36).slice(2);
+                const outerMaskId = `mask-abid-edge-outer-${piece}-${maskSeed}`;
+                const innerMaskId = `mask-abid-edge-inner-${piece}-${maskSeed}`;
+                const strokeAttrs = 'stroke-linejoin="round" stroke-linecap="round"';
+                const col = muted ? ph.border : colors.border;
+                const outerOutline = ps([pi, pA, pB]);
+                return `
+                    <defs>
+                        <mask id="${outerMaskId}">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="${ps([pi, pmA, pmB])}" fill="black"/>
+                            <line x1="${pmA.x}" y1="${pmA.y}" x2="${pmB.x}" y2="${pmB.y}" stroke="black" stroke-width="${swInner}" stroke-linecap="round"/>
+                            <polygon points="${outerOutline}" fill="none" stroke="black" stroke-width="${swOuter}" ${strokeAttrs}/>
+                        </mask>
+                        <mask id="${innerMaskId}">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <line x1="${pmA.x}" y1="${pmA.y}" x2="${pmB.x}" y2="${pmB.y}" stroke="black" stroke-width="${swInner}" stroke-linecap="round"/>
+                            <polygon points="${outerOutline}" fill="none" stroke="black" stroke-width="${swOuter}" ${strokeAttrs}/>
+                        </mask>
+                    </defs>
+                    <polygon class="sticker" id="${piece} outer" points="${ps([pmA, pA, pB, pmB])}" fill="${outerColor}" mask="url(#${outerMaskId})"/>
+                    <polygon class="sticker" id="${piece} inner" points="${ps([pi, pmA, pmB])}" fill="${innerColor}" mask="url(#${innerMaskId})"/>
+                    <line x1="${pmA.x}" y1="${pmA.y}" x2="${pmB.x}" y2="${pmB.y}" stroke="${col}" stroke-width="${swInner}" stroke-linecap="round"/>
+                    <polygon points="${outerOutline}" fill="none" stroke="${col}" stroke-width="${swOuter}" ${strokeAttrs}/>
+                `;
             },
 
-            drawCorner(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
+            drawCorner(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER, settings = {}) {
                 let topColor = resolveColor(cornerColors[piece].top, colors);
                 let leftColor = resolveColor(cornerColors[piece].left, colors);
                 let rightColor = resolveColor(cornerColors[piece].right, colors);
@@ -389,7 +480,7 @@ const SAC2Style = {
                 }
                 const rOuter = size * 0.4 * 0.7;
                 const rApex = rOuter * 1.366025404;
-                const half = 30, sf = 0.80;
+                const half = 30, sf = settings.layerRatio;
                 function pt(r, deg) {
                     const rad = deg * Math.PI / 180;
                     return { x: +(r * Math.sin(rad)).toFixed(2), y: +(-r * Math.cos(rad)).toFixed(2) };
@@ -401,20 +492,57 @@ const SAC2Style = {
                 const pi = { x: 0, y: 0 };
                 const pOR = pt(rOuter, -half), pAp = pt(rApex, 0), pOL = pt(rOuter, half);
                 const psL = lerp(pi, pOL, sf), psR = lerp(pi, pOR, sf), psB = lerp(pi, pAp, sf);
-                const swM = (size * 0.004).toFixed(2), swT = (size * 0.003).toFixed(2);
+                const swOuter = (size * settings.strokeWidthOuter).toFixed(2);
+                const swInner = (size * settings.strokeWidthInner).toFixed(2);
+                const maskSeed = Math.random().toString(36).slice(2);
+                const leftMaskId = `mask-abid-corner-left-${piece}-${maskSeed}`;
+                const rightMaskId = `mask-abid-corner-right-${piece}-${maskSeed}`;
+                const topMaskId = `mask-abid-corner-top-${piece}-${maskSeed}`;
                 const col = muted ? ph.border : colors.border;
-                return `<polygon class="sticker" id="${piece} left"  points="${ps([pi, pOL, pAp, psB, psL])}" fill="${leftColor}"  stroke="${col}" stroke-width="${swM}"/>` +
-                    `<polygon class="sticker" id="${piece} right" points="${ps([pi, psR, psB, pAp, pOR])}" fill="${rightColor}" stroke="${col}" stroke-width="${swM}"/>` +
-                    `<polygon class="sticker" id="${piece} top"   points="${ps([pi, psL, psB, psR])}"      fill="${topColor}"   stroke="${col}" stroke-width="${swT}"/>` +
-                    `<polygon                                      points="${ps([pi, pOL, pAp, pOR])}"      fill="none"         stroke="${col}" stroke-width="${swM}"/>` +
-                    `<line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="${col}" stroke-width="${swM}" stroke-linecap="round"/>`;
+                const strokeAttrs = 'stroke-linejoin="round" stroke-linecap="round"';
+                const leftPts = ps([pi, pOL, pAp, psB, psL]);
+                const rightPts = ps([pi, psR, psB, pAp, pOR]);
+                const topPts = ps([pi, psL, psB, psR]);
+                const innerStrokePts = ps([psL, psB, psR]);
+                const outerOutline = ps([pi, pOL, pAp, pOR]);
+                return `
+                    <defs>
+                        <mask id="${leftMaskId}">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="${rightPts}" fill="black"/>
+                            <polygon points="${topPts}" fill="black"/>
+                            <polyline points="${innerStrokePts}" fill="none" stroke="black" stroke-width="${swInner}" ${strokeAttrs}/>
+                            <line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="black" stroke-width="${swInner}" stroke-linecap="round"/>
+                            <polygon points="${outerOutline}" fill="none" stroke="black" stroke-width="${swOuter}" ${strokeAttrs}/>
+                        </mask>
+                        <mask id="${rightMaskId}">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="${topPts}" fill="black"/>
+                            <polyline points="${innerStrokePts}" fill="none" stroke="black" stroke-width="${swInner}" ${strokeAttrs}/>
+                            <line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="black" stroke-width="${swInner}" stroke-linecap="round"/>
+                            <polygon points="${outerOutline}" fill="none" stroke="black" stroke-width="${swOuter}" ${strokeAttrs}/>
+                        </mask>
+                        <mask id="${topMaskId}">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polyline points="${innerStrokePts}" fill="none" stroke="black" stroke-width="${swInner}" ${strokeAttrs}/>
+                            <line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="black" stroke-width="${swInner}" stroke-linecap="round"/>
+                            <polygon points="${outerOutline}" fill="none" stroke="black" stroke-width="${swOuter}" ${strokeAttrs}/>
+                        </mask>
+                    </defs>
+                    <polygon class="sticker" id="${piece} left"  points="${leftPts}" fill="${leftColor}" mask="url(#${leftMaskId})"/>
+                    <polygon class="sticker" id="${piece} right" points="${rightPts}" fill="${rightColor}" mask="url(#${rightMaskId})"/>
+                    <polygon class="sticker" id="${piece} top"   points="${topPts}" fill="${topColor}" mask="url(#${topMaskId})"/>
+                    <polyline points="${innerStrokePts}" fill="none" stroke="${col}" stroke-width="${swInner}" ${strokeAttrs}/>
+                    <line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="${col}" stroke-width="${swInner}" stroke-linecap="round"/>
+                    <polygon points="${outerOutline}" fill="none" stroke="${col}" stroke-width="${swOuter}" ${strokeAttrs}/>
+                `;
             },
 
-            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER) {
+            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER, settings = {}) {
                 const rOuter = size * 0.4 * 0.7;
                 const ringR = rOuter + size * 0.4 * 0.4;
                 const r = ringR * 1.20;
-                const sw = (size * 0.008).toFixed(2);
+                const sw = (size * (settings.sliceStrokeWidth ?? 0.008)).toFixed(2);
                 const color = muted ? ph.slice : (colors['slice-indicator'] ?? '#6f0000');
                 function polarPt(r, deg) {
                     const rad = (deg - 90) * Math.PI / 180;
@@ -429,10 +557,10 @@ const SAC2Style = {
         withoutSideColor: {
             layerScale: 1.64,
             colorSlots: [
-                { id: 'top', label: 'Top', default: '#000000ff' },
+                { id: 'top', label: 'Top', default: 'rgba(71,71,71,1)' },
                 { id: 'bottom', label: 'Bottom', default: '#FFFFFF' },
-                { id: 'border', label: 'Border', default: '#333333' },
-                { id: 'slice-indicator', label: 'Slice Indicator', default: '#6f0000' },
+                { id: 'border', label: 'Border', default: 'rgba(0,0,0,1)' },
+                { id: 'slice-indicator', label: 'Slice Indicator', default: 'rgba(111,0,0,1)' },
             ],
 
             drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
@@ -473,9 +601,9 @@ const SAC2Style = {
                 return `<polygon class="sticker" id="${piece} top" points="${ps([pi, pOR, pAp, pOL])}" fill="${topColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}"/>`;
             },
 
-            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER) {
+            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER, settings = {}) {
                 // Reuse withSideColor — same visual, same angles
-                return AbidStyle.withSideColor.drawSlice(layer, cx, cy, size, colors, muted, ph);
+                return AbidStyle.withSideColor.drawSlice(layer, cx, cy, size, colors, muted, ph, settings);
             },
         },
     };
@@ -492,10 +620,11 @@ const SAC2Style = {
 
     let activeStyleIndex = 0;
     let showSideColors = true;
+    const styleControlOverrides = new Map();
 
     function getActiveVariant() {
         const style = STYLES[activeStyleIndex];
-        return showSideColors ? style.withSideColor : style.withoutSideColor;
+        return activeVariantUsesSideColors() ? style.withSideColor : style.withoutSideColor;
     }
 
     function getPlaceholderScheme() {
@@ -513,7 +642,7 @@ const SAC2Style = {
     function getResolvedColors() {
         const style = STYLES[activeStyleIndex];
         const variant = getActiveVariant();
-        const key = variantKey(style.source, showSideColors);
+        const key = variantKey(style.source, activeVariantUsesSideColors());
         const overrides = colorOverrides.get(key) || {};
         const colors = {};
         for (const slot of variant.colorSlots) {
@@ -524,7 +653,7 @@ const SAC2Style = {
 
     function setColorOverride(slotId, hex) {
         const style = STYLES[activeStyleIndex];
-        const key = variantKey(style.source, showSideColors);
+        const key = variantKey(style.source, activeVariantUsesSideColors());
         if (!colorOverrides.has(key)) colorOverrides.set(key, {});
         colorOverrides.get(key)[slotId] = hex;
     }
@@ -563,6 +692,7 @@ const SAC2Style = {
         const variant = getActiveVariant();
         const colors = getResolvedColors();
         const ph = getPlaceholderScheme();
+        const settings = getActiveStyleSettings();
         const layerScale = variant.layerScale ?? 1;
         let svg = '';
         for (const token of tokens) {
@@ -570,14 +700,78 @@ const SAC2Style = {
             const layerOffset = isBottom ? -195 : 15;
             const angle = -slotCentreAngle(token.position, span) + layerOffset;
             const pieceInner = token.type === 'edge'
-                ? variant.drawEdge(token.piece, colors, size, muted, ph)
-                : variant.drawCorner(token.piece, colors, size, muted, ph);
-            svg += `<g transform="translate(${cx},${cy}) rotate(${angle.toFixed(2)})">${pieceInner}</g>`;
+                ? variant.drawEdge(token.piece, colors, size, muted, ph, settings)
+                : variant.drawCorner(token.piece, colors, size, muted, ph, settings);
+            const transform = `translate(${cx},${cy}) rotate(${angle.toFixed(2)})`;
+            svg += `<g transform="${transform}">${pieceInner}</g>`;
         }
         if (layerScale !== 1) {
             svg = `<g transform="translate(${cx},${cy}) scale(${layerScale}) translate(${-cx},${-cy})">${svg}</g>`;
         }
         return svg;
+    }
+
+    function getAbidPieceOcclusion(token, isBottom, cx, cy, size, settings) {
+        const span = token.type === 'corner' ? 2 : 1;
+        const layerOffset = isBottom ? -195 : 15;
+        const angle = -slotCentreAngle(token.position, span) + layerOffset;
+        const rOuter = size * 0.4 * 0.7;
+
+        function pt(r, deg) {
+            const rad = deg * Math.PI / 180;
+            return { x: +(r * Math.sin(rad)).toFixed(2), y: +(-r * Math.cos(rad)).toFixed(2) };
+        }
+        function ps(pts) { return pts.map(p => `${p.x},${p.y}`).join(' '); }
+
+        const pi = { x: 0, y: 0 };
+        let shape;
+        if (token.type === 'edge') {
+            const half = 15;
+            const pA = pt(rOuter, -half), pB = pt(rOuter, half);
+            shape = `<polygon points="${ps([pi, pA, pB])}" fill="black"/>`;
+        } else {
+            const half = 30;
+            const rApex = rOuter * 1.366025404;
+            const pOR = pt(rOuter, -half), pAp = pt(rApex, 0), pOL = pt(rOuter, half);
+            shape = `<polygon points="${ps([pi, pOL, pAp, pOR])}" fill="black"/>`;
+        }
+
+        return `<g transform="translate(${cx},${cy}) rotate(${angle.toFixed(2)})">${shape}</g>`;
+    }
+
+    function getLayerSliceMask(tokens, isBottom, cx, cy, size, maskId) {
+        const style = STYLES[activeStyleIndex];
+        if (style.source !== 'Abid') return '';
+
+        const variant = getActiveVariant();
+        const settings = getActiveStyleSettings();
+        const layerScale = variant.layerScale ?? 1;
+        let occlusion = tokens.map(token => getAbidPieceOcclusion(token, isBottom, cx, cy, size, settings)).join('');
+        if (layerScale !== 1) {
+            occlusion = `<g transform="translate(${cx},${cy}) scale(${layerScale}) translate(${-cx},${-cy})">${occlusion}</g>`;
+        }
+
+        return `
+            <defs>
+                <mask id="${maskId}">
+                    <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                    ${occlusion}
+                </mask>
+            </defs>
+        `;
+    }
+
+    function drawSliceWithLayerMask(layer, tokens, isBottom, cx, cy, size, colors, muted) {
+        const style = STYLES[activeStyleIndex];
+        const variant = getActiveVariant();
+        const settings = getActiveStyleSettings();
+        const slice = style.source === 'Abid'
+            ? variant.drawSlice(layer, cx, cy, size, colors, muted, getPlaceholderScheme(), settings)
+            : variant.drawSlice(layer, cx, cy, size, colors, muted, getPlaceholderScheme());
+        const maskId = `mask-abid-slice-${layer}-${Math.random().toString(36).slice(2)}`;
+        const maskDef = getLayerSliceMask(tokens, isBottom, cx, cy, size, maskId);
+        if (!maskDef) return slice;
+        return `${maskDef}<g mask="url(#${maskId})">${slice}</g>`;
     }
 
     // =====================================================================
@@ -590,12 +784,13 @@ const SAC2Style = {
         const parsed = parseHex(rawHex);
         const variant = getActiveVariant();
         const colors = getResolvedColors();
+        const settings = getActiveStyleSettings();
         size = size * (220 / 400);
         const cx = size / 2, cy = size / 2;
         const isBottom = whichLayer === 'bottom';
         const tokens = isBottom ? parsed.bottom : parsed.top;
         let content = '';
-        if (showSlice) content += variant.drawSlice(whichLayer, cx, cy, size, colors, muted, getPlaceholderScheme());
+        if (showSlice) content += drawSliceWithLayerMask(whichLayer, tokens, isBottom, cx, cy, size, colors, muted);
         content += drawLayer(tokens, isBottom, cx, cy, size, muted);
         // Tight viewBox: content is centred at cx,cy, radius ~= size*0.5
         const r = size * 0.52 + exportPad;
@@ -612,6 +807,7 @@ const SAC2Style = {
         const parsed = parseHex(rawHex);
         const variant = getActiveVariant();
         const colors = getResolvedColors();
+        const settings = getActiveStyleSettings();
 
         size = size * (220 / 400);
         const cx = size / 2, cy = size / 2;
@@ -630,12 +826,12 @@ const SAC2Style = {
         const gap = isVert ? `margin-top:${margin.toFixed(1)}px;` : `margin-left:${margin.toFixed(1)}px;`;
 
         html += `<svg ${svgAttrs}>`;
-        if (showSlice) html += variant.drawSlice('top', cx, cy, size, colors, muted, getPlaceholderScheme());
+        if (showSlice) html += drawSliceWithLayerMask('top', parsed.top, false, cx, cy, size, colors, muted);
         html += drawLayer(parsed.top, false, cx, cy, size, muted);
         html += `</svg>`;
 
         html += `<svg ${svgAttrs.replace('style="overflow:visible;"', `style="overflow:visible;${gap}"`)}>`;
-        if (showSlice) html += variant.drawSlice('bottom', cx, cy, size, colors, muted, getPlaceholderScheme());
+        if (showSlice) html += drawSliceWithLayerMask('bottom', parsed.bottom, true, cx, cy, size, colors, muted);
         html += drawLayer(parsed.bottom, true, cx, cy, size, muted);
         html += `</svg></div>`;
 
@@ -659,10 +855,20 @@ const SAC2Style = {
         // Style system
         getStyles() { return STYLES.map((s, i) => ({ name: s.name, source: s.source, index: i })); },
         getActiveStyleIndex() { return activeStyleIndex; },
-        setActiveStyle(i) { activeStyleIndex = i; },
+        setActiveStyle(i) {
+            activeStyleIndex = i;
+            if (!STYLES[activeStyleIndex].hidableSideColor) showSideColors = true;
+        },
         getActiveStyle() { return STYLES[activeStyleIndex]; },
-        setShowSideColors(v) { showSideColors = v; },
-        getShowSideColors() { return showSideColors; },
+        setShowSideColors(v) { showSideColors = STYLES[activeStyleIndex].hidableSideColor ? v : true; },
+        getShowSideColors() { return activeVariantUsesSideColors(); },
+        getStyleControls() { return STYLES[activeStyleIndex].controls ?? []; },
+        getStyleSettings() { return getActiveStyleSettings(); },
+        setStyleSettings(partial) {
+            const style = STYLES[activeStyleIndex];
+            if (!styleControlOverrides.has(style.source)) styleControlOverrides.set(style.source, {});
+            Object.assign(styleControlOverrides.get(style.source), partial);
+        },
         // Piece color config
         getPiecesColors, setPiecesColors,
         createDefaultPieceColors: defaultPieceColors,
@@ -676,6 +882,7 @@ function createConfiguredCore(options = {}) {
     const core = createSquare1Core({ piecesColors: options.piecesColors });
     if (options.styleIndex != null) core.setActiveStyle(options.styleIndex);
     if (options.showSideColors != null) core.setShowSideColors(options.showSideColors);
+    if (options.styleSettings) core.setStyleSettings(options.styleSettings);
     if (options.colorScheme) core.setColorScheme(options.colorScheme);
     return core;
 }

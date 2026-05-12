@@ -1,8 +1,10 @@
-import { sq1vis } from './drawScrambleCustomization.js';
+import { createSquare1Visualizer, sq1vis } from './drawScrambleCustomization.js';
+import { LinkedStrokeWidthSlider } from './linkedStrokeWidthSlider.js';
 
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
 var schemePickrs = {};
 var fillPickr = null;
+let styleControlInstances = [];
 
 let isCustomMode = false;
 let classicalSnapshot = null;
@@ -30,22 +32,74 @@ function buildSchemeGrid() {
         const initial = scheme[slot.id] === 'transparent' ? 'rgba(0,0,0,0)' : scheme[slot.id];
         const p = createPickr(`#pickr-wrap-${slot.id}`, initial, (color) => {
             sq1vis.setColorScheme({ [slot.id]: color });
-            const btn = p.getRoot().button;
-            if (btn) {
-                if (color === 'transparent') {
-                    btn.style.setProperty('--pcr-color', 'rgba(0,0,0,0)');
-                    btn.style.background = 'repeating-conic-gradient(#808080 0% 25%, #fff 0% 50%) 0 0 / 8px 8px';
-                } else {
-                    btn.style.setProperty('--pcr-color', color);
-                    btn.style.removeProperty('background');
-                }
-            }
+            paintPickrButton(p, color);
             draw();
             saveSettings();
         });
-        schemePickrs[slot.id] = p;
+        repaintPickrButtonAfterInit(p, initial);
         schemePickrs[slot.id] = p;
     });
+}
+
+function paintPickrButton(pickr, color) {
+    const btn = pickr.getRoot().button;
+    if (!btn) return;
+    const isTransparent = isTransparentColor(color);
+    const resolved = isTransparent ? 'rgba(0,0,0,0)' : color;
+    btn.style.setProperty('--pcr-color', resolved);
+    btn.classList.toggle('clear', isTransparent);
+}
+
+function repaintPickrButtonAfterInit(pickr, color) {
+    paintPickrButton(pickr, color);
+    pickr.on('init', () => paintPickrButton(pickr, color));
+    requestAnimationFrame(() => paintPickrButton(pickr, color));
+    setTimeout(() => paintPickrButton(pickr, color), 50);
+}
+
+function isTransparentColor(value) {
+    const color = String(value ?? '').trim().toLowerCase().replace(/\s+/g, '');
+    if (!color) return true;
+    if (color === 'transparent' || color === '#0000' || color === '#00000000') return true;
+    return /^rgba\([^)]*,0(?:\.0+)?\)$/.test(color);
+}
+
+function isUsableColor(value) {
+    const color = String(value ?? '').trim();
+    if (!color) return false;
+    if (isTransparentColor(color)) return true;
+    if (window.CSS?.supports?.('color', color)) return true;
+    const probe = document.createElement('span');
+    probe.style.color = '';
+    probe.style.color = color;
+    return !!probe.style.color;
+}
+
+function sanitizeSavedScheme(saved) {
+    const sanitized = {};
+    let hasVisibleColor = false;
+
+    for (const slot of sq1vis.getColorSlots()) {
+        const savedColor = saved?.[slot.id];
+        const color = isUsableColor(savedColor) ? savedColor : slot.default;
+        sanitized[slot.id] = color;
+        if (!isTransparentColor(color)) hasVisibleColor = true;
+    }
+
+    return hasVisibleColor ? sanitized : null;
+}
+
+function createPlaceholderVisualizer(showSides) {
+    const placeholderVis = createSquare1Visualizer();
+    placeholderVis.setActiveStyle(sq1vis.getActiveStyleIndex());
+    placeholderVis.setShowSideColors(showSides);
+    placeholderVis.setStyleSettings(sq1vis.getStyleSettings());
+    return placeholderVis;
+}
+
+function getPlaceholderSVG(size, gap, isVertical, showSlice, showSides) {
+    const placeholderVis = createPlaceholderVisualizer(showSides);
+    return placeholderVis.getSVG(PLACEHOLDER_HEX, size, gap, true, isVertical, showSlice, showSides);
 }
 
 // ── Style dropdown ──────────────────────────────────────
@@ -74,6 +128,100 @@ function updateStyleToggles() {
     const hideSliceRow = document.getElementById('hide-slice-row');
     hideSidesRow.style.display = style.hidableSideColor  ? '' : 'none';
     hideSliceRow.style.display = style.hasSliceIndicator ? '' : 'none';
+    if (!style.hidableSideColor) {
+        document.getElementById('hide-sides').checked = false;
+        sq1vis.setShowSideColors(true);
+    }
+    buildStyleSliderControls();
+}
+
+function buildStyleSliderControls() {
+    const container = document.getElementById('style-slider-controls');
+    const controls = sq1vis.getStyleControls();
+    const settings = sq1vis.getStyleSettings();
+    styleControlInstances.forEach(instance => instance.destroy?.());
+    styleControlInstances = [];
+    container.innerHTML = '';
+
+    controls.forEach(control => {
+        if (control.type === 'linkedStrokeWidthSlider') {
+            buildLinkedStrokeWidthControl(container, control, settings);
+            return;
+        }
+
+        const value = settings[control.id] ?? control.default;
+        const decimals = control.decimals ?? decimalPlaces(control.step);
+        const field = document.createElement('div');
+        field.className = 'field';
+        field.innerHTML = `
+          <label class="field-label">${control.label}</label>
+          <div class="slider-combo">
+            <input type="range" id="style-slider-${control.id}" min="${control.min}" max="${control.max}" step="${control.step}" value="${value}" />
+            <input type="number" id="style-input-${control.id}" min="${control.min}" max="${control.max}" step="${control.step}" value="${Number(value).toFixed(decimals)}" />
+          </div>`;
+        container.appendChild(field);
+
+        const slider = field.querySelector(`#style-slider-${control.id}`);
+        const input = field.querySelector(`#style-input-${control.id}`);
+        const apply = rawValue => {
+            const next = Number(rawValue);
+            if (Number.isNaN(next)) return;
+            slider.value = next;
+            input.value = next.toFixed(decimals);
+            sq1vis.setStyleSettings({ [control.id]: next });
+            draw();
+            saveSettings();
+        };
+        slider.addEventListener('input', () => apply(slider.value));
+        input.addEventListener('input', () => apply(input.value));
+    });
+}
+
+function buildLinkedStrokeWidthControl(container, control, settings) {
+    const partConfigs = {};
+    for (const part of ['top', 'middle', 'bottom']) {
+        const config = control.parts[part];
+        partConfigs[part] = {
+            ...config,
+            value: settings[config.id] ?? config.default,
+            decimals: config.decimals ?? decimalPlaces(config.step),
+        };
+    }
+
+    const field = document.createElement('div');
+    field.className = 'field';
+    field.dataset.linkedWidthControl = '';
+    field.innerHTML = `
+      <label class="field-label">${control.label}</label>
+      <div class="linked-width-slider" title="${control.tooltip ?? control.label}">
+        <div class="linked-width-track"><div class="linked-width-ticks"></div></div>
+        <div class="linked-width-bridge" data-width-bridge></div>
+        <div class="linked-width-handle linked-width-handle-top linked" data-width-part="top" title="${partConfigs.top.tooltip}">
+          <div class="linked-width-shape"></div>
+        </div>
+        <div class="linked-width-handle linked-width-handle-middle" data-width-part="middle" title="${partConfigs.middle.tooltip}">
+          <div class="linked-width-middle-shape"></div>
+        </div>
+        <div class="linked-width-handle linked-width-handle-bottom linked" data-width-part="bottom" title="${partConfigs.bottom.tooltip}">
+          <div class="linked-width-shape"></div>
+        </div>
+      </div>`;
+    container.appendChild(field);
+
+    const instance = new LinkedStrokeWidthSlider(field.querySelector('.linked-width-slider'), {
+        parts: partConfigs,
+        onChange: next => {
+            sq1vis.setStyleSettings(next);
+            draw();
+            saveSettings();
+        },
+    });
+    styleControlInstances.push(instance);
+}
+
+function decimalPlaces(step) {
+    const text = String(step);
+    return text.includes('.') ? text.split('.')[1].length : 0;
 }
 
 document.getElementById('color-scheme-toggle').addEventListener('click', () => {
@@ -92,51 +240,55 @@ const classicalPanel = document.getElementById('scheme-classical-panel');
 const customPanel = document.getElementById('scheme-custom-panel');
 const toolbar = document.getElementById('custom-toolbar');
 
-[classicalBtn, customBtn].forEach(btn => {
-    btn.addEventListener('click', () => {
-        const isCustom = btn.dataset.mode === 'custom';
-        classicalBtn.classList.toggle('active', !isCustom);
-        customBtn.classList.toggle('active', isCustom);
-        classicalPanel.style.display = isCustom ? 'none' : '';
-        customPanel.style.display    = isCustom ? '' : 'none';
-        toolbar.style.display        = isCustom ? '' : 'none';
+function setSchemeMode(isCustom, { redraw = true, persist = true } = {}) {
+    classicalBtn.classList.toggle('active', !isCustom);
+    customBtn.classList.toggle('active', isCustom);
+    classicalPanel.style.display = isCustom ? 'none' : '';
+    customPanel.style.display    = isCustom ? '' : 'none';
+    toolbar.style.display        = isCustom ? '' : 'none';
 
-        if (isCustom && !isCustomMode) {
-            // Switching TO custom: save classical state, restore custom state
-            // Only overwrite classicalSnapshot if it hasn't already been seeded by loadSettings
-            if (!classicalSnapshot) {
-                classicalSnapshot = {
-                    piecesColors: JSON.parse(JSON.stringify(sq1vis.getPiecesColors())),
-                    mute: muteActive,
-                };
-            }
-            classicalMuteActive = classicalSnapshot.mute;
-            if (customSnapshot) {
-                sq1vis.setPiecesColors(customSnapshot.piecesColors);
-                muteActive = customSnapshot.mute;
-            } else {
-                muteActive = customMuteActive;
-            }
-            muteBtn.classList.toggle('active', muteActive);
-            isCustomMode = true;
-        } else if (!isCustom && isCustomMode) {
-            // Switching TO classical: save custom state, restore classical
-            customSnapshot = {
+    if (isCustom && !isCustomMode) {
+        // Switching TO custom: save classical state, restore custom state
+        // Only overwrite classicalSnapshot if it hasn't already been seeded by loadSettings
+        if (!classicalSnapshot) {
+            classicalSnapshot = {
                 piecesColors: JSON.parse(JSON.stringify(sq1vis.getPiecesColors())),
                 mute: muteActive,
             };
-            customMuteActive = muteActive;
-            if (fillModeActive) fillModeBtn.click();
-            if (fillResetActive) unfillBtn.click();
-            if (classicalSnapshot) {
-                sq1vis.setPiecesColors(classicalSnapshot.piecesColors);
-                muteActive = classicalSnapshot.mute;
-                muteBtn.classList.toggle('active', muteActive);
-            }
-            isCustomMode = false;
         }
-        draw();
-        saveSettings();
+        classicalMuteActive = classicalSnapshot.mute;
+        if (customSnapshot) {
+            sq1vis.setPiecesColors(customSnapshot.piecesColors);
+            muteActive = customSnapshot.mute;
+        } else {
+            muteActive = customMuteActive;
+        }
+        muteBtn.classList.toggle('active', muteActive);
+        isCustomMode = true;
+    } else if (!isCustom && isCustomMode) {
+        // Switching TO classical: save custom state, restore classical
+        customSnapshot = {
+            piecesColors: JSON.parse(JSON.stringify(sq1vis.getPiecesColors())),
+            mute: muteActive,
+        };
+        customMuteActive = muteActive;
+        if (fillModeActive) fillModeBtn.click();
+        if (fillResetActive) unfillBtn.click();
+        if (classicalSnapshot) {
+            sq1vis.setPiecesColors(classicalSnapshot.piecesColors);
+            muteActive = classicalSnapshot.mute;
+            muteBtn.classList.toggle('active', muteActive);
+        }
+        isCustomMode = false;
+    }
+
+    if (redraw) draw();
+    if (persist) saveSettings();
+}
+
+[classicalBtn, customBtn].forEach(btn => {
+    btn.addEventListener('click', () => {
+        setSchemeMode(btn.dataset.mode === 'custom');
     });
 });
 
@@ -237,12 +389,53 @@ const lastUsedLimit = 3;
 
 const canvasInner = document.getElementById('canvas-inner');
 const viewportCanvas = document.getElementById('viewport-canvas');
+const DEFAULT_LOADING_TIPS = [
+    /*'Tip: right-click the mode button to cycle backward.',
+    'Fun fact: Draw-a-Squan understands karn notation too.',
+    'Hidden feature: Ctrl+S downloads the current image.',
+    'Hidden feature: press Ctrl+C outside the input to copy the image.',
+    'Tip: double-click the floating export button to switch between copy and download.',
+    'Fun fact: bulk export can place squans directly into an XLSX file.',
+    'Tip: turn on Fill Piece, then click stickers to recolor individual pieces.',
+    'Hidden feature: recent fill colors can be reused with the 1, 2, and 3 keys.',*/
+    ''
+];
+const LOADING_TIPS = Array.isArray(window.SQ1_LOADING_TIPS) && window.SQ1_LOADING_TIPS.some(t => t.trim())
+    ? window.SQ1_LOADING_TIPS.filter(t => t.trim())
+    : DEFAULT_LOADING_TIPS;
+let initialWindowLoaded = document.readyState === 'complete';
+let appInitialized = false;
+
+function getInitialLoadingTip() {
+    const existingTip = canvasInner.querySelector('.loading-placeholder .placeholder-text')?.textContent?.trim();
+    return existingTip || getLoadingTip();
+}
+
+function getLoadingTip() {
+    return LOADING_TIPS[Math.floor(Math.random() * LOADING_TIPS.length)];
+}
+
+function showLoadingPlaceholder() {
+    canvasInner.innerHTML = `
+        <div class="placeholder loading-placeholder">
+            <div class="placeholder-title">Loading...</div>
+            <div class="placeholder-text">${getInitialLoadingTip()}</div>
+        </div>`;
+}
+
+if (!initialWindowLoaded) {
+    window.addEventListener('load', () => {
+        initialWindowLoaded = true;
+        draw();
+    }, { once: true });
+}
 
 function createPickr(el, initialColor, onChange) {
+    const safeInitialColor = initialColor || '#CC0000';
     const p = Pickr.create({
         el,
         theme: 'nano',
-        default: initialColor || '#CC0000',
+        default: safeInitialColor,
         defaultRepresentation: 'RGBA',
         components: {
             preview: true, opacity: true, hue: true,
@@ -281,6 +474,8 @@ function createPickr(el, initialColor, onChange) {
             console.log('[pickr hide]', 'classes after:', btn.className);
         }
     });
+    try { p.setColor(safeInitialColor, true); } catch (e) {}
+    repaintPickrButtonAfterInit(p, safeInitialColor);
     return p;
 }
 
@@ -344,6 +539,18 @@ function saveSettings() {
         hideSides: document.getElementById('hide-sides').checked,
         // Style
         styleIndex: sq1vis.getActiveStyleIndex(),
+        styleSettings: (() => {
+            const obj = {};
+            const prevIdx = sq1vis.getActiveStyleIndex();
+            const prevSides = sq1vis.getShowSideColors();
+            for (const style of sq1vis.getStyles()) {
+                sq1vis.setActiveStyle(style.index);
+                obj[style.source] = sq1vis.getStyleSettings();
+            }
+            sq1vis.setActiveStyle(prevIdx);
+            sq1vis.setShowSideColors(prevSides);
+            return obj;
+        })(),
         // Color scheme — save all overrides for all style/variant combos
         colorOverrides: (() => {
             const obj = {};
@@ -412,6 +619,18 @@ function loadSettings() {
         sq1vis.setActiveStyle(s.styleIndex);
         document.getElementById('svg-style-select').value = s.styleIndex;
     }
+    if (s.styleSettings) {
+        const prevIdx = sq1vis.getActiveStyleIndex();
+        const prevSides = sq1vis.getShowSideColors();
+        for (const style of sq1vis.getStyles()) {
+            const saved = s.styleSettings[style.source];
+            if (!saved) continue;
+            sq1vis.setActiveStyle(style.index);
+            sq1vis.setStyleSettings(saved);
+        }
+        sq1vis.setActiveStyle(prevIdx);
+        sq1vis.setShowSideColors(prevSides);
+    }
 
     // Color overrides — apply all saved overrides
     if (s.colorOverrides) {
@@ -424,7 +643,8 @@ function loadSettings() {
                 const prevSides = sq1vis.getShowSideColors();
                 sq1vis.setActiveStyle(style.index);
                 sq1vis.setShowSideColors(withSides);
-                sq1vis.setColorScheme(saved);
+                const sanitized = sanitizeSavedScheme(saved);
+                if (sanitized) sq1vis.setColorScheme(sanitized);
                 sq1vis.setActiveStyle(prevIdx);
                 sq1vis.setShowSideColors(prevSides);
             }
@@ -470,7 +690,7 @@ function loadSettings() {
         if (s.classicalPiecesColors) classicalSnapshot = { piecesColors: s.classicalPiecesColors, mute: false };
         // Restore custom snapshot before clicking so the switch finds it
         if (s.customPiecesColors) customSnapshot = { piecesColors: s.customPiecesColors, mute: s.muteActive || false };
-        customBtn.click();
+        setSchemeMode(true, { redraw: false, persist: false });
         customBtn.classList.remove("no-transition");
     }
 
@@ -480,9 +700,7 @@ function loadSettings() {
         renderRecentSlots();
     }
 
-    // Rebuild UI that depends on loaded state
-    updateStyleToggles();
-    buildSchemeGrid();
+    // UI dependent on loaded state is built once after loadSettings().
 }
 
 loadSettings();
@@ -631,6 +849,32 @@ document.getElementById('hide-sides').addEventListener('change', e => {
     draw();
 });
 
+document.getElementById('display-reset-default').addEventListener('click', () => {
+    document.getElementById('size-input').value = 400;
+    document.getElementById('size-slider').value = 400;
+    document.getElementById('gap-input').value = 100;
+    document.getElementById('gap-slider').value = 100;
+    document.querySelector('input[name=orientation][value="horizontal"]').checked = true;
+    document.getElementById('hide-slice').checked = false;
+    document.getElementById('hide-sides').checked = false;
+    sq1vis.setShowSideColors(true);
+    const styleDefaults = {};
+    for (const control of sq1vis.getStyleControls()) {
+        if (control.parts) {
+            for (const part of Object.values(control.parts)) {
+                styleDefaults[part.id] = part.default;
+            }
+        } else {
+            styleDefaults[control.id] = control.default;
+        }
+    }
+    sq1vis.setStyleSettings(styleDefaults);
+    updateStyleToggles();
+    buildSchemeGrid();
+    draw();
+    saveSettings();
+});
+
 /* ─── Mode toggle ─────────────────────────────────────── */
 const MODES = [
     { value: 'scramble', label: 'Scramble', placeholder: '1,0 / 3,3 / 0,-3 / ... (supports karn)' },
@@ -639,9 +883,9 @@ const MODES = [
 ];
 let currentModeIndex = 0;
 
-buildSchemeGrid();
 buildStyleDropdown();
 updateStyleToggles();
+buildSchemeGrid();
 
 function setMode(index) {
     currentModeIndex = ((index % MODES.length) + MODES.length) % MODES.length;
@@ -693,6 +937,11 @@ document.getElementById('scramble-input').addEventListener('input', (e) => {
 });
 
 function draw() {
+    if (!appInitialized || !initialWindowLoaded) {
+        showLoadingPlaceholder();
+        return;
+    }
+
     const input = document.getElementById('scramble-input').value;
     const size = parseInt(document.getElementById('size-input').value, 10);
     const gap = parseInt(document.getElementById('gap-input').value, 10);
@@ -703,7 +952,7 @@ function draw() {
 
     if (!input) {
         // Draw placeholder cube with muted gray scheme
-        const html = sq1vis.getSVG(PLACEHOLDER_HEX, size, gap, true, isVertical, showSlice, showSides);
+        const html = getPlaceholderSVG(size, gap, isVertical, showSlice, showSides);
         canvasInner.innerHTML = html;
         updateCanvasCursor();
         return;
@@ -775,13 +1024,15 @@ function getExportSVGString(layer) {
     const input = document.getElementById('scramble-input').value.trim();
     const mode = MODES[currentModeIndex].value;
 
-    let muted, hex;
+    let muted, hex, renderVis;
     if (!input) {
         muted = true;
         hex = PLACEHOLDER_HEX;
+        renderVis = createPlaceholderVisualizer(showSides);
     }
     else {
         muted = muteActive
+        renderVis = sq1vis;
         if (mode === 'hex') {
             hex = input;
         } else if (mode === 'inverse') {
@@ -798,7 +1049,7 @@ function getExportSVGString(layer) {
     const scaledSize = size * (220 / 400);
     const PAD = Math.round(scaledSize * 0.28);
     const tmp = document.createElement('div');
-    tmp.innerHTML = sq1vis.getSVG(hex, size, gap, muted, isVertical, showSlice, showSides, PAD);
+    tmp.innerHTML = renderVis.getSVG(hex, size, gap, muted, isVertical, showSlice, showSides, PAD);
     const svgs = tmp.querySelectorAll('svg');
 
     let svgEl;
@@ -832,7 +1083,7 @@ function getExportSVGString(layer) {
     } else {
         const scaledSize = size * (220 / 400);
         const PAD = Math.round(scaledSize * 0.28);
-        return sq1vis.getSingleLayerSVG(hex, size, muted, showSlice, layer, PAD);
+        return renderVis.getSingleLayerSVG(hex, size, muted, showSlice, layer, PAD);
     }
 }
 
@@ -878,7 +1129,29 @@ async function doExport(methodOverride) {
         });
     }
 
+    function canvasToBlob(canvas, mime) {
+        return new Promise((resolve, reject) => {
+            canvas.toBlob(blob => {
+                if (blob) resolve(blob);
+                else reject(new Error('canvas blob failed'));
+            }, mime);
+        });
+    }
+
     try {
+        if (method === 'clipboard') {
+            if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+                flashBtn('Clipboard images are not supported here');
+                return;
+            }
+
+            const pngBlobPromise = rasterize(svgStr, exportFmt).then(canvas => canvasToBlob(canvas, 'image/png'));
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlobPromise })]);
+            if (exportFmt === 'png') flashBtn('Copied to clipboard!');
+            else flashBtn(`Browser copying ${exportFmt.toLocaleUpperCase()}s isn't possible. Copied PNG instead.`);
+            return;
+        }
+
         const canvas = await rasterize(svgStr, exportFmt);
         const mimeMap = { png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/png' };
         const extMap  = { png: 'png', jpeg: 'jpg', bmp: 'bmp' };
@@ -890,20 +1163,9 @@ async function doExport(methodOverride) {
             return;
         }
 
-        if (method === 'clipboard') {
-            const dataUrl = canvas.toDataURL('image/png');
-            const res = await fetch(dataUrl);
-            const pngBlob = await res.blob();
-            try {
-                await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
-                if (exportFmt === "png") flashBtn('Copied to clipboard!');
-                else flashBtn(`Browser copying ${exportFmt.toLocaleUpperCase()}s isn't possible. Copied PNG instead.`)
-            } catch { flashBtn('Failed to copy to clipboard'); }
-        } else {
-            canvas.toBlob(blob => triggerDownload(blob, `${fname}.${ext}`), mime);
-        }
+        canvas.toBlob(blob => triggerDownload(blob, `${fname}.${ext}`), mime);
     } catch (err) {
-        flashBtn('Export failed');
+        flashBtn(method === 'clipboard' ? 'Failed to copy to clipboard' : 'Export failed');
         console.error(err);
     }
 }
@@ -1017,11 +1279,16 @@ function updateCopyVisibility() {
 
 let febClickTimer = null;
 febActionBtn.addEventListener('click', () => {
+    const copyHidden = exportFmt === 'jpeg' || exportFmt === 'bmp';
+    if (febMode === 'copy' && !copyHidden) {
+        doExport('clipboard');
+        return;
+    }
+
     if (febClickTimer) return;
     febClickTimer = setTimeout(() => {
         febClickTimer = null;
-        const copyHidden = exportFmt === 'jpeg' || exportFmt === 'bmp';
-        doExport((febMode === 'copy' && !copyHidden) ? 'clipboard' : 'download');
+        doExport('download');
     }, 250);
 });
 
@@ -1107,12 +1374,12 @@ document.getElementById('ctx-format-select').addEventListener('change', function
 
 document.getElementById('ctx-download').addEventListener('click', function () {
     hideMenu();
-    document.getElementById('do-export').click();
+    doExport('download');
 });
 
 document.getElementById('ctx-copy').addEventListener('click', function () {
     hideMenu();
-    document.getElementById('do-copy').click();
+    doExport('clipboard');
 });
 
 /* ─── Init ────────────────────────────────────────── */
@@ -1606,6 +1873,7 @@ function hookSaveListeners() {
     ids.forEach(id => document.getElementById(id)?.addEventListener('input', saveSettings));
     document.querySelectorAll('input[name=orientation]').forEach(r => r.addEventListener('change', saveSettings));
     document.getElementById('svg-style-select').addEventListener('change', saveSettings);
+    document.getElementById('display-reset-default').addEventListener('click', saveSettings);
     document.getElementById('fill-reset-btn').addEventListener('click', saveSettings);
     document.getElementById('fill-mute-btn').addEventListener('click', saveSettings);
     document.getElementById('ctb-undo').addEventListener('click', saveSettings);
@@ -1633,4 +1901,5 @@ document.getElementById('scheme-reset-default').addEventListener('click', () => 
 });
 
 hookSaveListeners();
+appInitialized = true;
 draw();

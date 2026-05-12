@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 130">
+  <style>
+    .top { font-family: Arial, sans-serif; font-size: 66px; font-weight: bold; fill: white; }
+    .bottom { font-family: Arial, sans-serif; font-size: 65px; font-weight: bold; fill: white; }
+  </style>
+
+  <text x="100" y="55" text-anchor="middle" class="top">BULK</text>
+  <text x="100" y="120" text-anchor="middle" class="bottom">INPUT</text>
+</svg>

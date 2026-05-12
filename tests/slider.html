@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Word-ish Margin Slider</title>
+
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    margin: 0;
+    display: grid;
+    place-items: center;
+    background: #eef0f4;
+    font-family: system-ui, sans-serif;
+  }
+
+  .panel {
+    width: 420px;
+    padding: 28px;
+    border-radius: 22px;
+    background: white;
+    box-shadow: 0 20px 60px #0002;
+  }
+
+  .values {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 28px;
+    font-size: 14px;
+  }
+
+  .values div {
+    background: #f1f5f9;
+    padding: 8px 12px;
+    border-radius: 999px;
+  }
+
+  .slider {
+    --w: 260px;
+    --h: 16px;
+
+    position: relative;
+    width: var(--w);
+    height: 96px;
+    margin: auto;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .track {
+    position: absolute;
+    left: 0;
+    top: 40px;
+    width: 100%;
+    height: var(--h);
+    border-radius: 999px;
+    background: linear-gradient(#d4d4d8, #f8fafc);
+    border: 1px solid #a1a1aa;
+    box-shadow: inset 0 2px 4px #0002;
+  }
+
+  .ticks {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      to right,
+      transparent 0 19px,
+      #71717a 20px 21px
+    );
+    opacity: .35;
+    border-radius: inherit;
+  }
+
+  .bridge {
+    position: absolute;
+    top: 26px;
+    height: 44px;
+    background: #2563eb22;
+    border-left: 2px solid #2563eb;
+    border-right: 2px solid #2563eb;
+    pointer-events: none;
+  }
+
+  .handle {
+    position: absolute;
+    width: 28px;
+    height: 34px;
+    transform: translateX(-50%);
+    cursor: grab;
+    z-index: 3;
+  }
+
+  .handle:active { cursor: grabbing; }
+
+  .top {
+    top: 4px;
+  }
+
+  .bottom {
+    top: 58px;
+  }
+
+  .shape {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(#3b82f6, #1d4ed8);
+    box-shadow: 0 8px 18px #0004;
+  }
+
+  .top .shape {
+    clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%);
+  }
+
+  .bottom .shape {
+    clip-path: polygon(50% 0, 100% 38%, 100% 100%, 0 100%, 0 38%);
+  }
+
+  .linked .shape {
+    background: linear-gradient(#22c55e, #16a34a);
+  }
+
+  .selected .shape {
+    background: linear-gradient(#f97316, #ea580c);
+    outline: 3px solid #fed7aa;
+  }
+
+  .grouping .shape {
+    background: linear-gradient(#a855f7, #7e22ce);
+  }
+
+  .hint {
+    margin-top: 24px;
+    font-size: 13px;
+    color: #52525b;
+    line-height: 1.45;
+  }
+
+  .middle {
+  top: 35px;
+  width: 10px;
+  height: 26px;
+  z-index: 4;
+}
+
+.middle-shape {
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(#18181b, #52525b);
+  box-shadow: 0 5px 12px #0004;
+}
+</style>
+</head>
+
+<body>
+  <div class="panel">
+    <div class="values">
+      <div>Top: <b id="topVal"></b></div>
+      <div>Bottom: <b id="bottomVal"></b></div>
+      <div>Mode: <b id="modeVal"></b></div>
+    </div>
+
+    <div class="slider" id="slider">
+      <div class="track"><div class="ticks"></div></div>
+      <div class="bridge" id="bridge"></div>
+
+      <div class="handle top linked" id="topHandle">
+        <div class="shape"></div>
+      </div>
+
+      <div class="handle middle" id="middleHandle">
+        <div class="middle-shape"></div>
+      </div>
+
+      <div class="handle bottom linked" id="bottomHandle">
+        <div class="shape"></div>
+      </div>
+    </div>
+
+    <p class="hint">
+      Click a linked handle to select it. Click outside to unselect.
+      When separated, Shift-drag moves them as a spaced pair.
+    </p>
+  </div>
+
+<script>
+class MarginSlider {
+  constructor(root) {
+    this.root = root;
+
+    this.el = {
+      top: document.querySelector("#topHandle"),
+      middle: document.querySelector("#middleHandle"),
+      bottom: document.querySelector("#bottomHandle"),
+      bridge: document.querySelector("#bridge"),
+      topVal: document.querySelector("#topVal"),
+      bottomVal: document.querySelector("#bottomVal"),
+      modeVal: document.querySelector("#modeVal")
+    };
+
+    this.min = 0;
+    this.max = 100;
+
+    this.state = {
+      top: 45,
+      middle: 50,
+      bottom: 45,
+
+      selected: null,
+      dragging: null,
+      dragMode: null,
+
+      startX: 0,
+      startTop: 0,
+      startMiddle: 0,
+      startBottom: 0,
+
+      groupGap: 0,
+      clickTime: 0,
+      clickMoved: false
+    };
+
+    this.snapDistance = 3.5;
+
+    this.bind();
+    this.render();
+  }
+
+  bind() {
+    for (const part of ["top", "bottom"]) {
+      this.el[part].addEventListener("pointerdown", e => this.downMain(e, part));
+    }
+
+    this.el.middle.addEventListener("pointerdown", e => this.downMiddle(e));
+
+    window.addEventListener("pointermove", e => this.move(e));
+    window.addEventListener("pointerup", () => this.up());
+
+    document.addEventListener("pointerdown", e => {
+      if (!this.root.contains(e.target)) {
+        this.state.selected = null;
+        this.render();
+      }
+    });
+  }
+
+  get linked() {
+    return this.state.top === this.state.bottom;
+  }
+
+  downMain(e, part) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    this.state.dragging = part;
+    this.state.startX = e.clientX;
+    this.state.startTop = this.state.top;
+    this.state.startBottom = this.state.bottom;
+    this.state.startMiddle = this.state.middle;
+    this.state.clickTime = performance.now();
+    this.state.clickMoved = false;
+
+    if (this.linked) {
+      this.state.dragMode = this.state.selected ? "single" : "linked";
+    } else {
+      this.state.dragMode = e.shiftKey ? "spaced-group" : "single";
+      this.state.groupGap = this.state.bottom - this.state.top;
+    }
+
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  downMiddle(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    this.state.dragging = "middle";
+    this.state.dragMode = "middle";
+
+    this.state.startX = e.clientX;
+    this.state.startMiddle = this.state.middle;
+    this.state.clickMoved = true;
+
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  move(e) {
+    if (!this.state.dragging) return;
+
+    const delta = this.pxToValue(e.clientX - this.state.startX);
+    if (Math.abs(delta) > 0.7) this.state.clickMoved = true;
+
+    if (this.state.dragMode === "linked") {
+      this.moveLinked(delta);
+    }
+
+    if (this.state.dragMode === "single") {
+      this.moveSingle(delta);
+    }
+
+    if (this.state.dragMode === "spaced-group") {
+      this.moveSpacedGroup(delta);
+    }
+
+    if (this.state.dragMode === "middle") {
+      this.moveMiddle(delta);
+    }
+
+    this.render();
+  }
+
+  up() {
+    if (!this.state.dragging) return;
+
+    const wasClick =
+      !this.state.clickMoved &&
+      performance.now() - this.state.clickTime < 250;
+
+    if (wasClick && this.linked && this.state.dragging !== "middle") {
+      this.state.selected =
+        this.state.selected === this.state.dragging
+          ? null
+          : this.state.dragging;
+    }
+
+    this.state.dragging = null;
+    this.state.dragMode = null;
+    this.render();
+  }
+
+  moveLinked(delta) {
+    const next = this.clamp(this.state.startTop + delta);
+    this.state.top = next;
+    this.state.bottom = next;
+  }
+
+  moveSingle(delta) {
+    const part = this.state.dragging;
+    const other = part === "top" ? "bottom" : "top";
+    const startKey = "start" + this.cap(part);
+
+    const next = this.clamp(this.state[startKey] + delta);
+    const distance = Math.abs(next - this.state[other]);
+
+    if (distance <= this.snapDistance) {
+      this.state[part] = this.state[other];
+      this.state.selected = null;
+    } else {
+      this.state[part] = next;
+    }
+  }
+
+  moveSpacedGroup(delta) {
+    this.state.top = this.clamp(this.state.startTop + delta);
+    this.state.bottom = this.clamp(this.state.startBottom + delta);
+  }
+
+  moveMiddle(delta) {
+    this.state.middle = this.clamp(this.state.startMiddle + delta);
+  }
+
+  render() {
+    const topX = this.valueToPx(this.state.top);
+    const middleX = this.valueToPx(this.state.middle);
+    const bottomX = this.valueToPx(this.state.bottom);
+
+    this.el.top.style.left = `${topX}px`;
+    this.el.middle.style.left = `${middleX}px`;
+    this.el.bottom.style.left = `${bottomX}px`;
+
+    const a = Math.min(topX, bottomX);
+    const b = Math.max(topX, bottomX);
+
+    this.el.bridge.style.left = `${a}px`;
+    this.el.bridge.style.width = `${Math.max(2, b - a)}px`;
+
+    this.el.topVal.textContent = this.state.top.toFixed(1);
+    this.el.bottomVal.textContent = this.state.bottom.toFixed(1);
+
+    let mode = "Separated";
+    if (this.linked && !this.state.selected) mode = "Linked";
+    if (this.linked && this.state.selected) mode = `Selected ${this.state.selected}`;
+    if (this.state.dragMode === "spaced-group") mode = "Separated group";
+    if (this.state.dragMode === "middle") mode = "Middle goblin";
+
+    this.el.modeVal.textContent = mode;
+
+    for (const part of ["top", "bottom"]) {
+      this.el[part].classList.toggle("linked", this.linked && !this.state.selected);
+      this.el[part].classList.toggle("selected", this.state.selected === part);
+      this.el[part].classList.toggle("grouping", this.state.dragMode === "spaced-group");
+    }
+  }
+
+  valueToPx(v) {
+    return ((v - this.min) / (this.max - this.min)) * this.root.clientWidth;
+  }
+
+  pxToValue(px) {
+    return (px / this.root.clientWidth) * (this.max - this.min);
+  }
+
+  clamp(v) {
+    return Math.max(this.min, Math.min(this.max, v));
+  }
+
+  cap(s) {
+    return s[0].toUpperCase() + s.slice(1);
+  }
+}
+
+new MarginSlider(document.querySelector("#slider"));
+</script>
+</body>
+</html>
