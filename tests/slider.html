@@ -136,6 +136,21 @@
     color: #52525b;
     line-height: 1.45;
   }
+
+  .middle {
+  top: 35px;
+  width: 10px;
+  height: 26px;
+  z-index: 4;
+}
+
+.middle-shape {
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(#18181b, #52525b);
+  box-shadow: 0 5px 12px #0004;
+}
 </style>
 </head>
 
@@ -153,6 +168,10 @@
 
       <div class="handle top linked" id="topHandle">
         <div class="shape"></div>
+      </div>
+
+      <div class="handle middle" id="middleHandle">
+        <div class="middle-shape"></div>
       </div>
 
       <div class="handle bottom linked" id="bottomHandle">
@@ -173,6 +192,7 @@ class MarginSlider {
 
     this.el = {
       top: document.querySelector("#topHandle"),
+      middle: document.querySelector("#middleHandle"),
       bottom: document.querySelector("#bottomHandle"),
       bridge: document.querySelector("#bridge"),
       topVal: document.querySelector("#topVal"),
@@ -185,20 +205,24 @@ class MarginSlider {
 
     this.state = {
       top: 45,
+      middle: 50,
       bottom: 45,
+
       selected: null,
       dragging: null,
       dragMode: null,
+
       startX: 0,
       startTop: 0,
+      startMiddle: 0,
       startBottom: 0,
+
       groupGap: 0,
       clickTime: 0,
       clickMoved: false
     };
 
     this.snapDistance = 3.5;
-    this.unsnapDistance = 6;
 
     this.bind();
     this.render();
@@ -206,11 +230,13 @@ class MarginSlider {
 
   bind() {
     for (const part of ["top", "bottom"]) {
-      this.el[part].addEventListener("pointerdown", e => this.down(e, part));
+      this.el[part].addEventListener("pointerdown", e => this.downMain(e, part));
     }
 
+    this.el.middle.addEventListener("pointerdown", e => this.downMiddle(e));
+
     window.addEventListener("pointermove", e => this.move(e));
-    window.addEventListener("pointerup", e => this.up(e));
+    window.addEventListener("pointerup", () => this.up());
 
     document.addEventListener("pointerdown", e => {
       if (!this.root.contains(e.target)) {
@@ -224,7 +250,7 @@ class MarginSlider {
     return this.state.top === this.state.bottom;
   }
 
-  down(e, part) {
+  downMain(e, part) {
     e.preventDefault();
     e.stopPropagation();
 
@@ -232,6 +258,7 @@ class MarginSlider {
     this.state.startX = e.clientX;
     this.state.startTop = this.state.top;
     this.state.startBottom = this.state.bottom;
+    this.state.startMiddle = this.state.middle;
     this.state.clickTime = performance.now();
     this.state.clickMoved = false;
 
@@ -241,6 +268,20 @@ class MarginSlider {
       this.state.dragMode = e.shiftKey ? "spaced-group" : "single";
       this.state.groupGap = this.state.bottom - this.state.top;
     }
+
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  downMiddle(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    this.state.dragging = "middle";
+    this.state.dragMode = "middle";
+
+    this.state.startX = e.clientX;
+    this.state.startMiddle = this.state.middle;
+    this.state.clickMoved = true;
 
     e.currentTarget.setPointerCapture(e.pointerId);
   }
@@ -263,6 +304,10 @@ class MarginSlider {
       this.moveSpacedGroup(delta);
     }
 
+    if (this.state.dragMode === "middle") {
+      this.moveMiddle(delta);
+    }
+
     this.render();
   }
 
@@ -273,7 +318,7 @@ class MarginSlider {
       !this.state.clickMoved &&
       performance.now() - this.state.clickTime < 250;
 
-    if (wasClick && this.linked) {
+    if (wasClick && this.linked && this.state.dragging !== "middle") {
       this.state.selected =
         this.state.selected === this.state.dragging
           ? null
@@ -294,8 +339,9 @@ class MarginSlider {
   moveSingle(delta) {
     const part = this.state.dragging;
     const other = part === "top" ? "bottom" : "top";
-    const next = this.clamp(this.state["start" + this.cap(part)] + delta);
+    const startKey = "start" + this.cap(part);
 
+    const next = this.clamp(this.state[startKey] + delta);
     const distance = Math.abs(next - this.state[other]);
 
     if (distance <= this.snapDistance) {
@@ -307,21 +353,21 @@ class MarginSlider {
   }
 
   moveSpacedGroup(delta) {
-    const wantedTop = this.state.startTop + delta;
-    const wantedBottom = this.state.startBottom + delta;
+    this.state.top = this.clamp(this.state.startTop + delta);
+    this.state.bottom = this.clamp(this.state.startBottom + delta);
+  }
 
-    this.state.top = this.clamp(wantedTop);
-    this.state.bottom = this.clamp(wantedBottom);
-
-    // This intentionally preserves the original imaginary spacing.
-    // Handles stuck at boundaries wait until the dragged pair returns far enough.
+  moveMiddle(delta) {
+    this.state.middle = this.clamp(this.state.startMiddle + delta);
   }
 
   render() {
     const topX = this.valueToPx(this.state.top);
+    const middleX = this.valueToPx(this.state.middle);
     const bottomX = this.valueToPx(this.state.bottom);
 
     this.el.top.style.left = `${topX}px`;
+    this.el.middle.style.left = `${middleX}px`;
     this.el.bottom.style.left = `${bottomX}px`;
 
     const a = Math.min(topX, bottomX);
@@ -337,6 +383,7 @@ class MarginSlider {
     if (this.linked && !this.state.selected) mode = "Linked";
     if (this.linked && this.state.selected) mode = `Selected ${this.state.selected}`;
     if (this.state.dragMode === "spaced-group") mode = "Separated group";
+    if (this.state.dragMode === "middle") mode = "Middle goblin";
 
     this.el.modeVal.textContent = mode;
 
