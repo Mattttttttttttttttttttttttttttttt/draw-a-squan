@@ -271,11 +271,11 @@ select {
 }
 
 .linked-width-slider {
-    --linked-width-height: 7px;
+    --linked-width-height: 5px;
     position: relative;
     width: calc(100% - 72px);
     min-width: 150px;
-    height: 50px;
+    height: 34px;
     margin: 0 auto;
     user-select: none;
     touch-action: none;
@@ -284,7 +284,7 @@ select {
 .linked-width-track {
     position: absolute;
     left: 0;
-    top: 22px;
+    top: 15px;
     width: 100%;
     height: var(--linked-width-height);
     border: 1px solid var(--border2);
@@ -294,31 +294,17 @@ select {
 }
 
 .linked-width-ticks {
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: repeating-linear-gradient(
-        to right,
-        transparent 0 18px,
-        rgba(216, 220, 232, .32) 19px 20px
-    );
-    opacity: .32;
+    display: none;
 }
 
 .linked-width-bridge {
-    position: absolute;
-    top: 15px;
-    height: 22px;
-    border-left: 2px solid var(--accent);
-    border-right: 2px solid var(--accent);
-    background: rgba(79, 255, 176, .08);
-    pointer-events: none;
+    display: none;
 }
 
 .linked-width-handle {
     position: absolute;
-    width: 18px;
-    height: 21px;
+    width: 10px;
+    height: 12px;
     transform: translateX(-50%);
     cursor: grab;
     z-index: 3;
@@ -329,11 +315,11 @@ select {
 }
 
 .linked-width-handle-top {
-    top: 3px;
+    top: 4px;
 }
 
 .linked-width-handle-bottom {
-    top: 27px;
+    top: 19px;
 }
 
 .linked-width-shape {
@@ -368,9 +354,9 @@ select {
 }
 
 .linked-width-handle-middle {
-    top: 18px;
-    width: 8px;
-    height: 17px;
+    top: 12px;
+    width: 5px;
+    height: 12px;
     z-index: 4;
 }
 

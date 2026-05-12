@@ -751,6 +751,32 @@ document.getElementById('hide-sides').addEventListener('change', e => {
     draw();
 });
 
+document.getElementById('display-reset-default').addEventListener('click', () => {
+    document.getElementById('size-input').value = 400;
+    document.getElementById('size-slider').value = 400;
+    document.getElementById('gap-input').value = 100;
+    document.getElementById('gap-slider').value = 100;
+    document.querySelector('input[name=orientation][value="horizontal"]').checked = true;
+    document.getElementById('hide-slice').checked = false;
+    document.getElementById('hide-sides').checked = false;
+    sq1vis.setShowSideColors(true);
+    const styleDefaults = {};
+    for (const control of sq1vis.getStyleControls()) {
+        if (control.parts) {
+            for (const part of Object.values(control.parts)) {
+                styleDefaults[part.id] = part.default;
+            }
+        } else {
+            styleDefaults[control.id] = control.default;
+        }
+    }
+    sq1vis.setStyleSettings(styleDefaults);
+    updateStyleToggles();
+    buildSchemeGrid();
+    draw();
+    saveSettings();
+});
+
 /* ─── Mode toggle ─────────────────────────────────────── */
 const MODES = [
     { value: 'scramble', label: 'Scramble', placeholder: '1,0 / 3,3 / 0,-3 / ... (supports karn)' },
@@ -1726,6 +1752,7 @@ function hookSaveListeners() {
     ids.forEach(id => document.getElementById(id)?.addEventListener('input', saveSettings));
     document.querySelectorAll('input[name=orientation]').forEach(r => r.addEventListener('change', saveSettings));
     document.getElementById('svg-style-select').addEventListener('change', saveSettings);
+    document.getElementById('display-reset-default').addEventListener('click', saveSettings);
     document.getElementById('fill-reset-btn').addEventListener('click', saveSettings);
     document.getElementById('fill-mute-btn').addEventListener('click', saveSettings);
     document.getElementById('ctb-undo').addEventListener('click', saveSettings);
