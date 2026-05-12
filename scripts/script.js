@@ -344,6 +344,7 @@ const LOADING_TIPS = window.SQ1_LOADING_TIPS || [
     'Hidden feature: recent fill colors can be reused with the 1, 2, and 3 keys.',
 ];
 let initialWindowLoaded = document.readyState === 'complete';
+let appInitialized = false;
 
 function getInitialLoadingTip() {
     const existingTip = canvasInner.querySelector('.loading-placeholder .placeholder-text')?.textContent?.trim();
@@ -874,6 +875,11 @@ document.getElementById('scramble-input').addEventListener('input', (e) => {
 });
 
 function draw() {
+    if (!appInitialized || !initialWindowLoaded) {
+        showLoadingPlaceholder();
+        return;
+    }
+
     const input = document.getElementById('scramble-input').value;
     const size = parseInt(document.getElementById('size-input').value, 10);
     const gap = parseInt(document.getElementById('gap-input').value, 10);
@@ -883,10 +889,6 @@ function draw() {
     const showSides = !document.getElementById("hide-sides").checked;
 
     if (!input) {
-        if (!initialWindowLoaded) {
-            showLoadingPlaceholder();
-            return;
-        }
         // Draw placeholder cube with muted gray scheme
         const html = sq1vis.getSVG(PLACEHOLDER_HEX, size, gap, true, isVertical, showSlice, showSides);
         canvasInner.innerHTML = html;
@@ -1819,4 +1821,5 @@ document.getElementById('scheme-reset-default').addEventListener('click', () => 
 });
 
 hookSaveListeners();
+appInitialized = true;
 draw();
