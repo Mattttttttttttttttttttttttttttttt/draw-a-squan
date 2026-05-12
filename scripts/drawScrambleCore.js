@@ -398,7 +398,6 @@ const SAC2Style = {
                 const maskSeed = Math.random().toString(36).slice(2);
                 const outerMaskId = `mask-abid-edge-outer-${piece}-${maskSeed}`;
                 const innerMaskId = `mask-abid-edge-inner-${piece}-${maskSeed}`;
-                const innerStrokeMaskId = `mask-abid-edge-inner-stroke-${piece}-${maskSeed}`;
                 const strokeAttrs = 'stroke-linejoin="round" stroke-linecap="round"';
                 const col = muted ? ph.border : colors.border;
                 const outerOutline = ps([pi, pA, pB]);
@@ -415,14 +414,10 @@ const SAC2Style = {
                             <line x1="${pmA.x}" y1="${pmA.y}" x2="${pmB.x}" y2="${pmB.y}" stroke="black" stroke-width="${swInner}" stroke-linecap="round"/>
                             <polygon points="${outerOutline}" fill="none" stroke="black" stroke-width="${swOuter}" ${strokeAttrs}/>
                         </mask>
-                        <mask id="${innerStrokeMaskId}">
-                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
-                            <polygon points="${outerOutline}" fill="none" stroke="black" stroke-width="${swOuter}" ${strokeAttrs}/>
-                        </mask>
                     </defs>
                     <polygon class="sticker" id="${piece} outer" points="${ps([pmA, pA, pB, pmB])}" fill="${outerColor}" mask="url(#${outerMaskId})"/>
                     <polygon class="sticker" id="${piece} inner" points="${ps([pi, pmA, pmB])}" fill="${innerColor}" mask="url(#${innerMaskId})"/>
-                    <line x1="${pmA.x}" y1="${pmA.y}" x2="${pmB.x}" y2="${pmB.y}" stroke="${col}" stroke-width="${swInner}" stroke-linecap="round" mask="url(#${innerStrokeMaskId})"/>
+                    <line x1="${pmA.x}" y1="${pmA.y}" x2="${pmB.x}" y2="${pmB.y}" stroke="${col}" stroke-width="${swInner}" stroke-linecap="round"/>
                     <polygon points="${outerOutline}" fill="none" stroke="${col}" stroke-width="${swOuter}" ${strokeAttrs}/>
                 `;
             },
@@ -457,7 +452,6 @@ const SAC2Style = {
                 const leftMaskId = `mask-abid-corner-left-${piece}-${maskSeed}`;
                 const rightMaskId = `mask-abid-corner-right-${piece}-${maskSeed}`;
                 const topMaskId = `mask-abid-corner-top-${piece}-${maskSeed}`;
-                const innerStrokeMaskId = `mask-abid-corner-inner-stroke-${piece}-${maskSeed}`;
                 const col = muted ? ph.border : colors.border;
                 const strokeAttrs = 'stroke-linejoin="round" stroke-linecap="round"';
                 const leftPts = ps([pi, pOL, pAp, psB, psL]);
@@ -488,16 +482,12 @@ const SAC2Style = {
                             <line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="black" stroke-width="${swInner}" stroke-linecap="round"/>
                             <polygon points="${outerOutline}" fill="none" stroke="black" stroke-width="${swOuter}" ${strokeAttrs}/>
                         </mask>
-                        <mask id="${innerStrokeMaskId}">
-                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
-                            <polygon points="${outerOutline}" fill="none" stroke="black" stroke-width="${swOuter}" ${strokeAttrs}/>
-                        </mask>
                     </defs>
                     <polygon class="sticker" id="${piece} left"  points="${leftPts}" fill="${leftColor}" mask="url(#${leftMaskId})"/>
                     <polygon class="sticker" id="${piece} right" points="${rightPts}" fill="${rightColor}" mask="url(#${rightMaskId})"/>
                     <polygon class="sticker" id="${piece} top"   points="${topPts}" fill="${topColor}" mask="url(#${topMaskId})"/>
-                    <polyline points="${innerStrokePts}" fill="none" stroke="${col}" stroke-width="${swInner}" ${strokeAttrs} mask="url(#${innerStrokeMaskId})"/>
-                    <line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="${col}" stroke-width="${swInner}" stroke-linecap="round" mask="url(#${innerStrokeMaskId})"/>
+                    <polyline points="${innerStrokePts}" fill="none" stroke="${col}" stroke-width="${swInner}" ${strokeAttrs}/>
+                    <line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="${col}" stroke-width="${swInner}" stroke-linecap="round"/>
                     <polygon points="${outerOutline}" fill="none" stroke="${col}" stroke-width="${swOuter}" ${strokeAttrs}/>
                 `;
             },
@@ -666,7 +656,8 @@ const SAC2Style = {
             const pieceInner = token.type === 'edge'
                 ? variant.drawEdge(token.piece, colors, size, muted, ph, settings)
                 : variant.drawCorner(token.piece, colors, size, muted, ph, settings);
-            svg += `<g transform="translate(${cx},${cy}) rotate(${angle.toFixed(2)})">${pieceInner}</g>`;
+            const transform = `translate(${cx},${cy}) rotate(${angle.toFixed(2)})`;
+            svg += `<g transform="${transform}">${pieceInner}</g>`;
         }
         if (layerScale !== 1) {
             svg = `<g transform="translate(${cx},${cy}) scale(${layerScale}) translate(${-cx},${-cy})">${svg}</g>`;
