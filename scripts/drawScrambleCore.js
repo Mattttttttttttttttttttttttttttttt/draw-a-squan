@@ -762,9 +762,12 @@ const SAC2Style = {
     }
 
     function drawSliceWithLayerMask(layer, tokens, isBottom, cx, cy, size, colors, muted) {
+        const style = STYLES[activeStyleIndex];
         const variant = getActiveVariant();
         const settings = getActiveStyleSettings();
-        const slice = variant.drawSlice(layer, cx, cy, size, colors, muted, getPlaceholderScheme(), settings);
+        const slice = style.source === 'Abid'
+            ? variant.drawSlice(layer, cx, cy, size, colors, muted, getPlaceholderScheme(), settings)
+            : variant.drawSlice(layer, cx, cy, size, colors, muted, getPlaceholderScheme());
         const maskId = `mask-abid-slice-${layer}-${Math.random().toString(36).slice(2)}`;
         const maskDef = getLayerSliceMask(tokens, isBottom, cx, cy, size, maskId);
         if (!maskDef) return slice;

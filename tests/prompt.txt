@@ -1,0 +1,148 @@
+The user is troubleshooting Linux performance on a low-end Intel Celeron N4020 laptop.
+
+Goal:
+They switched from Windows to Linux hoping for more speed. Linux feels faster for light use, but multitasking with many Electron apps performs worse than Windows. The user is a developer/designer and says they absolutely need around 7 Electron apps running simultaneously, plus dev servers like npx serve. They want “Windows-like optimization” on Linux and want access to the full CPU power.
+
+Hardware:
+- CPU: Intel Celeron N4020
+- Expected CPU behavior: base around 1.1 GHz, turbo up to about 2.8 GHz
+- Problem: under load/stress, CPU stays capped around 1094 MHz / 1.09 GHz
+
+Desktop/Linux setup already confirmed:
+- Governor:
+  cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+  output:
+  performance
+  performance
+
+- Desktop session:
+  echo $DESKTOP_SESSION
+  output:
+  lxqt
+
+- zram:
+  zramctl
+  output:
+  /dev/zram0 lz4 256M, DATA about 96.9M, COMPR 26.5M, TOTAL 37.7M, mounted as swap
+
+- AC adapter:
+  ls /sys/class/power_supply/
+  output:
+  ADP0, BAT0
+
+  cat /sys/class/power_supply/ADP0/online
+  output:
+  1
+
+So laptop is detected as plugged in.
+
+Power profile:
+- powerprofilesctl get
+  output:
+  balanced
+
+- powerprofilesctl set performance
+  output:
+  Failed to communicate with power-profiles-daemon:
+  Cannot switch to unavailable profile 'performance'
+
+TLP:
+- systemctl status tlp
+  output:
+  Unit tlp.service could not be found.
+
+Intel pstate / cpufreq state:
+- cat /sys/devices/system/cpu/intel_pstate/no_turbo
+  output:
+  0
+  Meaning turbo is not disabled.
+
+- cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq
+  output:
+  2800000
+  2800000
+  Meaning Linux sees 2.8 GHz max.
+
+- cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_driver
+  output:
+  intel_cpufreq
+  intel_cpufreq
+
+- cat /sys/devices/system/cpu/intel_pstate/status
+  output:
+  passive
+
+- cat /sys/devices/system/cpu/intel_pstate/hwp_dynamic_boost
+  output:
+  No such file or directory
+
+- cat /sys/devices/system/cpu/intel_pstate/min_perf_pct
+  output:
+  28
+
+- cat /sys/devices/system/cpu/intel_pstate/max_perf_pct
+  output:
+  100
+
+cpupower frequency-info:
+- driver: intel_cpufreq
+- hardware limits: 800 MHz - 2.80 GHz
+- available governors: conservative ondemand userspace powersave performance schedutil
+- current policy: 800 MHz to 2.80 GHz
+- governor: performance
+- current CPU frequency: 1.09 GHz
+- boost state support:
+  Supported: yes
+  Active: yes
+
+cpupower monitor while loaded:
+- CPU 0 and CPU 1:
+  C0 around 100%
+  Freq around 1093
+- Meaning CPU is fully busy but still stuck at base clock.
+
+Important interpretation:
+The CPU is not merely idle or RAM-bottlenecked. It is under full load but remains stuck at about 1.09 GHz. Linux detects turbo support and the 2.8 GHz max, but actual runtime frequency never boosts. This strongly suggests a Linux CPU frequency/pstate/firmware issue, not normal performance.
+
+Most suspicious finding:
+intel_pstate/status = passive
+driver = intel_cpufreq
+
+The previous assistant suspected passive intel_pstate / intel_cpufreq behavior may be failing to trigger turbo properly on this low-end Intel laptop. The next planned fix was to try forcing active intel_pstate in GRUB.
+
+Suggested next step:
+Edit /etc/default/grub and add:
+intel_pstate=active
+
+Example:
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash intel_pstate=active"
+
+Then run:
+sudo update-grub
+sudo reboot
+
+After reboot, check:
+cat /sys/devices/system/cpu/intel_pstate/status
+
+Desired output:
+active
+
+Then stress test:
+stress -c 2
+
+Monitor:
+watch -n0.5 "grep 'cpu MHz' /proc/cpuinfo"
+
+Expected if fixed:
+CPU should boost above 1.09 GHz, maybe 1.8–2.8 GHz depending on thermal/power limits.
+
+Fallback if intel_pstate=active does not fix it:
+Try:
+intel_pstate=disable
+
+This should force acpi_cpufreq instead of intel_cpufreq. Some cheap Intel laptops behave better with acpi_cpufreq.
+
+Other context:
+The user is using fish shell.
+They are on a temporary chat and want to continue this troubleshooting in a new chat after reboot.
+The user prefers direct, technical help and is comfortable running terminal commands.

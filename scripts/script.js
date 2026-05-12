@@ -89,11 +89,16 @@ function sanitizeSavedScheme(saved) {
     return hasVisibleColor ? sanitized : null;
 }
 
-function getPlaceholderSVG(size, gap, isVertical, showSlice, showSides) {
+function createPlaceholderVisualizer(showSides) {
     const placeholderVis = createSquare1Visualizer();
     placeholderVis.setActiveStyle(sq1vis.getActiveStyleIndex());
     placeholderVis.setShowSideColors(showSides);
     placeholderVis.setStyleSettings(sq1vis.getStyleSettings());
+    return placeholderVis;
+}
+
+function getPlaceholderSVG(size, gap, isVertical, showSlice, showSides) {
+    const placeholderVis = createPlaceholderVisualizer(showSides);
     return placeholderVis.getSVG(PLACEHOLDER_HEX, size, gap, true, isVertical, showSlice, showSides);
 }
 
@@ -1019,13 +1024,15 @@ function getExportSVGString(layer) {
     const input = document.getElementById('scramble-input').value.trim();
     const mode = MODES[currentModeIndex].value;
 
-    let muted, hex;
+    let muted, hex, renderVis;
     if (!input) {
         muted = true;
         hex = PLACEHOLDER_HEX;
+        renderVis = createPlaceholderVisualizer(showSides);
     }
     else {
         muted = muteActive
+        renderVis = sq1vis;
         if (mode === 'hex') {
             hex = input;
         } else if (mode === 'inverse') {
@@ -1042,7 +1049,7 @@ function getExportSVGString(layer) {
     const scaledSize = size * (220 / 400);
     const PAD = Math.round(scaledSize * 0.28);
     const tmp = document.createElement('div');
-    tmp.innerHTML = sq1vis.getSVG(hex, size, gap, muted, isVertical, showSlice, showSides, PAD);
+    tmp.innerHTML = renderVis.getSVG(hex, size, gap, muted, isVertical, showSlice, showSides, PAD);
     const svgs = tmp.querySelectorAll('svg');
 
     let svgEl;
@@ -1076,7 +1083,7 @@ function getExportSVGString(layer) {
     } else {
         const scaledSize = size * (220 / 400);
         const PAD = Math.round(scaledSize * 0.28);
-        return sq1vis.getSingleLayerSVG(hex, size, muted, showSlice, layer, PAD);
+        return renderVis.getSingleLayerSVG(hex, size, muted, showSlice, layer, PAD);
     }
 }
 
@@ -1122,7 +1129,29 @@ async function doExport(methodOverride) {
         });
     }
 
+    function canvasToBlob(canvas, mime) {
+        return new Promise((resolve, reject) => {
+            canvas.toBlob(blob => {
+                if (blob) resolve(blob);
+                else reject(new Error('canvas blob failed'));
+            }, mime);
+        });
+    }
+
     try {
+        if (method === 'clipboard') {
+            if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+                flashBtn('Clipboard images are not supported here');
+                return;
+            }
+
+            const pngBlobPromise = rasterize(svgStr, exportFmt).then(canvas => canvasToBlob(canvas, 'image/png'));
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlobPromise })]);
+            if (exportFmt === 'png') flashBtn('Copied to clipboard!');
+            else flashBtn(`Browser copying ${exportFmt.toLocaleUpperCase()}s isn't possible. Copied PNG instead.`);
+            return;
+        }
+
         const canvas = await rasterize(svgStr, exportFmt);
         const mimeMap = { png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/png' };
         const extMap  = { png: 'png', jpeg: 'jpg', bmp: 'bmp' };
@@ -1134,20 +1163,9 @@ async function doExport(methodOverride) {
             return;
         }
 
-        if (method === 'clipboard') {
-            const dataUrl = canvas.toDataURL('image/png');
-            const res = await fetch(dataUrl);
-            const pngBlob = await res.blob();
-            try {
-                await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
-                if (exportFmt === "png") flashBtn('Copied to clipboard!');
-                else flashBtn(`Browser copying ${exportFmt.toLocaleUpperCase()}s isn't possible. Copied PNG instead.`)
-            } catch { flashBtn('Failed to copy to clipboard'); }
-        } else {
-            canvas.toBlob(blob => triggerDownload(blob, `${fname}.${ext}`), mime);
-        }
+        canvas.toBlob(blob => triggerDownload(blob, `${fname}.${ext}`), mime);
     } catch (err) {
-        flashBtn('Export failed');
+        flashBtn(method === 'clipboard' ? 'Failed to copy to clipboard' : 'Export failed');
         console.error(err);
     }
 }
@@ -1261,11 +1279,16 @@ function updateCopyVisibility() {
 
 let febClickTimer = null;
 febActionBtn.addEventListener('click', () => {
+    const copyHidden = exportFmt === 'jpeg' || exportFmt === 'bmp';
+    if (febMode === 'copy' && !copyHidden) {
+        doExport('clipboard');
+        return;
+    }
+
     if (febClickTimer) return;
     febClickTimer = setTimeout(() => {
         febClickTimer = null;
-        const copyHidden = exportFmt === 'jpeg' || exportFmt === 'bmp';
-        doExport((febMode === 'copy' && !copyHidden) ? 'clipboard' : 'download');
+        doExport('download');
     }, 250);
 });
 
@@ -1351,12 +1374,12 @@ document.getElementById('ctx-format-select').addEventListener('change', function
 
 document.getElementById('ctx-download').addEventListener('click', function () {
     hideMenu();
-    document.getElementById('do-export').click();
+    doExport('download');
 });
 
 document.getElementById('ctx-copy').addEventListener('click', function () {
     hideMenu();
-    document.getElementById('do-copy').click();
+    doExport('clipboard');
 });
 
 /* ─── Init ────────────────────────────────────────── */
