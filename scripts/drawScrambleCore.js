@@ -360,12 +360,12 @@ const SAC2Style = {
     // -----------------------------------------------------------------
     const AbidStyle = {
         name: "Abid's Design",
-        placeholderScheme: { sticker: '#0d0d0dff', slice: '#4e0000ff', border: '#d0d0d0ff' },
+        placeholderScheme: { sticker: '#4d4d4d', slice: 'rgb(94, 94, 94)', border: '#000000' },
         source: 'Abid',
         hidableSideColor: false,
         hasSliceIndicator: true,
         controls: [
-            { id: 'layerRatio', label: 'Layer Ratio', min: 0.0, max: 1, step: 0.01, default: 0.8, decimals: 2 },
+            { id: 'layerRatio', label: 'Layer Ratio', min: 0.0, max: 1, step: 0.01, default: 0.76, decimals: 2 },
             {
                 type: 'linkedStrokeWidthSlider',
                 label: 'Stroke Widths',
@@ -379,7 +379,7 @@ const SAC2Style = {
                         min: 0,
                         max: 0.02,
                         step: 0.0005,
-                        default: 0.004,
+                        default: 0.016,
                         decimals: 4,
                     },
                     middle: {
@@ -390,7 +390,7 @@ const SAC2Style = {
                         min: 0,
                         max: 0.03,
                         step: 0.0005,
-                        default: 0.008,
+                        default: 0.016,
                         decimals: 4,
                     },
                     bottom: {
@@ -401,7 +401,7 @@ const SAC2Style = {
                         min: 0,
                         max: 0.02,
                         step: 0.0005,
-                        default: 0.003,
+                        default: 0.0135,
                         decimals: 4,
                     },
                 },
@@ -411,14 +411,14 @@ const SAC2Style = {
         withSideColor: {
             layerScale: 1.64,
             colorSlots: [
-                { id: 'top', label: 'Top', default: '#000000ff' },
+                { id: 'top', label: 'Top', default: 'rgba(71,71,71,1)' },
                 { id: 'bottom', label: 'Bottom', default: '#FFFFFF' },
-                { id: 'front', label: 'Front', default: '#CC0000' },
-                { id: 'right', label: 'Right', default: '#00AA00' },
-                { id: 'back', label: 'Back', default: '#FF8C00' },
-                { id: 'left', label: 'Left', default: '#0066CC' },
-                { id: 'border', label: 'Border', default: '#333333' },
-                { id: 'slice-indicator', label: 'Slice Indicator', default: '#6f0000ff' },
+                { id: 'front', label: 'Front', default: 'rgba(204,0,0,1)' },
+                { id: 'right', label: 'Right', default: 'rgba(0,170,0,0.98)' },
+                { id: 'back', label: 'Back', default: 'rgba(255,140,0,1)' },
+                { id: 'left', label: 'Left', default: 'rgba(0,128,255,1)' },
+                { id: 'border', label: 'Border', default: 'rgba(0,0,0,1)' },
+                { id: 'slice-indicator', label: 'Slice Indicator', default: 'rgba(111,0,0,1)' },
             ],
 
             drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER, settings = {}) {
@@ -557,10 +557,10 @@ const SAC2Style = {
         withoutSideColor: {
             layerScale: 1.64,
             colorSlots: [
-                { id: 'top', label: 'Top', default: '#000000ff' },
+                { id: 'top', label: 'Top', default: 'rgba(71,71,71,1)' },
                 { id: 'bottom', label: 'Bottom', default: '#FFFFFF' },
-                { id: 'border', label: 'Border', default: '#333333' },
-                { id: 'slice-indicator', label: 'Slice Indicator', default: '#6f0000' },
+                { id: 'border', label: 'Border', default: 'rgba(0,0,0,1)' },
+                { id: 'slice-indicator', label: 'Slice Indicator', default: 'rgba(111,0,0,1)' },
             ],
 
             drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
