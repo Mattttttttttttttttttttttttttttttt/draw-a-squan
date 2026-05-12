@@ -1,4 +1,4 @@
-import { sq1vis } from './drawScrambleCustomization.js';
+import { createSquare1Visualizer, sq1vis } from './drawScrambleCustomization.js';
 import { LinkedStrokeWidthSlider } from './linkedStrokeWidthSlider.js';
 
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
@@ -32,22 +32,69 @@ function buildSchemeGrid() {
         const initial = scheme[slot.id] === 'transparent' ? 'rgba(0,0,0,0)' : scheme[slot.id];
         const p = createPickr(`#pickr-wrap-${slot.id}`, initial, (color) => {
             sq1vis.setColorScheme({ [slot.id]: color });
-            const btn = p.getRoot().button;
-            if (btn) {
-                if (color === 'transparent') {
-                    btn.style.setProperty('--pcr-color', 'rgba(0,0,0,0)');
-                    btn.style.background = 'repeating-conic-gradient(#808080 0% 25%, #fff 0% 50%) 0 0 / 8px 8px';
-                } else {
-                    btn.style.setProperty('--pcr-color', color);
-                    btn.style.removeProperty('background');
-                }
-            }
+            paintPickrButton(p, color);
             draw();
             saveSettings();
         });
-        schemePickrs[slot.id] = p;
+        repaintPickrButtonAfterInit(p, initial);
         schemePickrs[slot.id] = p;
     });
+}
+
+function paintPickrButton(pickr, color) {
+    const btn = pickr.getRoot().button;
+    if (!btn) return;
+    const isTransparent = isTransparentColor(color);
+    const resolved = isTransparent ? 'rgba(0,0,0,0)' : color;
+    btn.style.setProperty('--pcr-color', resolved);
+    btn.classList.toggle('clear', isTransparent);
+}
+
+function repaintPickrButtonAfterInit(pickr, color) {
+    paintPickrButton(pickr, color);
+    pickr.on('init', () => paintPickrButton(pickr, color));
+    requestAnimationFrame(() => paintPickrButton(pickr, color));
+    setTimeout(() => paintPickrButton(pickr, color), 50);
+}
+
+function isTransparentColor(value) {
+    const color = String(value ?? '').trim().toLowerCase().replace(/\s+/g, '');
+    if (!color) return true;
+    if (color === 'transparent' || color === '#0000' || color === '#00000000') return true;
+    return /^rgba\([^)]*,0(?:\.0+)?\)$/.test(color);
+}
+
+function isUsableColor(value) {
+    const color = String(value ?? '').trim();
+    if (!color) return false;
+    if (isTransparentColor(color)) return true;
+    if (window.CSS?.supports?.('color', color)) return true;
+    const probe = document.createElement('span');
+    probe.style.color = '';
+    probe.style.color = color;
+    return !!probe.style.color;
+}
+
+function sanitizeSavedScheme(saved) {
+    const sanitized = {};
+    let hasVisibleColor = false;
+
+    for (const slot of sq1vis.getColorSlots()) {
+        const savedColor = saved?.[slot.id];
+        const color = isUsableColor(savedColor) ? savedColor : slot.default;
+        sanitized[slot.id] = color;
+        if (!isTransparentColor(color)) hasVisibleColor = true;
+    }
+
+    return hasVisibleColor ? sanitized : null;
+}
+
+function getPlaceholderSVG(size, gap, isVertical, showSlice, showSides) {
+    const placeholderVis = createSquare1Visualizer();
+    placeholderVis.setActiveStyle(sq1vis.getActiveStyleIndex());
+    placeholderVis.setShowSideColors(showSides);
+    placeholderVis.setStyleSettings(sq1vis.getStyleSettings());
+    return placeholderVis.getSVG(PLACEHOLDER_HEX, size, gap, true, isVertical, showSlice, showSides);
 }
 
 // ── Style dropdown ──────────────────────────────────────
@@ -188,51 +235,55 @@ const classicalPanel = document.getElementById('scheme-classical-panel');
 const customPanel = document.getElementById('scheme-custom-panel');
 const toolbar = document.getElementById('custom-toolbar');
 
-[classicalBtn, customBtn].forEach(btn => {
-    btn.addEventListener('click', () => {
-        const isCustom = btn.dataset.mode === 'custom';
-        classicalBtn.classList.toggle('active', !isCustom);
-        customBtn.classList.toggle('active', isCustom);
-        classicalPanel.style.display = isCustom ? 'none' : '';
-        customPanel.style.display    = isCustom ? '' : 'none';
-        toolbar.style.display        = isCustom ? '' : 'none';
+function setSchemeMode(isCustom, { redraw = true, persist = true } = {}) {
+    classicalBtn.classList.toggle('active', !isCustom);
+    customBtn.classList.toggle('active', isCustom);
+    classicalPanel.style.display = isCustom ? 'none' : '';
+    customPanel.style.display    = isCustom ? '' : 'none';
+    toolbar.style.display        = isCustom ? '' : 'none';
 
-        if (isCustom && !isCustomMode) {
-            // Switching TO custom: save classical state, restore custom state
-            // Only overwrite classicalSnapshot if it hasn't already been seeded by loadSettings
-            if (!classicalSnapshot) {
-                classicalSnapshot = {
-                    piecesColors: JSON.parse(JSON.stringify(sq1vis.getPiecesColors())),
-                    mute: muteActive,
-                };
-            }
-            classicalMuteActive = classicalSnapshot.mute;
-            if (customSnapshot) {
-                sq1vis.setPiecesColors(customSnapshot.piecesColors);
-                muteActive = customSnapshot.mute;
-            } else {
-                muteActive = customMuteActive;
-            }
-            muteBtn.classList.toggle('active', muteActive);
-            isCustomMode = true;
-        } else if (!isCustom && isCustomMode) {
-            // Switching TO classical: save custom state, restore classical
-            customSnapshot = {
+    if (isCustom && !isCustomMode) {
+        // Switching TO custom: save classical state, restore custom state
+        // Only overwrite classicalSnapshot if it hasn't already been seeded by loadSettings
+        if (!classicalSnapshot) {
+            classicalSnapshot = {
                 piecesColors: JSON.parse(JSON.stringify(sq1vis.getPiecesColors())),
                 mute: muteActive,
             };
-            customMuteActive = muteActive;
-            if (fillModeActive) fillModeBtn.click();
-            if (fillResetActive) unfillBtn.click();
-            if (classicalSnapshot) {
-                sq1vis.setPiecesColors(classicalSnapshot.piecesColors);
-                muteActive = classicalSnapshot.mute;
-                muteBtn.classList.toggle('active', muteActive);
-            }
-            isCustomMode = false;
         }
-        draw();
-        saveSettings();
+        classicalMuteActive = classicalSnapshot.mute;
+        if (customSnapshot) {
+            sq1vis.setPiecesColors(customSnapshot.piecesColors);
+            muteActive = customSnapshot.mute;
+        } else {
+            muteActive = customMuteActive;
+        }
+        muteBtn.classList.toggle('active', muteActive);
+        isCustomMode = true;
+    } else if (!isCustom && isCustomMode) {
+        // Switching TO classical: save custom state, restore classical
+        customSnapshot = {
+            piecesColors: JSON.parse(JSON.stringify(sq1vis.getPiecesColors())),
+            mute: muteActive,
+        };
+        customMuteActive = muteActive;
+        if (fillModeActive) fillModeBtn.click();
+        if (fillResetActive) unfillBtn.click();
+        if (classicalSnapshot) {
+            sq1vis.setPiecesColors(classicalSnapshot.piecesColors);
+            muteActive = classicalSnapshot.mute;
+            muteBtn.classList.toggle('active', muteActive);
+        }
+        isCustomMode = false;
+    }
+
+    if (redraw) draw();
+    if (persist) saveSettings();
+}
+
+[classicalBtn, customBtn].forEach(btn => {
+    btn.addEventListener('click', () => {
+        setSchemeMode(btn.dataset.mode === 'custom');
     });
 });
 
@@ -333,16 +384,20 @@ const lastUsedLimit = 3;
 
 const canvasInner = document.getElementById('canvas-inner');
 const viewportCanvas = document.getElementById('viewport-canvas');
-const LOADING_TIPS = window.SQ1_LOADING_TIPS || [
-    'Tip: right-click the mode button to cycle backward.',
+const DEFAULT_LOADING_TIPS = [
+    /*'Tip: right-click the mode button to cycle backward.',
     'Fun fact: Draw-a-Squan understands karn notation too.',
     'Hidden feature: Ctrl+S downloads the current image.',
     'Hidden feature: press Ctrl+C outside the input to copy the image.',
     'Tip: double-click the floating export button to switch between copy and download.',
     'Fun fact: bulk export can place squans directly into an XLSX file.',
     'Tip: turn on Fill Piece, then click stickers to recolor individual pieces.',
-    'Hidden feature: recent fill colors can be reused with the 1, 2, and 3 keys.',
+    'Hidden feature: recent fill colors can be reused with the 1, 2, and 3 keys.',*/
+    ''
 ];
+const LOADING_TIPS = Array.isArray(window.SQ1_LOADING_TIPS) && window.SQ1_LOADING_TIPS.some(t => t.trim())
+    ? window.SQ1_LOADING_TIPS.filter(t => t.trim())
+    : DEFAULT_LOADING_TIPS;
 let initialWindowLoaded = document.readyState === 'complete';
 let appInitialized = false;
 
@@ -371,10 +426,11 @@ if (!initialWindowLoaded) {
 }
 
 function createPickr(el, initialColor, onChange) {
+    const safeInitialColor = initialColor || '#CC0000';
     const p = Pickr.create({
         el,
         theme: 'nano',
-        default: initialColor || '#CC0000',
+        default: safeInitialColor,
         defaultRepresentation: 'RGBA',
         components: {
             preview: true, opacity: true, hue: true,
@@ -413,6 +469,8 @@ function createPickr(el, initialColor, onChange) {
             console.log('[pickr hide]', 'classes after:', btn.className);
         }
     });
+    try { p.setColor(safeInitialColor, true); } catch (e) {}
+    repaintPickrButtonAfterInit(p, safeInitialColor);
     return p;
 }
 
@@ -580,7 +638,8 @@ function loadSettings() {
                 const prevSides = sq1vis.getShowSideColors();
                 sq1vis.setActiveStyle(style.index);
                 sq1vis.setShowSideColors(withSides);
-                sq1vis.setColorScheme(saved);
+                const sanitized = sanitizeSavedScheme(saved);
+                if (sanitized) sq1vis.setColorScheme(sanitized);
                 sq1vis.setActiveStyle(prevIdx);
                 sq1vis.setShowSideColors(prevSides);
             }
@@ -626,7 +685,7 @@ function loadSettings() {
         if (s.classicalPiecesColors) classicalSnapshot = { piecesColors: s.classicalPiecesColors, mute: false };
         // Restore custom snapshot before clicking so the switch finds it
         if (s.customPiecesColors) customSnapshot = { piecesColors: s.customPiecesColors, mute: s.muteActive || false };
-        customBtn.click();
+        setSchemeMode(true, { redraw: false, persist: false });
         customBtn.classList.remove("no-transition");
     }
 
@@ -636,9 +695,7 @@ function loadSettings() {
         renderRecentSlots();
     }
 
-    // Rebuild UI that depends on loaded state
-    updateStyleToggles();
-    buildSchemeGrid();
+    // UI dependent on loaded state is built once after loadSettings().
 }
 
 loadSettings();
@@ -821,9 +878,9 @@ const MODES = [
 ];
 let currentModeIndex = 0;
 
-buildSchemeGrid();
 buildStyleDropdown();
 updateStyleToggles();
+buildSchemeGrid();
 
 function setMode(index) {
     currentModeIndex = ((index % MODES.length) + MODES.length) % MODES.length;
@@ -890,7 +947,7 @@ function draw() {
 
     if (!input) {
         // Draw placeholder cube with muted gray scheme
-        const html = sq1vis.getSVG(PLACEHOLDER_HEX, size, gap, true, isVertical, showSlice, showSides);
+        const html = getPlaceholderSVG(size, gap, isVertical, showSlice, showSides);
         canvasInner.innerHTML = html;
         updateCanvasCursor();
         return;
