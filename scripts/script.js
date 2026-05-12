@@ -1,8 +1,10 @@
 import { sq1vis } from './drawScrambleCustomization.js';
+import { LinkedStrokeWidthSlider } from './linkedStrokeWidthSlider.js';
 
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
 var schemePickrs = {};
 var fillPickr = null;
+let styleControlInstances = [];
 
 let isCustomMode = false;
 let classicalSnapshot = null;
@@ -85,9 +87,16 @@ function buildStyleSliderControls() {
     const container = document.getElementById('style-slider-controls');
     const controls = sq1vis.getStyleControls();
     const settings = sq1vis.getStyleSettings();
+    styleControlInstances.forEach(instance => instance.destroy?.());
+    styleControlInstances = [];
     container.innerHTML = '';
 
     controls.forEach(control => {
+        if (control.type === 'linkedStrokeWidthSlider') {
+            buildLinkedStrokeWidthControl(container, control, settings);
+            return;
+        }
+
         const value = settings[control.id] ?? control.default;
         const decimals = control.decimals ?? decimalPlaces(control.step);
         const field = document.createElement('div');
@@ -114,6 +123,48 @@ function buildStyleSliderControls() {
         slider.addEventListener('input', () => apply(slider.value));
         input.addEventListener('input', () => apply(input.value));
     });
+}
+
+function buildLinkedStrokeWidthControl(container, control, settings) {
+    const partConfigs = {};
+    for (const part of ['top', 'middle', 'bottom']) {
+        const config = control.parts[part];
+        partConfigs[part] = {
+            ...config,
+            value: settings[config.id] ?? config.default,
+            decimals: config.decimals ?? decimalPlaces(config.step),
+        };
+    }
+
+    const field = document.createElement('div');
+    field.className = 'field';
+    field.dataset.linkedWidthControl = '';
+    field.innerHTML = `
+      <label class="field-label">${control.label}</label>
+      <div class="linked-width-slider" title="${control.tooltip ?? control.label}">
+        <div class="linked-width-track"><div class="linked-width-ticks"></div></div>
+        <div class="linked-width-bridge" data-width-bridge></div>
+        <div class="linked-width-handle linked-width-handle-top linked" data-width-part="top" title="${partConfigs.top.tooltip}">
+          <div class="linked-width-shape"></div>
+        </div>
+        <div class="linked-width-handle linked-width-handle-middle" data-width-part="middle" title="${partConfigs.middle.tooltip}">
+          <div class="linked-width-middle-shape"></div>
+        </div>
+        <div class="linked-width-handle linked-width-handle-bottom linked" data-width-part="bottom" title="${partConfigs.bottom.tooltip}">
+          <div class="linked-width-shape"></div>
+        </div>
+      </div>`;
+    container.appendChild(field);
+
+    const instance = new LinkedStrokeWidthSlider(field.querySelector('.linked-width-slider'), {
+        parts: partConfigs,
+        onChange: next => {
+            sq1vis.setStyleSettings(next);
+            draw();
+            saveSettings();
+        },
+    });
+    styleControlInstances.push(instance);
 }
 
 function decimalPlaces(step) {

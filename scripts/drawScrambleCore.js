@@ -66,7 +66,15 @@ export function createSquare1Core(initialState = {}) {
 
     function getStyleControlDefaults(style) {
         const defaults = {};
-        for (const control of style.controls ?? []) defaults[control.id] = control.default;
+        for (const control of style.controls ?? []) {
+            if (control.parts) {
+                for (const part of Object.values(control.parts)) {
+                    defaults[part.id] = part.default;
+                }
+            } else {
+                defaults[control.id] = control.default;
+            }
+        }
         return defaults;
     }
 
@@ -357,10 +365,47 @@ const SAC2Style = {
         hidableSideColor: false,
         hasSliceIndicator: true,
         controls: [
-            { id: 'layerRatio', label: 'Layer Ratio', min: 0.1, max: 1, step: 0.01, default: 0.8, decimals: 2 },
-            { id: 'strokeWidthOuter', label: 'Outer Stroke', min: 0, max: 0.02, step: 0.0005, default: 0.004, decimals: 4 },
-            { id: 'strokeWidthInner', label: 'Inner Stroke', min: 0, max: 0.02, step: 0.0005, default: 0.003, decimals: 4 },
-            { id: 'sliceStrokeWidth', label: 'Slice Stroke', min: 0, max: 0.03, step: 0.0005, default: 0.008, decimals: 4 },
+            { id: 'layerRatio', label: 'Layer Ratio', min: 0.0, max: 1, step: 0.01, default: 0.8, decimals: 2 },
+            {
+                type: 'linkedStrokeWidthSlider',
+                label: 'Stroke Widths',
+                tooltip: 'Adjust outer, slice, and inner stroke widths',
+                parts: {
+                    top: {
+                        id: 'strokeWidthOuter',
+                        label: 'Outer Stroke',
+                        shortLabel: 'Outer',
+                        tooltip: 'Outer stroke width',
+                        min: 0,
+                        max: 0.02,
+                        step: 0.0005,
+                        default: 0.004,
+                        decimals: 4,
+                    },
+                    middle: {
+                        id: 'sliceStrokeWidth',
+                        label: 'Slice Stroke',
+                        shortLabel: 'Slice',
+                        tooltip: 'Slice stroke width',
+                        min: 0,
+                        max: 0.03,
+                        step: 0.0005,
+                        default: 0.008,
+                        decimals: 4,
+                    },
+                    bottom: {
+                        id: 'strokeWidthInner',
+                        label: 'Inner Stroke',
+                        shortLabel: 'Inner',
+                        tooltip: 'Inner stroke width',
+                        min: 0,
+                        max: 0.02,
+                        step: 0.0005,
+                        default: 0.003,
+                        decimals: 4,
+                    },
+                },
+            },
         ],
 
         withSideColor: {
