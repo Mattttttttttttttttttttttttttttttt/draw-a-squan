@@ -74,6 +74,51 @@ function updateStyleToggles() {
     const hideSliceRow = document.getElementById('hide-slice-row');
     hideSidesRow.style.display = style.hidableSideColor  ? '' : 'none';
     hideSliceRow.style.display = style.hasSliceIndicator ? '' : 'none';
+    if (!style.hidableSideColor) {
+        document.getElementById('hide-sides').checked = false;
+        sq1vis.setShowSideColors(true);
+    }
+    buildStyleSliderControls();
+}
+
+function buildStyleSliderControls() {
+    const container = document.getElementById('style-slider-controls');
+    const controls = sq1vis.getStyleControls();
+    const settings = sq1vis.getStyleSettings();
+    container.innerHTML = '';
+
+    controls.forEach(control => {
+        const value = settings[control.id] ?? control.default;
+        const decimals = control.decimals ?? decimalPlaces(control.step);
+        const field = document.createElement('div');
+        field.className = 'field';
+        field.innerHTML = `
+          <label class="field-label">${control.label}</label>
+          <div class="slider-combo">
+            <input type="range" id="style-slider-${control.id}" min="${control.min}" max="${control.max}" step="${control.step}" value="${value}" />
+            <input type="number" id="style-input-${control.id}" min="${control.min}" max="${control.max}" step="${control.step}" value="${Number(value).toFixed(decimals)}" />
+          </div>`;
+        container.appendChild(field);
+
+        const slider = field.querySelector(`#style-slider-${control.id}`);
+        const input = field.querySelector(`#style-input-${control.id}`);
+        const apply = rawValue => {
+            const next = Number(rawValue);
+            if (Number.isNaN(next)) return;
+            slider.value = next;
+            input.value = next.toFixed(decimals);
+            sq1vis.setStyleSettings({ [control.id]: next });
+            draw();
+            saveSettings();
+        };
+        slider.addEventListener('input', () => apply(slider.value));
+        input.addEventListener('input', () => apply(input.value));
+    });
+}
+
+function decimalPlaces(step) {
+    const text = String(step);
+    return text.includes('.') ? text.split('.')[1].length : 0;
 }
 
 document.getElementById('color-scheme-toggle').addEventListener('click', () => {
@@ -344,6 +389,18 @@ function saveSettings() {
         hideSides: document.getElementById('hide-sides').checked,
         // Style
         styleIndex: sq1vis.getActiveStyleIndex(),
+        styleSettings: (() => {
+            const obj = {};
+            const prevIdx = sq1vis.getActiveStyleIndex();
+            const prevSides = sq1vis.getShowSideColors();
+            for (const style of sq1vis.getStyles()) {
+                sq1vis.setActiveStyle(style.index);
+                obj[style.source] = sq1vis.getStyleSettings();
+            }
+            sq1vis.setActiveStyle(prevIdx);
+            sq1vis.setShowSideColors(prevSides);
+            return obj;
+        })(),
         // Color scheme — save all overrides for all style/variant combos
         colorOverrides: (() => {
             const obj = {};
@@ -411,6 +468,18 @@ function loadSettings() {
     if (s.styleIndex != null) {
         sq1vis.setActiveStyle(s.styleIndex);
         document.getElementById('svg-style-select').value = s.styleIndex;
+    }
+    if (s.styleSettings) {
+        const prevIdx = sq1vis.getActiveStyleIndex();
+        const prevSides = sq1vis.getShowSideColors();
+        for (const style of sq1vis.getStyles()) {
+            const saved = s.styleSettings[style.source];
+            if (!saved) continue;
+            sq1vis.setActiveStyle(style.index);
+            sq1vis.setStyleSettings(saved);
+        }
+        sq1vis.setActiveStyle(prevIdx);
+        sq1vis.setShowSideColors(prevSides);
     }
 
     // Color overrides — apply all saved overrides

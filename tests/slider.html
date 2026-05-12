@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Overengineered Margin Slider</title>
+
+<style>
+  :root {
+    --track-w: min(900px, 90vw);
+    --track-h: 56px;
+    --accent: #2563eb;
+    --snap: #22c55e;
+    --bg: #f4f4f5;
+    --ink: #18181b;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    font-family: system-ui, sans-serif;
+    background:
+      radial-gradient(circle at top, #ffffff, #e5e7eb);
+    color: var(--ink);
+  }
+
+  .panel {
+    width: calc(var(--track-w) + 48px);
+    padding: 28px;
+    border-radius: 24px;
+    background: white;
+    box-shadow:
+      0 25px 80px rgba(0,0,0,.12),
+      inset 0 1px 0 rgba(255,255,255,.8);
+  }
+
+  h1 {
+    margin: 0 0 18px;
+    font-size: 22px;
+  }
+
+  .readout {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+
+  .pill {
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: #f1f5f9;
+  }
+
+  .slider-wrap {
+    position: relative;
+    width: var(--track-w);
+    height: 150px;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .ruler {
+    position: absolute;
+    left: 0;
+    top: 46px;
+    width: 100%;
+    height: var(--track-h);
+    border-radius: 10px;
+    background:
+      repeating-linear-gradient(
+        to right,
+        #d4d4d8 0 1px,
+        transparent 1px 20px
+      ),
+      linear-gradient(#fafafa, #e4e4e7);
+    border: 1px solid #cbd5e1;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,.08);
+  }
+
+  .ruler::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(
+        to right,
+        transparent 0 99px,
+        #71717a 99px 101px
+      );
+    opacity: .8;
+  }
+
+  .range-fill {
+    position: absolute;
+    top: 46px;
+    height: var(--track-h);
+    background: rgba(37, 99, 235, .15);
+    border-left: 2px solid var(--accent);
+    border-right: 2px solid var(--accent);
+    pointer-events: none;
+  }
+
+  .snap-zone {
+    position: absolute;
+    top: 37px;
+    height: 74px;
+    width: 2px;
+    background: var(--snap);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s;
+  }
+
+  .slider-wrap.snapping .snap-zone {
+    opacity: .75;
+  }
+
+  .handle {
+    position: absolute;
+    width: 28px;
+    height: 34px;
+    cursor: grab;
+    transform: translateX(-50%);
+    z-index: 5;
+    outline: none;
+  }
+
+  .handle:active {
+    cursor: grabbing;
+  }
+
+  .handle:focus-visible .shape {
+    box-shadow:
+      0 0 0 4px rgba(37,99,235,.25),
+      0 8px 20px rgba(0,0,0,.22);
+  }
+
+  .handle.top {
+    top: 8px;
+  }
+
+  .handle.bottom {
+    top: 100px;
+  }
+
+  .shape {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(#3b82f6, #1d4ed8);
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0,0,0,.22);
+    transition: background .15s, transform .15s;
+  }
+
+  .handle.top .shape {
+    clip-path: polygon(0 0, 100% 0, 100% 65%, 50% 100%, 0 65%);
+  }
+
+  .handle.bottom .shape {
+    clip-path: polygon(50% 0, 100% 35%, 100% 100%, 0 100%, 0 35%);
+  }
+
+  .handle.linked .shape {
+    background: linear-gradient(#22c55e, #16a34a);
+  }
+
+  .ghost-line {
+    position: absolute;
+    top: 37px;
+    height: 74px;
+    width: 2px;
+    background: rgba(24,24,27,.55);
+    pointer-events: none;
+  }
+
+  .label {
+    position: absolute;
+    left: 50%;
+    font-size: 11px;
+    white-space: nowrap;
+    transform: translateX(-50%);
+    color: #52525b;
+  }
+
+  .top .label {
+    top: -18px;
+  }
+
+  .bottom .label {
+    bottom: -18px;
+  }
+
+  .instructions {
+    margin-top: 8px;
+    color: #52525b;
+    font-size: 13px;
+  }
+</style>
+</head>
+
+<body>
+  <main class="panel">
+    <h1>Unnecessarily Fancy Margin Slider</h1>
+
+    <div class="readout">
+      <div class="pill">Top: <strong id="topValue">0</strong></div>
+      <div class="pill">Bottom: <strong id="bottomValue">0</strong></div>
+      <div class="pill">Mode: <strong id="modeValue">Linked</strong></div>
+    </div>
+
+    <section class="slider-wrap" id="slider">
+      <div class="ruler"></div>
+      <div class="range-fill" id="rangeFill"></div>
+      <div class="snap-zone" id="snapZone"></div>
+      <div class="ghost-line" id="topLine"></div>
+      <div class="ghost-line" id="bottomLine"></div>
+
+      <div class="handle top linked" id="topHandle" tabindex="0" role="slider">
+        <div class="label">top</div>
+        <div class="shape"></div>
+      </div>
+
+      <div class="handle bottom linked" id="bottomHandle" tabindex="0" role="slider">
+        <div class="shape"></div>
+        <div class="label">bottom</div>
+      </div>
+    </section>
+
+    <p class="instructions">
+      Drag one handle. When they are snapped together, dragging either moves both.
+      Pull far enough to separate. Bring them close and they snap back.
+    </p>
+  </main>
+
+<script>
+class OverengineeredMarginSlider {
+  constructor(root, options = {}) {
+    this.root = root;
+
+    this.config = {
+      min: 0,
+      max: 100,
+      initialTop: 35,
+      initialBottom: 35,
+      snapDistance: 4,
+      breakAwayDistance: 7,
+      keyboardStep: 1,
+      ...options
+    };
+
+    this.els = {
+      top: document.getElementById("topHandle"),
+      bottom: document.getElementById("bottomHandle"),
+      topValue: document.getElementById("topValue"),
+      bottomValue: document.getElementById("bottomValue"),
+      modeValue: document.getElementById("modeValue"),
+      rangeFill: document.getElementById("rangeFill"),
+      snapZone: document.getElementById("snapZone"),
+      topLine: document.getElementById("topLine"),
+      bottomLine: document.getElementById("bottomLine")
+    };
+
+    this.state = {
+      top: this.config.initialTop,
+      bottom: this.config.initialBottom,
+      linked: true,
+      dragging: null,
+      pointerStartX: 0,
+      dragStartTop: 0,
+      dragStartBottom: 0
+    };
+
+    this.bind();
+    this.render();
+  }
+
+  bind() {
+    this.els.top.addEventListener("pointerdown", e => this.startDrag(e, "top"));
+    this.els.bottom.addEventListener("pointerdown", e => this.startDrag(e, "bottom"));
+
+    window.addEventListener("pointermove", e => this.drag(e));
+    window.addEventListener("pointerup", () => this.stopDrag());
+
+    this.els.top.addEventListener("keydown", e => this.keyMove(e, "top"));
+    this.els.bottom.addEventListener("keydown", e => this.keyMove(e, "bottom"));
+
+    window.addEventListener("resize", () => this.render());
+  }
+
+  startDrag(event, part) {
+    event.preventDefault();
+
+    this.state.dragging = part;
+    this.state.pointerStartX = event.clientX;
+    this.state.dragStartTop = this.state.top;
+    this.state.dragStartBottom = this.state.bottom;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  drag(event) {
+    if (!this.state.dragging) return;
+
+    const deltaPx = event.clientX - this.state.pointerStartX;
+    const deltaValue = this.pxToValue(deltaPx);
+
+    if (this.state.linked) {
+      const nextTop = this.clamp(this.state.dragStartTop + deltaValue);
+      const nextBottom = this.clamp(this.state.dragStartBottom + deltaValue);
+
+      if (Math.abs(deltaValue) > this.config.breakAwayDistance && event.shiftKey) {
+        this.state.linked = false;
+      } else {
+        const safeDelta = Math.min(
+          this.config.max - this.state.dragStartTop,
+          this.config.max - this.state.dragStartBottom,
+          this.state.dragStartTop - this.config.min,
+          this.state.dragStartBottom - this.config.min
+        );
+
+        this.state.top = this.clamp(this.state.dragStartTop + Math.sign(deltaValue) * Math.min(Math.abs(deltaValue), Math.abs(safeDelta)));
+        this.state.bottom = this.clamp(this.state.dragStartBottom + Math.sign(deltaValue) * Math.min(Math.abs(deltaValue), Math.abs(safeDelta)));
+
+        this.render();
+        return;
+      }
+    }
+
+    const active = this.state.dragging;
+
+    if (active === "top") {
+      this.state.top = this.clamp(this.state.dragStartTop + deltaValue);
+    } else {
+      this.state.bottom = this.clamp(this.state.dragStartBottom + deltaValue);
+    }
+
+    this.applySnapLogic(active);
+    this.render();
+  }
+
+  stopDrag() {
+    this.state.dragging = null;
+    this.root.classList.remove("snapping");
+  }
+
+  keyMove(event, part) {
+    const keys = ["ArrowLeft", "ArrowRight"];
+    if (!keys.includes(event.key)) return;
+
+    event.preventDefault();
+
+    const dir = event.key === "ArrowRight" ? 1 : -1;
+    const amount = dir * this.config.keyboardStep;
+
+    if (this.state.linked) {
+      this.state.top = this.clamp(this.state.top + amount);
+      this.state.bottom = this.clamp(this.state.bottom + amount);
+    } else {
+      this.state[part] = this.clamp(this.state[part] + amount);
+      this.applySnapLogic(part);
+    }
+
+    this.render();
+  }
+
+  applySnapLogic(active) {
+    const distance = Math.abs(this.state.top - this.state.bottom);
+
+    if (distance <= this.config.snapDistance) {
+      const snapPoint = active === "top" ? this.state.top : this.state.bottom;
+
+      this.state.top = snapPoint;
+      this.state.bottom = snapPoint;
+      this.state.linked = true;
+      this.root.classList.add("snapping");
+    } else {
+      this.state.linked = false;
+      this.root.classList.remove("snapping");
+    }
+  }
+
+  render() {
+    const topX = this.valueToPx(this.state.top);
+    const bottomX = this.valueToPx(this.state.bottom);
+
+    this.els.top.style.left = `${topX}px`;
+    this.els.bottom.style.left = `${bottomX}px`;
+
+    this.els.topLine.style.left = `${topX}px`;
+    this.els.bottomLine.style.left = `${bottomX}px`;
+
+    const minX = Math.min(topX, bottomX);
+    const maxX = Math.max(topX, bottomX);
+
+    this.els.rangeFill.style.left = `${minX}px`;
+    this.els.rangeFill.style.width = `${Math.max(2, maxX - minX)}px`;
+
+    const snapX = (topX + bottomX) / 2;
+    this.els.snapZone.style.left = `${snapX}px`;
+
+    this.els.topValue.textContent = this.state.top.toFixed(1);
+    this.els.bottomValue.textContent = this.state.bottom.toFixed(1);
+    this.els.modeValue.textContent = this.state.linked ? "Linked" : "Separated";
+
+    this.els.top.classList.toggle("linked", this.state.linked);
+    this.els.bottom.classList.toggle("linked", this.state.linked);
+
+    this.updateAria();
+  }
+
+  updateAria() {
+    for (const [name, el] of [["top", this.els.top], ["bottom", this.els.bottom]]) {
+      el.setAttribute("aria-valuemin", this.config.min);
+      el.setAttribute("aria-valuemax", this.config.max);
+      el.setAttribute("aria-valuenow", this.state[name].toFixed(1));
+      el.setAttribute("aria-label", `${name} margin handle`);
+    }
+  }
+
+  valueToPx(value) {
+    const rect = this.root.getBoundingClientRect();
+    const ratio = (value - this.config.min) / (this.config.max - this.config.min);
+    return ratio * rect.width;
+  }
+
+  pxToValue(px) {
+    const rect = this.root.getBoundingClientRect();
+    return px / rect.width * (this.config.max - this.config.min);
+  }
+
+  clamp(value) {
+    return Math.max(this.config.min, Math.min(this.config.max, value));
+  }
+}
+
+new OverengineeredMarginSlider(document.getElementById("slider"));
+</script>
+</body>
+</html>

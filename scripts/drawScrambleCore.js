@@ -64,6 +64,22 @@ export function createSquare1Core(initialState = {}) {
         return val.charAt(0) === '#' ? val : (colors[val] ?? val);
     }
 
+    function getStyleControlDefaults(style) {
+        const defaults = {};
+        for (const control of style.controls ?? []) defaults[control.id] = control.default;
+        return defaults;
+    }
+
+    function getActiveStyleSettings() {
+        const style = STYLES[activeStyleIndex];
+        return { ...getStyleControlDefaults(style), ...(styleControlOverrides.get(style.source) ?? {}) };
+    }
+
+    function activeVariantUsesSideColors() {
+        const style = STYLES[activeStyleIndex];
+        return !style.hidableSideColor || showSideColors;
+    }
+
     // -----------------------------------------------------------------
     // SAC2'S STYLE
     // -----------------------------------------------------------------
@@ -338,8 +354,12 @@ const SAC2Style = {
         name: "Abid's Design",
         placeholderScheme: { sticker: '#0d0d0dff', slice: '#4e0000ff', border: '#d0d0d0ff' },
         source: 'Abid',
-        hidableSideColor: true,
+        hidableSideColor: false,
         hasSliceIndicator: true,
+        controls: [
+            { id: 'layerRatio', label: 'Layer Ratio', min: 0.1, max: 1, step: 0.01, default: 0.8, decimals: 2 },
+            { id: 'strokeWidth', label: 'Stroke Width', min: 0, max: 0.02, step: 0.0005, default: 0.004, decimals: 4 },
+        ],
 
         withSideColor: {
             layerScale: 1.64,
@@ -354,7 +374,7 @@ const SAC2Style = {
                 { id: 'slice-indicator', label: 'Slice Indicator', default: '#6f0000ff' },
             ],
 
-            drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
+            drawEdge(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER, settings = {}) {
                 let innerColor = resolveColor(edgeColors[piece].inner, colors);
                 let outerColor = resolveColor(edgeColors[piece].outer, colors);
                 if (muted) {
@@ -363,7 +383,7 @@ const SAC2Style = {
                     if (outerColor === colors[def.outer]) outerColor = ph.sticker;
                 }
                 const rOuter = size * 0.4 * 0.7, half = 15;
-                const midR = rOuter * 0.8;
+                const midR = rOuter * settings.layerRatio;
                 function pt(r, deg) {
                     const rad = deg * Math.PI / 180;
                     return { x: +(r * Math.sin(rad)).toFixed(2), y: +(-r * Math.cos(rad)).toFixed(2) };
@@ -372,12 +392,13 @@ const SAC2Style = {
                 const pi = { x: 0, y: 0 };
                 const pA = pt(rOuter, -half), pB = pt(rOuter, half);
                 const pmA = pt(midR, -half), pmB = pt(midR, half);
-                const sw = (size * 0.004).toFixed(2);
-                return `<polygon class="sticker" id="${piece} outer" points="${ps([pmA, pA, pB, pmB])}" fill="${outerColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}"/>` +
-                    `<polygon class="sticker" id="${piece} inner" points="${ps([pi, pmA, pmB])}"      fill="${innerColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}"/>`;
+                const sw = (size * settings.strokeWidth).toFixed(2);
+                const strokeAttrs = 'stroke-linejoin="round" stroke-linecap="round"';
+                return `<polygon class="sticker" id="${piece} outer" points="${ps([pmA, pA, pB, pmB])}" fill="${outerColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}" ${strokeAttrs}/>` +
+                    `<polygon class="sticker" id="${piece} inner" points="${ps([pi, pmA, pmB])}"      fill="${innerColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}" ${strokeAttrs}/>`;
             },
 
-            drawCorner(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER) {
+            drawCorner(piece, colors, size, muted, ph = DEFAULT_PLACEHOLDER, settings = {}) {
                 let topColor = resolveColor(cornerColors[piece].top, colors);
                 let leftColor = resolveColor(cornerColors[piece].left, colors);
                 let rightColor = resolveColor(cornerColors[piece].right, colors);
@@ -389,7 +410,7 @@ const SAC2Style = {
                 }
                 const rOuter = size * 0.4 * 0.7;
                 const rApex = rOuter * 1.366025404;
-                const half = 30, sf = 0.80;
+                const half = 30, sf = settings.layerRatio;
                 function pt(r, deg) {
                     const rad = deg * Math.PI / 180;
                     return { x: +(r * Math.sin(rad)).toFixed(2), y: +(-r * Math.cos(rad)).toFixed(2) };
@@ -401,12 +422,13 @@ const SAC2Style = {
                 const pi = { x: 0, y: 0 };
                 const pOR = pt(rOuter, -half), pAp = pt(rApex, 0), pOL = pt(rOuter, half);
                 const psL = lerp(pi, pOL, sf), psR = lerp(pi, pOR, sf), psB = lerp(pi, pAp, sf);
-                const swM = (size * 0.004).toFixed(2), swT = (size * 0.003).toFixed(2);
+                const swM = (size * settings.strokeWidth).toFixed(2), swT = (size * settings.strokeWidth * 0.75).toFixed(2);
                 const col = muted ? ph.border : colors.border;
-                return `<polygon class="sticker" id="${piece} left"  points="${ps([pi, pOL, pAp, psB, psL])}" fill="${leftColor}"  stroke="${col}" stroke-width="${swM}"/>` +
-                    `<polygon class="sticker" id="${piece} right" points="${ps([pi, psR, psB, pAp, pOR])}" fill="${rightColor}" stroke="${col}" stroke-width="${swM}"/>` +
-                    `<polygon class="sticker" id="${piece} top"   points="${ps([pi, psL, psB, psR])}"      fill="${topColor}"   stroke="${col}" stroke-width="${swT}"/>` +
-                    `<polygon                                      points="${ps([pi, pOL, pAp, pOR])}"      fill="none"         stroke="${col}" stroke-width="${swM}"/>` +
+                const strokeAttrs = 'stroke-linejoin="round" stroke-linecap="round"';
+                return `<polygon class="sticker" id="${piece} left"  points="${ps([pi, pOL, pAp, psB, psL])}" fill="${leftColor}"  stroke="${col}" stroke-width="${swM}" ${strokeAttrs}/>` +
+                    `<polygon class="sticker" id="${piece} right" points="${ps([pi, psR, psB, pAp, pOR])}" fill="${rightColor}" stroke="${col}" stroke-width="${swM}" ${strokeAttrs}/>` +
+                    `<polygon class="sticker" id="${piece} top"   points="${ps([pi, psL, psB, psR])}"      fill="${topColor}"   stroke="${col}" stroke-width="${swT}" ${strokeAttrs}/>` +
+                    `<polygon                                      points="${ps([pi, pOL, pAp, pOR])}"      fill="none"         stroke="${col}" stroke-width="${swM}" ${strokeAttrs}/>` +
                     `<line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="${col}" stroke-width="${swM}" stroke-linecap="round"/>`;
             },
 
@@ -492,10 +514,11 @@ const SAC2Style = {
 
     let activeStyleIndex = 0;
     let showSideColors = true;
+    const styleControlOverrides = new Map();
 
     function getActiveVariant() {
         const style = STYLES[activeStyleIndex];
-        return showSideColors ? style.withSideColor : style.withoutSideColor;
+        return activeVariantUsesSideColors() ? style.withSideColor : style.withoutSideColor;
     }
 
     function getPlaceholderScheme() {
@@ -513,7 +536,7 @@ const SAC2Style = {
     function getResolvedColors() {
         const style = STYLES[activeStyleIndex];
         const variant = getActiveVariant();
-        const key = variantKey(style.source, showSideColors);
+        const key = variantKey(style.source, activeVariantUsesSideColors());
         const overrides = colorOverrides.get(key) || {};
         const colors = {};
         for (const slot of variant.colorSlots) {
@@ -524,7 +547,7 @@ const SAC2Style = {
 
     function setColorOverride(slotId, hex) {
         const style = STYLES[activeStyleIndex];
-        const key = variantKey(style.source, showSideColors);
+        const key = variantKey(style.source, activeVariantUsesSideColors());
         if (!colorOverrides.has(key)) colorOverrides.set(key, {});
         colorOverrides.get(key)[slotId] = hex;
     }
@@ -563,6 +586,7 @@ const SAC2Style = {
         const variant = getActiveVariant();
         const colors = getResolvedColors();
         const ph = getPlaceholderScheme();
+        const settings = getActiveStyleSettings();
         const layerScale = variant.layerScale ?? 1;
         let svg = '';
         for (const token of tokens) {
@@ -570,8 +594,8 @@ const SAC2Style = {
             const layerOffset = isBottom ? -195 : 15;
             const angle = -slotCentreAngle(token.position, span) + layerOffset;
             const pieceInner = token.type === 'edge'
-                ? variant.drawEdge(token.piece, colors, size, muted, ph)
-                : variant.drawCorner(token.piece, colors, size, muted, ph);
+                ? variant.drawEdge(token.piece, colors, size, muted, ph, settings)
+                : variant.drawCorner(token.piece, colors, size, muted, ph, settings);
             svg += `<g transform="translate(${cx},${cy}) rotate(${angle.toFixed(2)})">${pieceInner}</g>`;
         }
         if (layerScale !== 1) {
@@ -590,12 +614,13 @@ const SAC2Style = {
         const parsed = parseHex(rawHex);
         const variant = getActiveVariant();
         const colors = getResolvedColors();
+        const settings = getActiveStyleSettings();
         size = size * (220 / 400);
         const cx = size / 2, cy = size / 2;
         const isBottom = whichLayer === 'bottom';
         const tokens = isBottom ? parsed.bottom : parsed.top;
         let content = '';
-        if (showSlice) content += variant.drawSlice(whichLayer, cx, cy, size, colors, muted, getPlaceholderScheme());
+        if (showSlice) content += variant.drawSlice(whichLayer, cx, cy, size, colors, muted, getPlaceholderScheme(), settings);
         content += drawLayer(tokens, isBottom, cx, cy, size, muted);
         // Tight viewBox: content is centred at cx,cy, radius ~= size*0.5
         const r = size * 0.52 + exportPad;
@@ -612,6 +637,7 @@ const SAC2Style = {
         const parsed = parseHex(rawHex);
         const variant = getActiveVariant();
         const colors = getResolvedColors();
+        const settings = getActiveStyleSettings();
 
         size = size * (220 / 400);
         const cx = size / 2, cy = size / 2;
@@ -630,12 +656,12 @@ const SAC2Style = {
         const gap = isVert ? `margin-top:${margin.toFixed(1)}px;` : `margin-left:${margin.toFixed(1)}px;`;
 
         html += `<svg ${svgAttrs}>`;
-        if (showSlice) html += variant.drawSlice('top', cx, cy, size, colors, muted, getPlaceholderScheme());
+        if (showSlice) html += variant.drawSlice('top', cx, cy, size, colors, muted, getPlaceholderScheme(), settings);
         html += drawLayer(parsed.top, false, cx, cy, size, muted);
         html += `</svg>`;
 
         html += `<svg ${svgAttrs.replace('style="overflow:visible;"', `style="overflow:visible;${gap}"`)}>`;
-        if (showSlice) html += variant.drawSlice('bottom', cx, cy, size, colors, muted, getPlaceholderScheme());
+        if (showSlice) html += variant.drawSlice('bottom', cx, cy, size, colors, muted, getPlaceholderScheme(), settings);
         html += drawLayer(parsed.bottom, true, cx, cy, size, muted);
         html += `</svg></div>`;
 
@@ -659,10 +685,20 @@ const SAC2Style = {
         // Style system
         getStyles() { return STYLES.map((s, i) => ({ name: s.name, source: s.source, index: i })); },
         getActiveStyleIndex() { return activeStyleIndex; },
-        setActiveStyle(i) { activeStyleIndex = i; },
+        setActiveStyle(i) {
+            activeStyleIndex = i;
+            if (!STYLES[activeStyleIndex].hidableSideColor) showSideColors = true;
+        },
         getActiveStyle() { return STYLES[activeStyleIndex]; },
-        setShowSideColors(v) { showSideColors = v; },
-        getShowSideColors() { return showSideColors; },
+        setShowSideColors(v) { showSideColors = STYLES[activeStyleIndex].hidableSideColor ? v : true; },
+        getShowSideColors() { return activeVariantUsesSideColors(); },
+        getStyleControls() { return STYLES[activeStyleIndex].controls ?? []; },
+        getStyleSettings() { return getActiveStyleSettings(); },
+        setStyleSettings(partial) {
+            const style = STYLES[activeStyleIndex];
+            if (!styleControlOverrides.has(style.source)) styleControlOverrides.set(style.source, {});
+            Object.assign(styleControlOverrides.get(style.source), partial);
+        },
         // Piece color config
         getPiecesColors, setPiecesColors,
         createDefaultPieceColors: defaultPieceColors,
@@ -676,6 +712,7 @@ function createConfiguredCore(options = {}) {
     const core = createSquare1Core({ piecesColors: options.piecesColors });
     if (options.styleIndex != null) core.setActiveStyle(options.styleIndex);
     if (options.showSideColors != null) core.setShowSideColors(options.showSideColors);
+    if (options.styleSettings) core.setStyleSettings(options.styleSettings);
     if (options.colorScheme) core.setColorScheme(options.colorScheme);
     return core;
 }
