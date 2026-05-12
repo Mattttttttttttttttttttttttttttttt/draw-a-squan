@@ -360,6 +360,7 @@ const SAC2Style = {
             { id: 'layerRatio', label: 'Layer Ratio', min: 0.1, max: 1, step: 0.01, default: 0.8, decimals: 2 },
             { id: 'strokeWidthOuter', label: 'Outer Stroke', min: 0, max: 0.02, step: 0.0005, default: 0.004, decimals: 4 },
             { id: 'strokeWidthInner', label: 'Inner Stroke', min: 0, max: 0.02, step: 0.0005, default: 0.003, decimals: 4 },
+            { id: 'sliceStrokeWidth', label: 'Slice Stroke', min: 0, max: 0.03, step: 0.0005, default: 0.008, decimals: 4 },
         ],
 
         withSideColor: {
@@ -492,11 +493,11 @@ const SAC2Style = {
                 `;
             },
 
-            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER) {
+            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER, settings = {}) {
                 const rOuter = size * 0.4 * 0.7;
                 const ringR = rOuter + size * 0.4 * 0.4;
                 const r = ringR * 1.20;
-                const sw = (size * 0.008).toFixed(2);
+                const sw = (size * (settings.sliceStrokeWidth ?? 0.008)).toFixed(2);
                 const color = muted ? ph.slice : (colors['slice-indicator'] ?? '#6f0000');
                 function polarPt(r, deg) {
                     const rad = (deg - 90) * Math.PI / 180;
@@ -555,9 +556,9 @@ const SAC2Style = {
                 return `<polygon class="sticker" id="${piece} top" points="${ps([pi, pOR, pAp, pOL])}" fill="${topColor}" stroke="${muted ? ph.border : colors.border}" stroke-width="${sw}"/>`;
             },
 
-            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER) {
+            drawSlice(layer, cx, cy, size, colors, muted, ph = DEFAULT_PLACEHOLDER, settings = {}) {
                 // Reuse withSideColor — same visual, same angles
-                return AbidStyle.withSideColor.drawSlice(layer, cx, cy, size, colors, muted, ph);
+                return AbidStyle.withSideColor.drawSlice(layer, cx, cy, size, colors, muted, ph, settings);
             },
         },
     };
@@ -717,7 +718,8 @@ const SAC2Style = {
 
     function drawSliceWithLayerMask(layer, tokens, isBottom, cx, cy, size, colors, muted) {
         const variant = getActiveVariant();
-        const slice = variant.drawSlice(layer, cx, cy, size, colors, muted, getPlaceholderScheme());
+        const settings = getActiveStyleSettings();
+        const slice = variant.drawSlice(layer, cx, cy, size, colors, muted, getPlaceholderScheme(), settings);
         const maskId = `mask-abid-slice-${layer}-${Math.random().toString(36).slice(2)}`;
         const maskDef = getLayerSliceMask(tokens, isBottom, cx, cy, size, maskId);
         if (!maskDef) return slice;
