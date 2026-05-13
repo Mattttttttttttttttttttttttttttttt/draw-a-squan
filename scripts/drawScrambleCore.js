@@ -548,7 +548,7 @@ const SAC2Style = {
                     const rad = (deg - 90) * Math.PI / 180;
                     return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
                 }
-                const [a1, a2] = layer === 'top' ? [-15, 165] : [15, 195];
+                const [a1, a2] = layer === 'top' ? [15, 195] : [-15, 165];
                 const p1 = polarPt(r, a1), p2 = polarPt(r, a2);
                 return `<line x1="${p1.x.toFixed(2)}" y1="${p1.y.toFixed(2)}" x2="${p2.x.toFixed(2)}" y2="${p2.y.toFixed(2)}" stroke="${color}" stroke-width="${sw}"/>`;
             },
