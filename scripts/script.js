@@ -1216,15 +1216,51 @@ function getExportSVGString(layer) {
     }
 }
 
+let svgoOptimizeModulePromise = null;
+
+async function optimizeSvgForExport(svgStr) {
+    try {
+        svgoOptimizeModulePromise ||= import('svgo/browser');
+        const { optimize } = await svgoOptimizeModulePromise;
+
+        const result = optimize(svgStr, {
+            multipass: true,
+            js2svg: {
+                pretty: false,
+            },
+            plugins: [
+                {
+                    name: 'preset-default',
+                },
+                {
+                    name: 'removeViewBox',
+                    active: false,
+                },
+                {
+                    name: 'cleanupIds',
+                    active: false,
+                },
+            ],
+        });
+
+        return result.data || svgStr;
+    } catch (err) {
+        svgoOptimizeModulePromise = null;
+        console.warn('SVGO optimization failed; using original SVG.', err);
+        return svgStr;
+    }
+}
+
 async function doExport(methodOverride) {
     const method = methodOverride || 'download';
 
-    const svgStr = getExportSVGString(exportLayer);
+    let svgStr = getExportSVGString(exportLayer);
     if (!svgStr) return;
 
     const fname = `sq1-${exportLayer}`;
 
     if (exportFmt === 'svg') {
+        svgStr = await optimizeSvgForExport(svgStr);
         const blob = new Blob([svgStr], { type: 'image/svg+xml' });
         if (method === 'clipboard') {
             await navigator.clipboard.writeText(svgStr);
