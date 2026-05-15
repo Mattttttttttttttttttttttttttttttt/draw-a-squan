@@ -163,6 +163,7 @@ async function buildJS() {
     setup(build) {
       build.onLoad({ filter: /\.js$/ }, async (args) => {
         if (args.path.includes('node_modules')) return;
+        if (args.path.includes('pickr.js') || args.path.includes('jszip-lib') || args.path.includes('xlsx-min')) return;
         const source = readFileSync(args.path, 'utf-8');
         const transformed = await compressTemplateLiterals(source);
         if (transformed !== source) {
@@ -214,8 +215,6 @@ function copyAssets() {
 
   cp('favicon.ico', 'favicon.ico');
   cp('scripts/pickr.js', 'pickr.js');
-  cp('scripts/jszip-lib.js', 'jszip-lib.js');
-  cp('scripts/xlsx-min.js', 'xlsx-min.js');
   console.log('✓ Vendor scripts & static assets copied');
 }
 
@@ -226,14 +225,6 @@ function buildHTML() {
   html = html.replace(
     /<script src="\.\/scripts\/pickr\.js"><\/script>/,
     '<script src="./pickr.js"></script>'
-  );
-  html = html.replace(
-    /<script src="\.\/scripts\/jszip-lib\.js"><\/script>/,
-    '<script src="./jszip-lib.js"></script>'
-  );
-  html = html.replace(
-    /<script src="\.\/scripts\/xlsx-min\.js"><\/script>/,
-    '<script src="./xlsx-min.js"></script>'
   );
   html = html.replace(
     /<script type="module" src="\.\/scripts\/script\.js"><\/script>/,

@@ -1555,6 +1555,16 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
 
 (function initBulkExport() {
 
+    let _jszipPromise, _xlsxPromise;
+    function getJSZip() {
+        if (!_jszipPromise) _jszipPromise = import('./jszip.js').then(m => m.default);
+        return _jszipPromise;
+    }
+    function getXLSX() {
+        if (!_xlsxPromise) _xlsxPromise = import('./xlsx.js').then(m => m.default);
+        return _xlsxPromise;
+    }
+
     // ── helpers ──────────────────────────────────────
     function getCurrentSettings() {
         return {
@@ -1706,6 +1716,7 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
         });
 
         const doExportZip = async () => {
+            const JSZip = await getJSZip();
             const zip = new JSZip();
             for (const item of valid) {
                 try {
@@ -1726,6 +1737,7 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
     // ── XLSX EXPORT ───────────────────────────────────
     async function processXlsx(outputMode) {
         if (!loadedXlsxFile) return flashBtn('No file selected.');
+        const [JSZip, XLSX] = await Promise.all([getJSZip(), getXLSX()]);
         const s   = getCurrentSettings();
         const fmt = exportFmt === 'svg' ? 'png' : exportFmt; // svg doesn't embed well in xlsx, fallback to png
         const mimeForFmt = { png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/png' }; // bmp→png for xlsx compat
