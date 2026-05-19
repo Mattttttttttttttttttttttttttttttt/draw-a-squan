@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SQ1 — Square-1 Visualizer</title>
+  <title>DRAW-A-SQUAN</title>
   <link rel="stylesheet" href="./css/style.css">
   <link rel="stylesheet" href="./css/pickr.css"/>
   <link rel="icon" href="./favicon.ico">
@@ -94,152 +94,8 @@
   <!-- ═══ APP SHELL ═══ -->
   <div class="app">
 
-    <!-- ══ SIDEBAR ══ -->
-    <aside class="sidebar hidden" id="sidebar">
-      <script>
-        // prevent sidebar flashing
-        (function () {
-          try {
-            var s = JSON.parse(localStorage.getItem('sq1vis_settings'));
-            var isMobile = window.innerWidth <= 768;
-            var shouldHide = s && s.sidebarHidden != null ? s.sidebarHidden : isMobile;
-            if (!shouldHide) {
-              var el = document.getElementById('sidebar');
-              el.classList.add('no-transition');
-              el.classList.remove('hidden');
-              requestAnimationFrame(function () {
-                requestAnimationFrame(function () {
-                  el.classList.remove('no-transition');
-                });
-              });
-            }
-          } catch (e) {}
-        })();
-      </script>
-
-      <!-- SVG STYLE (top) -->
-      <div class="section">
-        <div class="section-title">Designs</div>
-        <div class="field">
-          <select id="svg-style-select" class="style-select"></select>
-        </div>
-      </div>
-
-      <!-- DISPLAY -->
-      <div class="section">
-        <div class="section-title">Display</div>
-
-        <div class="field">
-          <label class="field-label">Image Size</label>
-          <div class="slider-combo">
-            <input type="range" id="size-slider" min="100" max="750" step="5" value="400" />
-            <input type="number" id="size-input" min="100" max="750" value="400" />
-          </div>
-        </div>
-
-        <div class="field">
-          <label class="field-label">Layer Distance</label>
-          <div class="slider-combo">
-            <input type="range" id="gap-slider" min="0" max="200" step="1" value="100" />
-            <input type="number" id="gap-input" min="0" max="200" value="100" />
-          </div>
-        </div>
-
-        <div id="style-slider-controls"></div>
-
-        <div class="field">
-          <label class="field-label">Orientation</label>
-          <div class="seg-control">
-            <label>
-              <input type="radio" name="orientation" value="horizontal" checked />
-              <span class="seg-icon">⇔</span> Horizontal
-            </label>
-            <label>
-              <input type="radio" name="orientation" value="vertical" />
-              <span class="seg-icon">⇕</span> Vertical
-            </label>
-          </div>
-        </div>
-
-        <div class="toggle-row" id="hide-slice-row">
-          <span class="toggle-label">Hide slice indicator</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="hide-slice" />
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-        <div class="toggle-row" id="hide-sides-row">
-          <span class="toggle-label">Hide side colors</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="hide-sides" />
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-
-        <button class="btn btn-secondary" id="display-reset-default">Reset to Default</button>
-      </div>
-
-      <!-- COLOR SCHEME -->
-      <div class="section">
-        <div class="section-title section-title-toggle" id="color-scheme-toggle">
-          Color Scheme <span class="section-arrow">▲</span>
-        </div>
-        <div id="color-scheme-body">
-
-          <!-- Classical / Custom toggle -->
-          <div class="scheme-mode-seg">
-            <button class="scheme-mode-btn active" id="scheme-mode-classical" data-mode="classical">Classical</button>
-            <button class="scheme-mode-btn" id="scheme-mode-custom" data-mode="custom">Custom</button>
-          </div>
-
-          <!-- Classical panel -->
-          <div id="scheme-classical-panel">
-            <div id="scheme-grid"></div>
-            <button class="btn btn-secondary" id="scheme-reset-default" style="margin-top:.75rem;font-size:.7rem;padding:.45rem .8rem;letter-spacing:.04em;">Reset to Default</button>
-          </div>
-
-          <!-- Custom panel -->
-          <div id="scheme-custom-panel" style="display:none;">
-          </div><!-- /#scheme-custom-panel -->
-
-        </div><!-- /#color-scheme-body -->
-
-      </div>
-
-      <!-- EXPORT -->
-      <div class="section">
-        <div class="section-title">Export</div>
-
-        <div class="export-tab-group">
-          <div class="export-tab-label">Layers</div>
-          <div class="export-tab-row">
-            <button class="export-tab active" data-group="layer" data-val="both">Both</button>
-            <button class="export-tab" data-group="layer" data-val="top">Top</button>
-            <button class="export-tab" data-group="layer" data-val="bottom">Bottom</button>
-          </div>
-        </div>
-
-        <div class="export-tab-group">
-          <div class="export-tab-label">Format</div>
-          <div class="export-tab-row">
-            <button class="export-tab" data-group="fmt" data-val="svg">SVG</button>
-            <button class="export-tab active" data-group="fmt" data-val="png">PNG</button>
-            <button class="export-tab" data-group="fmt" data-val="jpeg">JPEG</button>
-            <button class="export-tab" data-group="fmt" data-val="bmp">BMP</button>
-          </div>
-        </div>
-
-        <div class="export-action-row">
-          <button class="btn btn-export" id="do-export">
-            Download Image
-          </button>
-          <button class="btn btn-export" id="do-copy">
-            Copy to Clipboard
-          </button>
-        </div>
-      </div>
-
-    </aside>
+    <!-- ══ SIDEBAR (built dynamically in JS) ══ -->
+    <aside class="sidebar hidden" id="sidebar"></aside>
 
     <!-- ══ VIEWPORT ══ -->
     <main class="viewport">
@@ -385,9 +241,7 @@
     </div>
   </div>
   <script src="./pickr.js"></script>
-  <script src="./jszip-lib.js"></script>
-  <script src="./xlsx-min.js"></script>
-  <script src="./app.bundle.js"></script>
+  <script type="module" src="./app.bundle.js"></script>
   <script>
       (function () {
     const params = new URLSearchParams(window.location.search);

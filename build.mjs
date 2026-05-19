@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, rmSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -41,16 +41,149 @@ function copyFolderRecursive(src, dest) {
   }
 }
 
+// ── Inline SVG & HTML compression ─────────────────────────
+
+let svgoOptimize;
+async function getSvgo() {
+  if (!svgoOptimize) {
+    const mod = await import('svgo');
+    svgoOptimize = mod.optimize;
+  }
+  return svgoOptimize;
+}
+
+const SVGO_CONFIG = {
+  multipass: true,
+  js2svg: { pretty: false },
+  plugins: [
+    {
+      name: 'preset-default',
+    },
+    {
+      name: 'removeViewBox',
+      active: false,
+    },
+    {
+      name: 'cleanupIds',
+      active: false,
+    },
+  ],
+};
+
+function compressHTML(str) {
+  return str
+    .replace(/>\s+</g, '><')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+(\/?>)/g, '$1')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .trim();
+}
+
+function hasMarkup(content) {
+  return /<[a-z][\s>]/i.test(content) || content.includes('</');
+}
+
+function isCompleteSvg(str) {
+  return /<svg[\s>][\s\S]*<\/svg>/i.test(str);
+}
+
+async function compressContent(content) {
+  if (!hasMarkup(content)) return content;
+
+  const isSvg = /<svg[\s>]/i.test(content);
+  const parts = content.split(/(\$\{[^}]*\})/);
+
+  const optimize = await getSvgo();
+
+  const processed = parts.map(part => {
+    if (/^\$\{[^}]*\}$/.test(part)) return part;
+    if (!part.trim()) return part;
+
+    if (isSvg && isCompleteSvg(part)) {
+      try {
+        const result = optimize(part, SVGO_CONFIG);
+        return result.data;
+      } catch { }
+    }
+
+    return compressHTML(part);
+  });
+
+  return processed.join('');
+}
+
+function extractTemplateContent(source, start) {
+  let depth = 0;
+  let j = start;
+  while (j < source.length) {
+    const ch = source[j];
+    if (ch === '`' && depth === 0) {
+      return { content: source.slice(start, j), endIdx: j };
+    }
+    if (ch === '$' && source[j + 1] === '{') {
+      depth++;
+      j += 2;
+    } else if (ch === '}' && depth > 0) {
+      depth--;
+      j++;
+    } else if (ch === '\\') {
+      j += 2;
+    } else {
+      j++;
+    }
+  }
+  return { content: source.slice(start), endIdx: source.length };
+}
+
+async function compressTemplateLiterals(source) {
+  let result = '';
+  let i = 0;
+  while (i < source.length) {
+    const btIdx = source.indexOf('`', i);
+    if (btIdx === -1) {
+      result += source.slice(i);
+      break;
+    }
+    result += source.slice(i, btIdx);
+    const { content, endIdx } = extractTemplateContent(source, btIdx + 1);
+    result += '`' + (await compressContent(content)) + '`';
+    i = endIdx + 1;
+  }
+  return result;
+}
+
+// ── Build steps ────────────────────────────────────────────
+
 async function buildJS() {
+  const srcDir = join(__dirname, 'scripts');
+  const entries = readdirSync(srcDir).filter(f => f.endsWith('.js') && !f.includes('pickr') && !f.includes('jszip') && !f.includes('xlsx'));
+
+  const compressPlugin = {
+    name: 'compress-templates',
+    setup(build) {
+      build.onLoad({ filter: /\.js$/ }, async (args) => {
+        if (args.path.includes('node_modules')) return;
+        if (args.path.includes('pickr.js') || args.path.includes('jszip-lib') || args.path.includes('xlsx-min')) return;
+        const source = readFileSync(args.path, 'utf-8');
+        const transformed = await compressTemplateLiterals(source);
+        if (transformed !== source) {
+          return { contents: transformed, loader: 'js' };
+        }
+      });
+    },
+  };
+
   await esbuild.build({
-    entryPoints: [join(__dirname, 'scripts/script.js')],
+    entryPoints: { 'app.bundle': join(__dirname, 'scripts/script.js') },
     bundle: true,
     minify: true,
     keepNames: false,
-    format: 'iife',
-    outfile: join(dst, 'app.bundle.js'),
+    format: 'esm',
+    splitting: true,
+    outdir: dst,
+    plugins: [compressPlugin],
   });
-  console.log('✓ JS bundled → public/app.bundle.js');
+  console.log('✓ JS bundled → public/app.bundle.js (+ chunks)');
 }
 
 async function buildCSS() {
@@ -82,8 +215,6 @@ function copyAssets() {
 
   cp('favicon.ico', 'favicon.ico');
   cp('scripts/pickr.js', 'pickr.js');
-  cp('scripts/jszip-lib.js', 'jszip-lib.js');
-  cp('scripts/xlsx-min.js', 'xlsx-min.js');
   console.log('✓ Vendor scripts & static assets copied');
 }
 
@@ -96,23 +227,21 @@ function buildHTML() {
     '<script src="./pickr.js"></script>'
   );
   html = html.replace(
-    /<script src="\.\/scripts\/jszip-lib\.js"><\/script>/,
-    '<script src="./jszip-lib.js"></script>'
-  );
-  html = html.replace(
-    /<script src="\.\/scripts\/xlsx-min\.js"><\/script>/,
-    '<script src="./xlsx-min.js"></script>'
-  );
-  html = html.replace(
     /<script type="module" src="\.\/scripts\/script\.js"><\/script>/,
-    '<script src="./app.bundle.js"></script>'
+    '<script type="module" src="./app.bundle.js"></script>'
   );
 
   writeFileSync(join(dst, 'index.html'), html, 'utf-8');
   console.log('✓ index.html generated');
 }
 
+function clean() {
+  rmSync(dst, { recursive: true, force: true });
+  console.log('✓ Cleaned public/');
+}
+
 async function main() {
+  clean();
   mkdirp(dst);
   await buildJS();
   await buildCSS();

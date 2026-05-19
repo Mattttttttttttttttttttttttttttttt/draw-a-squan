@@ -224,6 +224,135 @@ function decimalPlaces(step) {
     return text.includes('.') ? text.split('.')[1].length : 0;
 }
 
+    // ── Build sidebar DOM dynamically (prevents flash of wrong content) ──
+function buildSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.innerHTML = `
+      <div class="section">
+        <div class="section-title">Designs</div>
+        <div class="field">
+          <select id="svg-style-select" class="style-select"></select>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Display</div>
+
+        <div class="field">
+          <label class="field-label">Image Size</label>
+          <div class="slider-combo">
+            <input type="range" id="size-slider" min="100" max="750" step="5" value="400" />
+            <input type="number" id="size-input" min="100" max="750" value="400" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Layer Distance</label>
+          <div class="slider-combo">
+            <input type="range" id="gap-slider" min="0" max="200" step="1" value="100" />
+            <input type="number" id="gap-input" min="0" max="200" value="100" />
+          </div>
+        </div>
+
+        <div id="style-slider-controls"></div>
+
+        <div class="field">
+          <label class="field-label">Orientation</label>
+          <div class="seg-control">
+            <label>
+              <input type="radio" name="orientation" value="horizontal" checked />
+              <span class="seg-icon">\u21D4</span> Horizontal
+            </label>
+            <label>
+              <input type="radio" name="orientation" value="vertical" />
+              <span class="seg-icon">\u21D5</span> Vertical
+            </label>
+          </div>
+        </div>
+
+        <div class="toggle-row" id="hide-slice-row">
+          <span class="toggle-label">Hide slice indicator</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="hide-slice" />
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="toggle-row" id="hide-sides-row">
+          <span class="toggle-label">Hide side colors</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="hide-sides" />
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+
+        <button class="btn btn-secondary" id="display-reset-default">Reset to Default</button>
+      </div>
+
+      <div class="section">
+        <div class="section-title section-title-toggle" id="color-scheme-toggle">
+          Color Scheme <span class="section-arrow">\u25B2</span>
+        </div>
+        <div id="color-scheme-body">
+          <div class="scheme-mode-seg">
+            <button class="scheme-mode-btn active" id="scheme-mode-classical" data-mode="classical">Classical</button>
+            <button class="scheme-mode-btn" id="scheme-mode-custom" data-mode="custom">Custom</button>
+          </div>
+          <div id="scheme-classical-panel">
+            <div id="scheme-grid"></div>
+            <button class="btn btn-secondary" id="scheme-reset-default" style="margin-top:.75rem;font-size:.7rem;padding:.45rem .8rem;letter-spacing:.04em;">Reset to Default</button>
+          </div>
+          <div id="scheme-custom-panel" style="display:none;"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Export</div>
+
+        <div class="export-tab-group">
+          <div class="export-tab-label">Layers</div>
+          <div class="export-tab-row">
+            <button class="export-tab active" data-group="layer" data-val="both">Both</button>
+            <button class="export-tab" data-group="layer" data-val="top">Top</button>
+            <button class="export-tab" data-group="layer" data-val="bottom">Bottom</button>
+          </div>
+        </div>
+
+        <div class="export-tab-group">
+          <div class="export-tab-label">Format</div>
+          <div class="export-tab-row">
+            <button class="export-tab" data-group="fmt" data-val="svg">SVG</button>
+            <button class="export-tab active" data-group="fmt" data-val="png">PNG</button>
+            <button class="export-tab" data-group="fmt" data-val="jpeg">JPEG</button>
+            <button class="export-tab" data-group="fmt" data-val="bmp">BMP</button>
+          </div>
+        </div>
+
+        <div class="export-action-row">
+          <button class="btn btn-export" id="do-export">Download Image</button>
+          <button class="btn btn-export" id="do-copy">Copy to Clipboard</button>
+        </div>
+      </div>
+    `;
+
+    // Prevent sidebar flash — if sidebar should be open, remove hidden immediately without transition
+    try {
+        const s = JSON.parse(localStorage.getItem('sq1vis_settings'));
+        const isMobile = window.innerWidth <= 768;
+        const shouldHide = s && s.sidebarHidden != null ? s.sidebarHidden : isMobile;
+        if (!shouldHide) {
+            sidebar.classList.add('no-transition');
+            sidebar.classList.remove('hidden');
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                    sidebar.classList.remove('no-transition');
+                });
+            });
+        }
+    } catch (e) {}
+}
+
+buildSidebar();
+
 document.getElementById('color-scheme-toggle').addEventListener('click', () => {
     const body = document.getElementById('color-scheme-body');
     const arrow = document.querySelector('#color-scheme-toggle .section-arrow');
@@ -1087,15 +1216,51 @@ function getExportSVGString(layer) {
     }
 }
 
+let svgoOptimizeModulePromise = null;
+
+async function optimizeSvgForExport(svgStr) {
+    try {
+        svgoOptimizeModulePromise ||= import('svgo/browser');
+        const { optimize } = await svgoOptimizeModulePromise;
+
+        const result = optimize(svgStr, {
+            multipass: true,
+            js2svg: {
+                pretty: false,
+            },
+            plugins: [
+                {
+                    name: 'preset-default',
+                },
+                {
+                    name: 'removeViewBox',
+                    active: false,
+                },
+                {
+                    name: 'cleanupIds',
+                    active: false,
+                },
+            ],
+        });
+
+        return result.data || svgStr;
+    } catch (err) {
+        svgoOptimizeModulePromise = null;
+        console.warn('SVGO optimization failed; using original SVG.', err);
+        return svgStr;
+    }
+}
+
 async function doExport(methodOverride) {
     const method = methodOverride || 'download';
 
-    const svgStr = getExportSVGString(exportLayer);
+    let svgStr = getExportSVGString(exportLayer);
     if (!svgStr) return;
 
     const fname = `sq1-${exportLayer}`;
 
     if (exportFmt === 'svg') {
+        svgStr = await optimizeSvgForExport(svgStr);
         const blob = new Blob([svgStr], { type: 'image/svg+xml' });
         if (method === 'clipboard') {
             await navigator.clipboard.writeText(svgStr);
@@ -1390,6 +1555,16 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
 
 (function initBulkExport() {
 
+    let _jszipPromise, _xlsxPromise;
+    function getJSZip() {
+        if (!_jszipPromise) _jszipPromise = import('./jszip.js').then(m => m.default);
+        return _jszipPromise;
+    }
+    function getXLSX() {
+        if (!_xlsxPromise) _xlsxPromise = import('./xlsx.js').then(m => m.default);
+        return _xlsxPromise;
+    }
+
     // ── helpers ──────────────────────────────────────
     function getCurrentSettings() {
         return {
@@ -1541,6 +1716,7 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
         });
 
         const doExportZip = async () => {
+            const JSZip = await getJSZip();
             const zip = new JSZip();
             for (const item of valid) {
                 try {
@@ -1561,6 +1737,7 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
     // ── XLSX EXPORT ───────────────────────────────────
     async function processXlsx(outputMode) {
         if (!loadedXlsxFile) return flashBtn('No file selected.');
+        const [JSZip, XLSX] = await Promise.all([getJSZip(), getXLSX()]);
         const s   = getCurrentSettings();
         const fmt = exportFmt === 'svg' ? 'png' : exportFmt; // svg doesn't embed well in xlsx, fallback to png
         const mimeForFmt = { png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/png' }; // bmp→png for xlsx compat
