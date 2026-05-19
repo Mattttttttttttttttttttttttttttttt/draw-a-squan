@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, rmSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -235,7 +235,13 @@ function buildHTML() {
   console.log('✓ index.html generated');
 }
 
+function clean() {
+  rmSync(dst, { recursive: true, force: true });
+  console.log('✓ Cleaned public/');
+}
+
 async function main() {
+  clean();
   mkdirp(dst);
   await buildJS();
   await buildCSS();
