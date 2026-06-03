@@ -421,9 +421,9 @@ function setSchemeMode(isCustom, { redraw = true, persist = true } = {}) {
     });
 });
 
-// Keys 1/2/3 select recent colors
+// Keys 1-6 select recent colors
 document.addEventListener('keydown', e => {
-    if (['1','2','3'].includes(e.key) && !e.ctrlKey && !e.metaKey && isCustomMode) {
+    if (/^[1-6]$/.test(e.key) && !e.ctrlKey && !e.metaKey && isCustomMode) {
         const idx = parseInt(e.key) - 1;
         if (lastUsedColors[idx]) {
             const slot = document.getElementById(`ctb-recent-${idx}`);
@@ -506,7 +506,6 @@ function setFillColor(hex) {
 setTimeout(() => {
     fillPickr = createPickr('#fill-pickr-el', '#CC0000', (color) => {
         fillColorInput.value = color;
-        updateLastUsed();
         if (!fillModeActive) activateFill();
     });
 }, 0);
@@ -514,7 +513,7 @@ let exportLayer = 'both';
 let exportFmt = 'png';
 let febMode = 'download'; // 'download' or 'copy'
 let lastUsedColors = [];
-const lastUsedLimit = 3;
+const lastUsedLimit = 6;
 
 const canvasInner = document.getElementById('canvas-inner');
 const viewportCanvas = document.getElementById('viewport-canvas');
@@ -526,7 +525,7 @@ const DEFAULT_LOADING_TIPS = [
     'Tip: double-click the floating export button to switch between copy and download.',
     'Fun fact: bulk export can place squans directly into an XLSX file.',
     'Tip: turn on Fill Piece, then click stickers to recolor individual pieces.',
-    'Hidden feature: recent fill colors can be reused with the 1, 2, and 3 keys.',*/
+    'Hidden feature: recent fill colors can be reused with the 1-6 keys.',*/
     ''
 ];
 const LOADING_TIPS = Array.isArray(window.SQ1_LOADING_TIPS) && window.SQ1_LOADING_TIPS.some(t => t.trim())
@@ -890,6 +889,7 @@ unfillBtn.addEventListener('click', () => {
 
 function updateLastUsed() {
     let value = fillColorInput.value;
+    if (!value) return;
     if (lastUsedColors.includes(value)) {
         lastUsedColors.splice(lastUsedColors.indexOf(value), 1);
         lastUsedColors.unshift(value);
@@ -901,8 +901,9 @@ function updateLastUsed() {
 }
 
 function renderRecentSlots() {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < lastUsedLimit; i++) {
         const slot = document.getElementById(`ctb-recent-${i}`);
+        if (!slot) continue;
         if (lastUsedColors[i]) {
             slot.classList.remove('empty');
             slot.style.background = lastUsedColors[i];
