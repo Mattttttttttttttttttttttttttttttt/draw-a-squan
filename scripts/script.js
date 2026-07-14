@@ -1,10 +1,15 @@
 import { createSquare1Visualizer, sq1vis } from './drawScrambleCustomization.js';
 import { LinkedStrokeWidthSlider } from './linkedStrokeWidthSlider.js';
+import { Dalton3DRenderer, DALTON_3D_DEFAULT_ORIENTATION } from './dalton3dRenderer.js';
+import { parseScramble } from './parseScramble.js';
 
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
 var schemePickrs = {};
 var fillPickr = null;
 let styleControlInstances = [];
+let dalton3DRenderer = null;
+let dalton3DRenderToken = 0;
+const dalton3DSliderDrag = { rotationX: 0, rotationY: 0, rotationZ: 0 };
 
 let isCustomMode = false;
 let classicalSnapshot = null;
@@ -115,24 +120,38 @@ function buildStyleDropdown() {
     });
     select.value = sq1vis.getActiveStyleIndex();
     select.addEventListener('change', () => {
+        const previousIs3D = isDalton3DStyle();
         sq1vis.setActiveStyle(parseInt(select.value));
+        if (!previousIs3D && isDalton3DStyle() && document.getElementById('size-input').value === '400') {
+            setDisplaySize(560);
+        }
         updateStyleToggles();
         buildSchemeGrid();
         draw();
     });
 }
 
+function setDisplaySize(value) {
+    document.getElementById('size-input').value = value;
+    document.getElementById('size-slider').value = value;
+}
+
 function updateStyleToggles() {
     const style = sq1vis.getActiveStyle();
+    const is3D = isDalton3DStyle();
+    document.getElementById('size-field-label').textContent = is3D ? 'Size' : 'Image Size';
+    document.getElementById('layer-distance-row').style.display = is3D ? 'none' : '';
+    document.getElementById('orientation-row').style.display = is3D ? 'none' : '';
     const hideSidesRow = document.getElementById('hide-sides-row');
     const hideSliceRow = document.getElementById('hide-slice-row');
-    hideSidesRow.style.display = style.hidableSideColor  ? '' : 'none';
-    hideSliceRow.style.display = style.hasSliceIndicator ? '' : 'none';
+    hideSidesRow.style.display = !is3D && style.hidableSideColor  ? '' : 'none';
+    hideSliceRow.style.display = !is3D && style.hasSliceIndicator ? '' : 'none';
     if (!style.hidableSideColor) {
         document.getElementById('hide-sides').checked = false;
         sq1vis.setShowSideColors(true);
     }
     buildStyleSliderControls();
+    updateDalton3DUI();
 }
 
 function buildStyleSliderControls() {
@@ -142,6 +161,11 @@ function buildStyleSliderControls() {
     styleControlInstances.forEach(instance => instance.destroy?.());
     styleControlInstances = [];
     container.innerHTML = '';
+
+    if (isDalton3DStyle()) {
+        buildDalton3DOrientationControls(container, controls);
+        return;
+    }
 
     controls.forEach(control => {
         if (control.type === 'linkedStrokeWidthSlider') {
@@ -175,6 +199,59 @@ function buildStyleSliderControls() {
         slider.addEventListener('input', () => apply(slider.value));
         input.addEventListener('input', () => apply(input.value));
     });
+}
+
+function buildDalton3DOrientationControls(container, controls) {
+    controls.forEach(control => {
+        const value = Number(sq1vis.getStyleSettings()[control.id] ?? control.default ?? 0);
+        let previousValue = Number.isNaN(value) ? 0 : value;
+        const field = document.createElement('div');
+        field.className = 'field';
+        field.innerHTML = `
+          <label class="field-label">${control.label}</label>
+          <div class="slider-combo">
+            <input type="range" id="style-slider-${control.id}" min="${control.min}" max="${control.max}" step="${control.step}" value="${previousValue}" />
+            <input type="number" id="style-input-${control.id}" min="${control.min}" max="${control.max}" step="${control.step}" value="${previousValue}" />
+          </div>`;
+        container.appendChild(field);
+
+        const slider = field.querySelector(`#style-slider-${control.id}`);
+        const input = field.querySelector(`#style-input-${control.id}`);
+        const apply = rawValue => {
+            const next = Number(rawValue);
+            if (Number.isNaN(next)) return;
+            const delta = next - previousValue;
+            previousValue = next;
+            slider.value = next;
+            input.value = next;
+            sq1vis.setStyleSettings({ [control.id]: next });
+            if (!delta) {
+                saveSettings();
+                return;
+            }
+            rotateDalton3DAroundWorldAxis(control.id, delta);
+            draw();
+            saveSettings();
+        };
+
+        slider.addEventListener('input', () => apply(slider.value));
+        input.addEventListener('input', () => apply(input.value));
+    });
+
+    const button = document.createElement('button');
+    button.className = 'btn btn-secondary dalton-reset-orientation';
+    button.id = 'dalton-reset-orientation';
+    button.type = 'button';
+    button.textContent = 'Reset Orientation';
+    button.addEventListener('click', () => {
+        setDalton3DOrientation(DALTON_3D_DEFAULT_ORIENTATION);
+        sq1vis.setStyleSettings({ rotationX: 0, rotationY: 0, rotationZ: 0 });
+        for (const key of Object.keys(dalton3DSliderDrag)) dalton3DSliderDrag[key] = 0;
+        buildStyleSliderControls();
+        draw();
+        saveSettings();
+    });
+    container.appendChild(button);
 }
 
 function buildLinkedStrokeWidthControl(container, control, settings) {
@@ -238,15 +315,15 @@ function buildSidebar() {
       <div class="section">
         <div class="section-title">Display</div>
 
-        <div class="field">
-          <label class="field-label">Image Size</label>
+        <div class="field" id="size-row">
+          <label class="field-label" id="size-field-label">Image Size</label>
           <div class="slider-combo">
             <input type="range" id="size-slider" min="100" max="750" step="5" value="400" />
             <input type="number" id="size-input" min="100" max="750" value="400" />
           </div>
         </div>
 
-        <div class="field">
+        <div class="field" id="layer-distance-row">
           <label class="field-label">Layer Distance</label>
           <div class="slider-combo">
             <input type="range" id="gap-slider" min="0" max="200" step="1" value="100" />
@@ -256,7 +333,7 @@ function buildSidebar() {
 
         <div id="style-slider-controls"></div>
 
-        <div class="field">
+        <div class="field" id="orientation-row">
           <label class="field-label">Orientation</label>
           <div class="seg-control">
             <label>
@@ -308,7 +385,7 @@ function buildSidebar() {
       <div class="section">
         <div class="section-title">Export</div>
 
-        <div class="export-tab-group">
+        <div class="export-tab-group" id="export-layer-group">
           <div class="export-tab-label">Layers</div>
           <div class="export-tab-row">
             <button class="export-tab active" data-group="layer" data-val="both">Both</button>
@@ -317,7 +394,7 @@ function buildSidebar() {
           </div>
         </div>
 
-        <div class="export-tab-group">
+        <div class="export-tab-group" id="export-format-group">
           <div class="export-tab-label">Format</div>
           <div class="export-tab-row">
             <button class="export-tab" data-group="fmt" data-val="svg">SVG</button>
@@ -552,6 +629,186 @@ function showLoadingPlaceholder() {
         </div>`;
 }
 
+function isDalton3DStyle() {
+    return sq1vis.getActiveStyle()?.is3D === true;
+}
+
+function normalizeQuaternion(quaternion) {
+    const length = Math.hypot(quaternion.w, quaternion.x, quaternion.y, quaternion.z) || 1;
+    return {
+        w: quaternion.w / length,
+        x: quaternion.x / length,
+        y: quaternion.y / length,
+        z: quaternion.z / length,
+    };
+}
+
+function axisAngleQuaternion(axis, degrees) {
+    const halfAngle = degrees * Math.PI / 360;
+    const scale = Math.sin(halfAngle);
+    const quaternion = { w: Math.cos(halfAngle), x: 0, y: 0, z: 0 };
+    quaternion[axis] = scale;
+    return quaternion;
+}
+
+function multiplyQuaternions(left, right) {
+    return {
+        w: left.w * right.w - left.x * right.x - left.y * right.y - left.z * right.z,
+        x: left.w * right.x + left.x * right.w + left.y * right.z - left.z * right.y,
+        y: left.w * right.y - left.x * right.z + left.y * right.w + left.z * right.x,
+        z: left.w * right.z + left.x * right.y - left.y * right.x + left.z * right.w,
+    };
+}
+
+function getDalton3DOrientation() {
+    const settings = sq1vis.getStyleSettings();
+    return normalizeQuaternion({
+        w: Number(settings.orientationW ?? DALTON_3D_DEFAULT_ORIENTATION.w),
+        x: Number(settings.orientationX ?? DALTON_3D_DEFAULT_ORIENTATION.x),
+        y: Number(settings.orientationY ?? DALTON_3D_DEFAULT_ORIENTATION.y),
+        z: Number(settings.orientationZ ?? DALTON_3D_DEFAULT_ORIENTATION.z),
+    });
+}
+
+function setDalton3DOrientation(orientation) {
+    const q = normalizeQuaternion(orientation);
+    sq1vis.setStyleSettings({
+        orientationW: q.w,
+        orientationX: q.x,
+        orientationY: q.y,
+        orientationZ: q.z,
+    });
+}
+
+function rotateDalton3DAroundWorldAxis(controlId, deltaDegrees) {
+    const axis = controlId.replace('rotation', '').toLowerCase();
+    const current = getDalton3DOrientation();
+    setDalton3DOrientation(multiplyQuaternions(axisAngleQuaternion(axis, deltaDegrees), current));
+}
+
+function validateSquare1Hex(hex) {
+    const hasLoneCorner = (halfLayer) => {
+        for (let c of ['1', '3', '5', '7', '9', 'b', 'd', 'f']) {
+            if (halfLayer.split(c).length % 2 !== 1) return true;
+        }
+        return false;
+    };
+    if (hasLoneCorner(hex.slice(0, 6)) ||
+        hasLoneCorner(hex.slice(6, 12)) ||
+        hasLoneCorner(hex.slice(13, 19)) ||
+        hasLoneCorner(hex.slice(19, 25))) {
+        throw new Error('Invalid position. Double check your scramble!');
+    }
+}
+
+function currentInputToHex({ placeholder = false } = {}) {
+    const input = document.getElementById('scramble-input').value.trim();
+    if (!input && placeholder) return PLACEHOLDER_HEX;
+    if (!input) return '';
+
+    const mode = MODES[currentModeIndex].value;
+    let hex;
+    if (mode === 'hex') {
+        hex = input;
+    } else if (mode === 'inverse') {
+        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(sq1vis.unkarnify(input)));
+        hex = `${tlHex}|${blHex}`;
+    } else {
+        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
+        hex = `${tlHex}|${blHex}`;
+    }
+    validateSquare1Hex(hex);
+    return hex;
+}
+
+function currentInputToDaltonMoves() {
+    const input = document.getElementById('scramble-input').value.trim();
+    if (!input) return [];
+
+    const mode = MODES[currentModeIndex].value;
+    if (mode === 'hex') {
+        throw new Error("Hex input isn't supported for Dalton's 3D design yet.");
+    }
+
+    const scramble = mode === 'inverse'
+        ? sq1vis.invertScramble(sq1vis.unkarnify(input))
+        : sq1vis.unkarnify(input);
+
+    return parseScramble(scramble);
+}
+
+function destroyDalton3DRenderer() {
+    if (dalton3DRenderer) dalton3DRenderer.destroy();
+    dalton3DRenderer = null;
+}
+
+function getDaltonStage() {
+    let stage = document.getElementById('dalton-3d-stage');
+    if (stage) return stage;
+    canvasInner.innerHTML = `
+        <div class="dalton-3d-wrap">
+            <div class="dalton-3d-stage" id="dalton-3d-stage"></div>
+        </div>`;
+    return document.getElementById('dalton-3d-stage');
+}
+
+async function renderDalton3D(moves, muted = false) {
+    const token = ++dalton3DRenderToken;
+    const stage = getDaltonStage();
+    if (!dalton3DRenderer) {
+        dalton3DRenderer = new Dalton3DRenderer(stage, {
+            onStickerClick: (pieceId) => {
+                if (!pieceId) return;
+                if (fillModeActive) {
+                    pushUndo();
+                    sq1vis.setPieceColor(pieceId, fillColorInput.value || 'transparent');
+                    updateLastUsed();
+                    draw();
+                    saveSettings();
+                } else if (fillResetActive) {
+                    pushUndo();
+                    sq1vis.resetPieceColor(pieceId);
+                    draw();
+                    saveSettings();
+                }
+            },
+        });
+        await dalton3DRenderer.init();
+    }
+    if (token !== dalton3DRenderToken || !isDalton3DStyle()) return;
+    dalton3DRenderer.render(null, {
+        moves,
+        size: parseInt(document.getElementById('size-input').value, 10),
+        scheme: sq1vis.getColorScheme(),
+        piecesColors: sq1vis.getPiecesColors(),
+        orientation: getDalton3DOrientation(),
+        muted,
+    });
+    updateCanvasCursor();
+}
+
+function updateDalton3DUI() {
+    const is3D = isDalton3DStyle();
+    const bulkBtn = document.getElementById('bulk-export-btn');
+    if (bulkBtn) {
+        bulkBtn.disabled = is3D;
+        bulkBtn.title = is3D ? 'Bulk export is not available for the 3D canvas design.' : 'Bulk Export';
+    }
+    const layerGroup = document.getElementById('export-layer-group');
+    if (layerGroup) layerGroup.style.display = is3D ? 'none' : '';
+    const svgFormat = document.querySelector('.export-tab[data-group="fmt"][data-val="svg"]');
+    if (svgFormat) svgFormat.style.display = is3D ? 'none' : '';
+    const ctxSvg = document.querySelector('#ctx-format-select option[value="svg"]');
+    if (ctxSvg) ctxSvg.hidden = is3D;
+    if (is3D && exportFmt === 'svg') {
+        exportFmt = 'png';
+        document.querySelectorAll('.export-tab[data-group="fmt"]').forEach(b => {
+            b.classList.toggle('active', b.dataset.val === exportFmt);
+        });
+    }
+    updateCopyVisibility();
+}
+
 if (!initialWindowLoaded) {
     window.addEventListener('load', () => {
         initialWindowLoaded = true;
@@ -726,8 +983,7 @@ function loadSettings() {
 
     // Display
     if (s.size != null) {
-        document.getElementById('size-input').value = s.size;
-        document.getElementById('size-slider').value = s.size;
+        setDisplaySize(s.size);
     }
     if (s.gap != null) {
         document.getElementById('gap-input').value = s.gap;
@@ -747,6 +1003,9 @@ function loadSettings() {
     if (s.styleIndex != null) {
         sq1vis.setActiveStyle(s.styleIndex);
         document.getElementById('svg-style-select').value = s.styleIndex;
+    }
+    if (s.styleIndex != null && sq1vis.getActiveStyle()?.is3D && s.size == null) {
+        setDisplaySize(560);
     }
     if (s.styleSettings) {
         const prevIdx = sq1vis.getActiveStyleIndex();
@@ -979,8 +1238,7 @@ document.getElementById('hide-sides').addEventListener('change', e => {
 });
 
 document.getElementById('display-reset-default').addEventListener('click', () => {
-    document.getElementById('size-input').value = 400;
-    document.getElementById('size-slider').value = 400;
+    setDisplaySize(isDalton3DStyle() ? 560 : 400);
     document.getElementById('gap-input').value = 100;
     document.getElementById('gap-slider').value = 100;
     document.querySelector('input[name=orientation][value="horizontal"]').checked = true;
@@ -1074,10 +1332,22 @@ function draw() {
     const input = document.getElementById('scramble-input').value;
     const size = parseInt(document.getElementById('size-input').value, 10);
     const gap = parseInt(document.getElementById('gap-input').value, 10);
-    const mode = MODES[currentModeIndex].value;
     const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
     const showSlice = !document.getElementById("hide-slice").checked;
     const showSides = !document.getElementById("hide-sides").checked;
+
+    if (isDalton3DStyle()) {
+        try {
+            const moves = currentInputToDaltonMoves();
+            renderDalton3D(moves, !input.trim());
+        } catch (err) {
+            canvasInner.innerHTML = `<div class="error-banner">⚠ ${err.message}</div>`;
+            console.error(err);
+        }
+        return;
+    }
+
+    destroyDalton3DRenderer();
 
     if (!input) {
         // Draw placeholder cube with muted gray scheme
@@ -1088,28 +1358,7 @@ function draw() {
     }
 
     try {
-        let hex;
-        if (mode === 'hex') {
-            hex = input;
-        } else if (mode === 'inverse') {
-            const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(sq1vis.unkarnify(input)));
-            hex = `${tlHex}|${blHex}`;
-        } else {
-            // mode = "scramble"
-            const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
-            hex = `${tlHex}|${blHex}`;
-        }
-        const hasLoneCorner = (halfLayer) => {
-            for (let c of ['1', '3', '5', '7', '9', 'b', 'd', 'f']) {
-                // if the half layer contains an odd number of this corner
-                if (halfLayer.split(c).length % 2 !== 1) return true;
-            }
-            return false;
-        }
-        if (hasLoneCorner(hex.slice(0, 6)) ||
-            hasLoneCorner(hex.slice(6, 12)) ||
-            hasLoneCorner(hex.slice(13, 19)) ||
-            hasLoneCorner(hex.slice(19, 25))) throw new Error("Invalid position. Double check your scramble!")
+        const hex = currentInputToHex();
 
         const html = sq1vis.getSVG(hex, size, gap, muteActive, isVertical, showSlice, showSides);
         canvasInner.innerHTML = html;
@@ -1254,6 +1503,11 @@ async function optimizeSvgForExport(svgStr) {
 async function doExport(methodOverride) {
     const method = methodOverride || 'download';
 
+    if (isDalton3DStyle()) {
+        await doDalton3DExport(method);
+        return;
+    }
+
     let svgStr = getExportSVGString(exportLayer);
     if (!svgStr) return;
 
@@ -1329,6 +1583,63 @@ async function doExport(methodOverride) {
         }
 
         canvas.toBlob(blob => triggerDownload(blob, `${fname}.${ext}`), mime);
+    } catch (err) {
+        flashBtn(method === 'clipboard' ? 'Failed to copy to clipboard' : 'Export failed');
+        console.error(err);
+    }
+}
+
+function canvasWithBackground(sourceCanvas, fill = '#ffffff') {
+    const canvas = document.createElement('canvas');
+    canvas.width = sourceCanvas.width;
+    canvas.height = sourceCanvas.height;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = fill;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(sourceCanvas, 0, 0);
+    return canvas;
+}
+
+function canvasToBlob(canvas, mime, quality) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('canvas blob failed')), mime, quality);
+    });
+}
+
+async function doDalton3DExport(method) {
+    try {
+        if (!dalton3DRenderer?.getCanvas()) {
+            await renderDalton3D(currentInputToDaltonMoves(), !document.getElementById('scramble-input').value.trim());
+        }
+        const canvas = dalton3DRenderer?.getCanvas();
+        if (!canvas) throw new Error('3D canvas is not ready.');
+
+        if (method === 'clipboard') {
+            if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+                flashBtn('Clipboard images are not supported here');
+                return;
+            }
+            const blob = await canvasToBlob(canvas, 'image/png');
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            flashBtn('Copied to clipboard!');
+            return;
+        }
+
+        if (exportFmt === 'svg') {
+            flashBtn('SVG export is not available for 3D');
+            return;
+        }
+
+        if (exportFmt === 'bmp') {
+            triggerDownload(createBMP32(canvasWithBackground(canvas)), 'sq1-3d.bmp');
+            return;
+        }
+
+        const mime = exportFmt === 'jpeg' ? 'image/jpeg' : 'image/png';
+        const ext = exportFmt === 'jpeg' ? 'jpg' : 'png';
+        const source = exportFmt === 'jpeg' ? canvasWithBackground(canvas) : canvas;
+        const blob = await canvasToBlob(source, mime);
+        triggerDownload(blob, `sq1-3d.${ext}`);
     } catch (err) {
         flashBtn(method === 'clipboard' ? 'Failed to copy to clipboard' : 'Export failed');
         console.error(err);
@@ -1501,7 +1812,13 @@ function hideMenu() {
 
 function syncFormatFromUI() {
     const active = document.querySelector('.export-tab.active[data-group="fmt"]');
-    if (active) document.getElementById('ctx-format-select').value = active.dataset.val;
+    if (active) {
+        if (isDalton3DStyle() && active.dataset.val === 'svg') {
+            document.getElementById('ctx-format-select').value = 'png';
+        } else {
+            document.getElementById('ctx-format-select').value = active.dataset.val;
+        }
+    }
 }
 
 document.addEventListener('contextmenu', function (e) {
@@ -1532,6 +1849,7 @@ document.addEventListener('scroll', hideMenu, true);
 window.addEventListener('resize', hideMenu);
 
 document.getElementById('ctx-format-select').addEventListener('change', function () {
+    if (isDalton3DStyle() && this.value === 'svg') this.value = 'png';
     const matchingTab = document.querySelector(`.export-tab[data-group="fmt"][data-val="${this.value}"]`);
     if (matchingTab) matchingTab.click();
     hideMenu();
@@ -1654,7 +1972,13 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
     let pendingExportFn = null;
     let loadedXlsxFile = null;
 
-    openBtn.addEventListener('click', () => overlay.classList.add('open'));
+    openBtn.addEventListener('click', () => {
+        if (isDalton3DStyle()) {
+            flashBtn('Bulk export is not available for the 3D design');
+            return;
+        }
+        overlay.classList.add('open');
+    });
     closeBtn.addEventListener('click', () => overlay.classList.remove('open'));
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
 
