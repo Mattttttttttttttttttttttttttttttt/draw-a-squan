@@ -215,6 +215,7 @@ function copyAssets() {
 
   cp('favicon.ico', 'favicon.ico');
   cp('scripts/pickr.js', 'pickr.js');
+  cp('vendor/p5.min.js', 'p5.min.js');
   console.log('✓ Vendor scripts & static assets copied');
 }
 

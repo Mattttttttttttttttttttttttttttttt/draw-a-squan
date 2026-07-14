@@ -1271,6 +1271,40 @@ input[type=number]::-webkit-outer-spin-button {
     margin: auto;
 }
 
+.dalton-3d-wrap {
+    width: min(100%, 760px);
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.dalton-3d-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dalton-3d-canvas {
+    display: block;
+    max-width: min(100%, 80vh);
+    max-height: 80vh;
+    cursor: inherit;
+}
+
+.dalton-reset-orientation {
+    margin-top: .15rem;
+    font-size: .7rem;
+    padding: .5rem .8rem;
+    letter-spacing: .04em;
+}
+
+button:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
 .placeholder {
     text-align: center;
     color: var(--muted);
