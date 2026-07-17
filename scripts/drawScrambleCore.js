@@ -38,7 +38,15 @@ export function createSquare1Core(initialState = {}) {
                 'd': { top: 'bottom', left: 'front', right: 'left' },
                 'f': { top: 'bottom', left: 'left', right: 'back' },
             },
-            sliceColors: { top: 'top', bottom: 'bottom' },
+            sliceColors: {
+                top: 'top',
+                bottom: 'bottom',
+                left: 'left',
+                right: 'right',
+                front: 'front',
+                back: 'back',
+                internal: 'internal',
+            },
         };
     }
 
@@ -612,7 +620,38 @@ export function createSquare1Core(initialState = {}) {
     // === STYLE REGISTRY ==================================================
     // =====================================================================
 
-    const STYLES = [SAC2Style, AbidStyle];
+    const Dalton3DStyle = {
+        name: "Dalton's Design (3D)",
+        placeholderScheme: { sticker: '#4d4d4d', slice: '#1e1e1e', border: '#000000' },
+        source: 'Dalton3D',
+        hidableSideColor: false,
+        hasSliceIndicator: false,
+        is3D: true,
+        controls: [
+            { id: 'rotationX', label: 'X', min: -180, max: 180, step: 0.000001, default: -33, decimals: 6 },
+            { id: 'rotationY', label: 'Y', min: -180, max: 180, step: 0.000001, default: -45, decimals: 6 },
+            { id: 'rotationZ', label: 'Z', min: -180, max: 180, step: 0.000001, default: 0, decimals: 6 },
+        ],
+        withSideColor: {
+            colorSlots: [
+                { id: 'top', label: 'Top', default: '#1E1E1E' },
+                { id: 'bottom', label: 'Bottom', default: '#FFFFFF' },
+                { id: 'left', label: 'Left', default: '#0433FF' },
+                { id: 'right', label: 'Right', default: '#60D937' },
+                { id: 'front', label: 'Front', default: '#FF2600' },
+                { id: 'back', label: 'Back', default: '#FF9300' },
+                { id: 'internal', label: 'Internal', default: '#0F0F0F' },
+                { id: 'border', label: 'Border', default: '#000000' },
+            ],
+            drawEdge() { return ''; },
+            drawCorner() { return ''; },
+            drawSlice() { return ''; },
+        },
+        withoutSideColor: null,
+    };
+    Dalton3DStyle.withoutSideColor = Dalton3DStyle.withSideColor;
+
+    const STYLES = [SAC2Style, AbidStyle, Dalton3DStyle];
 
     // =====================================================================
     // === ACTIVE STYLE STATE ==============================================
@@ -782,9 +821,7 @@ export function createSquare1Core(initialState = {}) {
         const hex = rawHex.replace(/[|/]/, '');
         if (hex.length !== 24) throw new Error('Hex must be 24 data characters.');
         const parsed = parseHex(rawHex);
-        const variant = getActiveVariant();
         const colors = getResolvedColors();
-        const settings = getActiveStyleSettings();
         size = size * (220 / 400);
         const cx = size / 2, cy = size / 2;
         const isBottom = whichLayer === 'bottom';
@@ -805,9 +842,7 @@ export function createSquare1Core(initialState = {}) {
         if (hex.length !== 24) throw new Error('Hex must be 24 data characters (plus optional | separator).');
 
         const parsed = parseHex(rawHex);
-        const variant = getActiveVariant();
         const colors = getResolvedColors();
-        const settings = getActiveStyleSettings();
 
         size = size * (220 / 400);
         const cx = size / 2, cy = size / 2;
@@ -839,7 +874,12 @@ export function createSquare1Core(initialState = {}) {
     }
 
     function getPiecesColors() { return { edgeColors, cornerColors, sliceColors }; }
-    function setPiecesColors(pc) { edgeColors = pc.edgeColors; cornerColors = pc.cornerColors; if (pc.sliceColors) sliceColors = pc.sliceColors; }
+    function setPiecesColors(pc) {
+        const defaults = defaultPieceColors();
+        edgeColors = pc.edgeColors ?? defaults.edgeColors;
+        cornerColors = pc.cornerColors ?? defaults.cornerColors;
+        sliceColors = { ...defaults.sliceColors, ...(pc.sliceColors ?? {}) };
+    }
 
     // =====================================================================
     // === PUBLIC API ======================================================
