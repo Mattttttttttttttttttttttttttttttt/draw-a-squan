@@ -628,16 +628,16 @@ export function createSquare1Core(initialState = {}) {
         hasSliceIndicator: false,
         is3D: true,
         controls: [
-            { id: 'rotationX', label: 'X', min: -180, max: 180, step: 0.000001, default: 3, decimals: 6 },
-            { id: 'rotationY', label: 'Y', min: -180, max: 180, step: 0.000001, default: 30, decimals: 6 },
-            { id: 'rotationZ', label: 'Z', min: -180, max: 180, step: 0.000001, default: 135, decimals: 6 },
+            { id: 'rotationX', label: 'X', min: -180, max: 180, step: 0.000001, default: -33, decimals: 6 },
+            { id: 'rotationY', label: 'Y', min: -180, max: 180, step: 0.000001, default: -45, decimals: 6 },
+            { id: 'rotationZ', label: 'Z', min: -180, max: 180, step: 0.000001, default: 0, decimals: 6 },
         ],
         withSideColor: {
             colorSlots: [
                 { id: 'top', label: 'Top', default: '#1E1E1E' },
                 { id: 'bottom', label: 'Bottom', default: '#FFFFFF' },
-                { id: 'left', label: 'Left', default: '#60D937' },
-                { id: 'right', label: 'Right', default: '#0433FF' },
+                { id: 'left', label: 'Left', default: '#0433FF' },
+                { id: 'right', label: 'Right', default: '#60D937' },
                 { id: 'front', label: 'Front', default: '#FF2600' },
                 { id: 'back', label: 'Back', default: '#FF9300' },
                 { id: 'internal', label: 'Internal', default: '#0F0F0F' },
