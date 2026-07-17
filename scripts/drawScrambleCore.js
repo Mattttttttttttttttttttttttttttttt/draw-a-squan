@@ -628,9 +628,9 @@ export function createSquare1Core(initialState = {}) {
         hasSliceIndicator: false,
         is3D: true,
         controls: [
-            { id: 'rotationX', label: 'X', min: -180, max: 180, step: 1, default: 0, decimals: 0 },
-            { id: 'rotationY', label: 'Y', min: -180, max: 180, step: 1, default: 0, decimals: 0 },
-            { id: 'rotationZ', label: 'Z', min: -180, max: 180, step: 1, default: 0, decimals: 0 },
+            { id: 'rotationX', label: 'X', min: -180, max: 180, step: 0.000001, default: 3, decimals: 6 },
+            { id: 'rotationY', label: 'Y', min: -180, max: 180, step: 0.000001, default: 30, decimals: 6 },
+            { id: 'rotationZ', label: 'Z', min: -180, max: 180, step: 0.000001, default: 135, decimals: 6 },
         ],
         withSideColor: {
             colorSlots: [
