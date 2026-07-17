@@ -21,6 +21,11 @@ const DALTON_3D_ROTATION_MODES = {
     absolute: 'absolute',
     relative: 'relative',
 };
+const DALTON_3D_CONTROL_AXES = {
+    rotationX: 'x',
+    rotationY: 'z',
+    rotationZ: 'y',
+};
 
 let isCustomMode = false;
 let classicalSnapshot = null;
@@ -778,8 +783,8 @@ function getDalton3DRotationAxes() {
     );
     return {
         x: rotateVectorByQuaternion([1, 0, 0], orientation),
-        y: rotateVectorByQuaternion([0, 1, 0], orientation),
-        z: rotateVectorByQuaternion([0, 0, 1], orientation),
+        y: rotateVectorByQuaternion([0, 0, 1], orientation),
+        z: rotateVectorByQuaternion([0, 1, 0], orientation),
     };
 }
 
@@ -824,7 +829,7 @@ function rotateDalton3DAroundWorldAxis(controlId, deltaDegrees) {
 }
 
 function rotateDalton3DAroundLocalAxis(controlId, deltaDegrees) {
-    const axis = controlId.replace('rotation', '').toLowerCase();
+    const axis = DALTON_3D_CONTROL_AXES[controlId];
     const current = getDalton3DOrientation();
     const alignment = orientationFromRotations(DALTON_3D_CONTROL_AXES_ALIGNMENT);
     const alignedRotation = multiplyQuaternions(
@@ -877,6 +882,8 @@ function currentInputToDaltonMoves() {
     if (mode === 'hex') {
         throw new Error("Hex input isn't supported for Dalton's 3D design yet.");
     }
+
+    currentInputToHex();
 
     const scramble = mode === 'inverse'
         ? sq1vis.invertScramble(sq1vis.unkarnify(input))
@@ -1515,6 +1522,7 @@ function draw() {
             const moves = currentInputToDaltonMoves();
             renderDalton3D(moves, !input.trim());
         } catch (err) {
+            destroyDalton3DRenderer();
             canvasInner.innerHTML = `<div class="error-banner">⚠ ${err.message}</div>`;
             console.error(err);
         }
