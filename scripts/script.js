@@ -1,6 +1,13 @@
 import { createSquare1Visualizer, sq1vis } from './drawScrambleCustomization.js';
 import { LinkedStrokeWidthSlider } from './linkedStrokeWidthSlider.js';
-import { Dalton3DRenderer, DALTON_3D_DEFAULT_ORIENTATION } from './dalton3dRenderer.js';
+import {
+    Dalton3DRenderer,
+    DALTON_3D_AXIS_ALIGNED_ORIENTATION,
+    DALTON_3D_CONTROL_AXES_ALIGNMENT,
+    DALTON_3D_DEFAULT_ORIENTATION,
+    DALTON_3D_HERO_SLIDER_VALUES,
+    DALTON_3D_ORIENTATION_VERSION,
+} from './dalton3dRenderer.js';
 import { parseScramble } from './parseScramble.js';
 
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
@@ -10,6 +17,10 @@ let styleControlInstances = [];
 let dalton3DRenderer = null;
 let dalton3DRenderToken = 0;
 const dalton3DSliderDrag = { rotationX: 0, rotationY: 0, rotationZ: 0 };
+const DALTON_3D_ROTATION_MODES = {
+    absolute: 'absolute',
+    relative: 'relative',
+};
 
 let isCustomMode = false;
 let classicalSnapshot = null;
@@ -202,16 +213,20 @@ function buildStyleSliderControls() {
 }
 
 function buildDalton3DOrientationControls(container, controls) {
+    buildDalton3DRotationModeControl(container);
+    buildDalton3DAxesToggle(container);
+
     controls.forEach(control => {
+        const decimals = control.decimals ?? decimalPlaces(control.step);
         const value = Number(sq1vis.getStyleSettings()[control.id] ?? control.default ?? 0);
         let previousValue = Number.isNaN(value) ? 0 : value;
         const field = document.createElement('div');
-        field.className = 'field';
+        field.className = 'field dalton-rotation-field';
         field.innerHTML = `
           <label class="field-label">${control.label}</label>
           <div class="slider-combo">
             <input type="range" id="style-slider-${control.id}" min="${control.min}" max="${control.max}" step="${control.step}" value="${previousValue}" />
-            <input type="number" id="style-input-${control.id}" min="${control.min}" max="${control.max}" step="${control.step}" value="${previousValue}" />
+            <input type="number" id="style-input-${control.id}" min="${control.min}" max="${control.max}" step="${control.step}" value="${formatFixed(previousValue, decimals)}" />
           </div>`;
         container.appendChild(field);
 
@@ -223,13 +238,19 @@ function buildDalton3DOrientationControls(container, controls) {
             const delta = next - previousValue;
             previousValue = next;
             slider.value = next;
-            input.value = next;
+            input.value = formatFixed(next, decimals);
             sq1vis.setStyleSettings({ [control.id]: next });
             if (!delta) {
                 saveSettings();
                 return;
             }
-            rotateDalton3DAroundWorldAxis(control.id, delta);
+            if (dalton3DRotationSlidersAreZero()) {
+                setDalton3DOrientation(DALTON_3D_AXIS_ALIGNED_ORIENTATION);
+            } else if (getDalton3DRotationMode() === DALTON_3D_ROTATION_MODES.absolute) {
+                rotateDalton3DAroundLocalAxis(control.id, delta);
+            } else {
+                rotateDalton3DAroundWorldAxis(control.id, delta);
+            }
             draw();
             saveSettings();
         };
@@ -245,13 +266,57 @@ function buildDalton3DOrientationControls(container, controls) {
     button.textContent = 'Reset Orientation';
     button.addEventListener('click', () => {
         setDalton3DOrientation(DALTON_3D_DEFAULT_ORIENTATION);
-        sq1vis.setStyleSettings({ rotationX: 0, rotationY: 0, rotationZ: 0 });
+        sq1vis.setStyleSettings(DALTON_3D_HERO_SLIDER_VALUES);
         for (const key of Object.keys(dalton3DSliderDrag)) dalton3DSliderDrag[key] = 0;
         buildStyleSliderControls();
         draw();
         saveSettings();
     });
     container.appendChild(button);
+}
+
+function buildDalton3DRotationModeControl(container) {
+    const mode = getDalton3DRotationMode();
+    const field = document.createElement('div');
+    field.className = 'field';
+    field.innerHTML = `
+      <label class="field-label">Rotation Mode</label>
+      <div class="scheme-mode-seg dalton-orientation-mode-seg">
+        <button type="button" class="scheme-mode-btn" data-dalton-rotation-mode="absolute" title="Rotate around axes attached to the Square-1">Absolute</button>
+        <button type="button" class="scheme-mode-btn" data-dalton-rotation-mode="relative" title="Rotate around fixed surrounding axes">Relative</button>
+      </div>`;
+    container.appendChild(field);
+
+    field.querySelectorAll('[data-dalton-rotation-mode]').forEach(button => {
+        button.classList.toggle('active', button.dataset.daltonRotationMode === mode);
+        button.addEventListener('click', () => {
+            const nextMode = button.dataset.daltonRotationMode;
+            if (nextMode === getDalton3DRotationMode()) return;
+            sq1vis.setStyleSettings({ dalton3DRotationMode: nextMode });
+            buildStyleSliderControls();
+            draw();
+            saveSettings();
+        });
+    });
+}
+
+function buildDalton3DAxesToggle(container) {
+    const settings = sq1vis.getStyleSettings();
+    const field = document.createElement('div');
+    field.className = 'toggle-row dalton-axes-toggle-row';
+    field.innerHTML = `
+      <span class="toggle-label">Show rotation axes</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="dalton-show-abs-axes" ${settings.showAbsRotationAxes ? 'checked' : ''}>
+        <span class="toggle-track"></span>
+      </label>`;
+    container.appendChild(field);
+
+    field.querySelector('#dalton-show-abs-axes').addEventListener('change', event => {
+        sq1vis.setStyleSettings({ showAbsRotationAxes: event.target.checked });
+        draw();
+        saveSettings();
+    });
 }
 
 function buildLinkedStrokeWidthControl(container, control, settings) {
@@ -299,6 +364,10 @@ function buildLinkedStrokeWidthControl(container, control, settings) {
 function decimalPlaces(step) {
     const text = String(step);
     return text.includes('.') ? text.split('.')[1].length : 0;
+}
+
+function formatFixed(value, decimals) {
+    return Number(value).toFixed(decimals).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 }
 
     // ── Build sidebar DOM dynamically (prevents flash of wrong content) ──
@@ -660,6 +729,73 @@ function multiplyQuaternions(left, right) {
     };
 }
 
+function inverseQuaternion(quaternion) {
+    const q = normalizeQuaternion(quaternion);
+    return { w: q.w, x: -q.x, y: -q.y, z: -q.z };
+}
+
+function orientationFromRotations(rotations) {
+    let orientation = { w: 1, x: 0, y: 0, z: 0 };
+    for (const axis of ['x', 'y', 'z']) {
+        orientation = multiplyQuaternions(
+            axisAngleQuaternion(axis, Number(rotations[axis]) || 0),
+            orientation,
+        );
+    }
+    return normalizeQuaternion(orientation);
+}
+
+function quaternionToMatrix(quaternion) {
+    const { w, x, y, z } = normalizeQuaternion(quaternion);
+    return [
+        [
+            1 - 2 * (y * y + z * z),
+            2 * (x * y - z * w),
+            2 * (x * z + y * w),
+        ],
+        [
+            2 * (x * y + z * w),
+            1 - 2 * (x * x + z * z),
+            2 * (y * z - x * w),
+        ],
+        [
+            2 * (x * z - y * w),
+            2 * (y * z + x * w),
+            1 - 2 * (x * x + y * y),
+        ],
+    ];
+}
+
+function rotateVectorByQuaternion(vector, quaternion) {
+    const matrix = quaternionToMatrix(quaternion);
+    return matrix.map(row => row.reduce((sum, value, index) => sum + value * vector[index], 0));
+}
+
+function getDalton3DRotationAxes() {
+    const orientation = multiplyQuaternions(
+        getDalton3DOrientation(),
+        orientationFromRotations(DALTON_3D_CONTROL_AXES_ALIGNMENT),
+    );
+    return {
+        x: rotateVectorByQuaternion([1, 0, 0], orientation),
+        y: rotateVectorByQuaternion([0, 1, 0], orientation),
+        z: rotateVectorByQuaternion([0, 0, 1], orientation),
+    };
+}
+
+function getDalton3DRotationMode() {
+    const mode = sq1vis.getStyleSettings().dalton3DRotationMode;
+    return mode === DALTON_3D_ROTATION_MODES.relative
+        ? DALTON_3D_ROTATION_MODES.relative
+        : DALTON_3D_ROTATION_MODES.absolute;
+}
+
+function dalton3DRotationSlidersAreZero() {
+    const settings = sq1vis.getStyleSettings();
+    return ['rotationX', 'rotationY', 'rotationZ']
+        .every(key => Math.abs(Number(settings[key]) || 0) < 1e-9);
+}
+
 function getDalton3DOrientation() {
     const settings = sq1vis.getStyleSettings();
     return normalizeQuaternion({
@@ -677,6 +813,7 @@ function setDalton3DOrientation(orientation) {
         orientationX: q.x,
         orientationY: q.y,
         orientationZ: q.z,
+        dalton3DOrientationVersion: DALTON_3D_ORIENTATION_VERSION,
     });
 }
 
@@ -684,6 +821,17 @@ function rotateDalton3DAroundWorldAxis(controlId, deltaDegrees) {
     const axis = controlId.replace('rotation', '').toLowerCase();
     const current = getDalton3DOrientation();
     setDalton3DOrientation(multiplyQuaternions(axisAngleQuaternion(axis, deltaDegrees), current));
+}
+
+function rotateDalton3DAroundLocalAxis(controlId, deltaDegrees) {
+    const axis = controlId.replace('rotation', '').toLowerCase();
+    const current = getDalton3DOrientation();
+    const alignment = orientationFromRotations(DALTON_3D_CONTROL_AXES_ALIGNMENT);
+    const alignedRotation = multiplyQuaternions(
+        multiplyQuaternions(alignment, axisAngleQuaternion(axis, deltaDegrees)),
+        inverseQuaternion(alignment),
+    );
+    setDalton3DOrientation(multiplyQuaternions(current, alignedRotation));
 }
 
 function validateSquare1Hex(hex) {
@@ -782,6 +930,8 @@ async function renderDalton3D(moves, muted = false) {
         scheme: sq1vis.getColorScheme(),
         piecesColors: sq1vis.getPiecesColors(),
         orientation: getDalton3DOrientation(),
+        showAbsoluteAxes: !!sq1vis.getStyleSettings().showAbsRotationAxes,
+        absoluteRotationAxes: getDalton3DRotationAxes(),
         muted,
     });
     updateCanvasCursor();
@@ -1011,8 +1161,28 @@ function loadSettings() {
         const prevIdx = sq1vis.getActiveStyleIndex();
         const prevSides = sq1vis.getShowSideColors();
         for (const style of sq1vis.getStyles()) {
-            const saved = s.styleSettings[style.source];
+            let saved = s.styleSettings[style.source];
             if (!saved) continue;
+            if (style.source === 'Dalton3D' && saved.dalton3DOrientationVersion !== DALTON_3D_ORIENTATION_VERSION) {
+                saved = { ...saved, dalton3DOrientationVersion: DALTON_3D_ORIENTATION_VERSION };
+                delete saved.orientationW;
+                delete saved.orientationX;
+                delete saved.orientationY;
+                delete saved.orientationZ;
+                delete saved.rotationX;
+                delete saved.rotationY;
+                delete saved.rotationZ;
+            }
+            if (style.source === 'Dalton3D' && !saved.dalton3DRotationMode) {
+                const hasSavedOrientation = ['orientationW', 'orientationX', 'orientationY', 'orientationZ']
+                    .every(key => saved[key] != null);
+                saved = {
+                    ...saved,
+                    dalton3DRotationMode: hasSavedOrientation
+                        ? DALTON_3D_ROTATION_MODES.relative
+                        : DALTON_3D_ROTATION_MODES.absolute,
+                };
+            }
             sq1vis.setActiveStyle(style.index);
             sq1vis.setStyleSettings(saved);
         }
@@ -1256,6 +1426,10 @@ document.getElementById('display-reset-default').addEventListener('click', () =>
         }
     }
     sq1vis.setStyleSettings(styleDefaults);
+    if (isDalton3DStyle()) {
+        sq1vis.setStyleSettings({ dalton3DRotationMode: DALTON_3D_ROTATION_MODES.absolute });
+        setDalton3DOrientation(DALTON_3D_DEFAULT_ORIENTATION);
+    }
     updateStyleToggles();
     buildSchemeGrid();
     draw();
@@ -1611,7 +1785,7 @@ async function doDalton3DExport(method) {
         if (!dalton3DRenderer?.getCanvas()) {
             await renderDalton3D(currentInputToDaltonMoves(), !document.getElementById('scramble-input').value.trim());
         }
-        const canvas = dalton3DRenderer?.getCanvas();
+        const canvas = dalton3DRenderer?.getExportCanvas();
         if (!canvas) throw new Error('3D canvas is not ready.');
 
         if (method === 'clipboard') {

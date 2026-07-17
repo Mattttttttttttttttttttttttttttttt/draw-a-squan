@@ -1,8 +1,24 @@
 const CORNERS = ['1', '3', '5', '7', '9', 'b', 'd', 'f'];
 const DEFAULT_HEX = '011233455677|998bbaddcffe';
+
+const MODEL_FACE_ALIGNMENT = { x: 90, y: 0, z: 0 };
+const CONTROL_AXES_ALIGNMENT = { x: 0, y: 0, z: -15 };
+const HERO_SLIDER_VALUES = { rotationX: -33, rotationY: -45, rotationZ: 0 };
+const HERO_CONTROL_FRAME_ROTATION = { x: 54.73561, y: 0, z: 45 };
+const HERO_VIEW_FINE_TUNE = { x: 0, y: 0, z: 0 };
+const DEFAULT_ORIENTATION_VERSION = 9;
+const modelFaceOrientation = orientationFromRotations(MODEL_FACE_ALIGNMENT);
+const controlAxesOrientation = orientationFromRotations(CONTROL_AXES_ALIGNMENT);
+const AXIS_ALIGNED_ORIENTATION = normalizeQuaternion(multiplyQuaternions(
+    modelFaceOrientation,
+    inverseQuaternion(controlAxesOrientation),
+));
 const DEFAULT_ORIENTATION = normalizeQuaternion(multiplyQuaternions(
-    orientationFromRotations({ x: -116, y: -178, z: -178 }),
-    orientationFromRotations({ x: -20, y: 30, z: 0 }),
+    orientationFromRotations(HERO_VIEW_FINE_TUNE),
+    multiplyQuaternions(
+        orientationFromLocalRotations(HERO_CONTROL_FRAME_ROTATION),
+        inverseQuaternion(controlAxesOrientation),
+    ),
 ));
 
 const DALTON_EDGE_OUTER_FACE = {
@@ -194,12 +210,28 @@ function normalizeQuaternion(quaternion) {
     };
 }
 
+function inverseQuaternion(quaternion) {
+    const q = normalizeQuaternion(quaternion);
+    return { w: q.w, x: -q.x, y: -q.y, z: -q.z };
+}
+
 function orientationFromRotations(rotations) {
     let orientation = { w: 1, x: 0, y: 0, z: 0 };
     for (const axis of ['x', 'y', 'z']) {
         orientation = multiplyQuaternions(
             axisAngleQuaternion(axis, rotations[axis] * Math.PI / 180),
             orientation,
+        );
+    }
+    return normalizeQuaternion(orientation);
+}
+
+function orientationFromLocalRotations(rotations) {
+    let orientation = { w: 1, x: 0, y: 0, z: 0 };
+    for (const axis of ['x', 'y', 'z']) {
+        orientation = multiplyQuaternions(
+            orientation,
+            axisAngleQuaternion(axis, rotations[axis] * Math.PI / 180),
         );
     }
     return normalizeQuaternion(orientation);
@@ -346,6 +378,19 @@ export class Dalton3DRenderer {
         return this.p5?.canvas ?? null;
     }
 
+    getExportCanvas() {
+        const source = this.getCanvas();
+        if (!source || !this.p5 || !this.lastOptions) return null;
+
+        this.drawScene(this.p5, { ...this.lastOptions, showAbsoluteAxes: false }, false);
+        const canvas = document.createElement('canvas');
+        canvas.width = source.width;
+        canvas.height = source.height;
+        canvas.getContext('2d').drawImage(source, 0, 0);
+        this.drawScene(this.p5, this.lastOptions, false);
+        return canvas;
+    }
+
     toBlob(type = 'image/png', quality) {
         const canvas = this.getCanvas();
         if (!canvas) return Promise.reject(new Error('3D canvas is not ready.'));
@@ -409,6 +454,28 @@ export class Dalton3DRenderer {
             p.rotate(2 * Math.atan2(halfAngleSin, w), [x / halfAngleSin, y / halfAngleSin, z / halfAngleSin]);
         }
         this.restCube(p, state);
+        p.pop();
+        if (options.showAbsoluteAxes && !picking) {
+            p.push();
+            p.scale(scale);
+            this.absoluteRotationAxes(p, options.absoluteRotationAxes);
+            p.pop();
+        }
+    }
+
+    absoluteRotationAxes(p, axes = {}) {
+        const length = 330;
+        const drawAxis = (direction, color) => {
+            const [x, y, z] = direction;
+            p.stroke(color);
+            p.line(-x * length, -y * length, -z * length, x * length, y * length, z * length);
+        };
+        p.push();
+        p.noFill();
+        p.strokeWeight(1);
+        drawAxis(axes.x ?? [1, 0, 0], '#60D937');
+        drawAxis(axes.y ?? [0, 1, 0], '#0433FF');
+        drawAxis(axes.z ?? [0, 0, 1], '#FF2600');
         p.pop();
     }
 
@@ -666,4 +733,12 @@ export class Dalton3DRenderer {
     }
 }
 
-export { DEFAULT_HEX as DALTON_3D_DEFAULT_HEX, DEFAULT_ORIENTATION as DALTON_3D_DEFAULT_ORIENTATION, graphicsHelpText };
+export {
+    DEFAULT_HEX as DALTON_3D_DEFAULT_HEX,
+    AXIS_ALIGNED_ORIENTATION as DALTON_3D_AXIS_ALIGNED_ORIENTATION,
+    DEFAULT_ORIENTATION as DALTON_3D_DEFAULT_ORIENTATION,
+    CONTROL_AXES_ALIGNMENT as DALTON_3D_CONTROL_AXES_ALIGNMENT,
+    HERO_SLIDER_VALUES as DALTON_3D_HERO_SLIDER_VALUES,
+    DEFAULT_ORIENTATION_VERSION as DALTON_3D_ORIENTATION_VERSION,
+    graphicsHelpText,
+};
