@@ -1306,11 +1306,17 @@ input[type=number]::-webkit-outer-spin-button {
     width: 86px;
 }
 
+.dalton-reset-control {
+    min-height: 38px;
+    padding: .58rem .9rem;
+    font-size: .76rem;
+    line-height: 1.1;
+    letter-spacing: .05em;
+}
+
 .dalton-reset-orientation {
-    margin-top: .15rem;
-    font-size: .7rem;
-    padding: .5rem .8rem;
-    letter-spacing: .04em;
+    margin-top: .35rem;
+    margin-bottom: .45rem;
 }
 
 button:disabled {
