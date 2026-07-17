@@ -155,6 +155,7 @@ function setDisplaySize(value) {
 function updateStyleToggles() {
     const style = sq1vis.getActiveStyle();
     const is3D = isDalton3DStyle();
+    document.getElementById('display-reset-default').classList.toggle('dalton-reset-control', is3D);
     document.getElementById('size-field-label').textContent = is3D ? 'Size' : 'Image Size';
     document.getElementById('layer-distance-row').style.display = is3D ? 'none' : '';
     document.getElementById('orientation-row').style.display = is3D ? 'none' : '';
@@ -262,10 +263,15 @@ function buildDalton3DOrientationControls(container, controls) {
 
         slider.addEventListener('input', () => apply(slider.value));
         input.addEventListener('input', () => apply(input.value));
+        const handleKeyboardStep = event => {
+            handleDaltonRotationKeyboardStep(event, input.value, control.min, control.max, apply);
+        };
+        slider.addEventListener('keydown', handleKeyboardStep);
+        input.addEventListener('keydown', handleKeyboardStep);
     });
 
     const button = document.createElement('button');
-    button.className = 'btn btn-secondary dalton-reset-orientation';
+    button.className = 'btn btn-secondary dalton-reset-control dalton-reset-orientation';
     button.id = 'dalton-reset-orientation';
     button.type = 'button';
     button.textContent = 'Reset Orientation';
@@ -373,6 +379,22 @@ function decimalPlaces(step) {
 
 function formatFixed(value, decimals) {
     return Number(value).toFixed(decimals).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+}
+
+function handleDaltonRotationKeyboardStep(event, currentValue, min, max, apply) {
+    const directions = {
+        ArrowUp: 1,
+        ArrowRight: 1,
+        ArrowDown: -1,
+        ArrowLeft: -1,
+    };
+    const direction = directions[event.key];
+    if (!direction) return;
+
+    event.preventDefault();
+    const rounded = Math.round(Number(currentValue) || 0);
+    const next = Math.min(max, Math.max(min, rounded + direction));
+    apply(next);
 }
 
     // ── Build sidebar DOM dynamically (prevents flash of wrong content) ──
