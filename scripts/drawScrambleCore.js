@@ -452,7 +452,7 @@ export function createSquare1Core(initialState = {}) {
                 const maskSeed = Math.random().toString(36).slice(2);
                 const outerMaskId = `mask-abid-edge-outer-${piece}-${maskSeed}`;
                 const innerMaskId = `mask-abid-edge-inner-${piece}-${maskSeed}`;
-                const strokeAttrs = 'stroke-linejoin="round" stroke-linecap="round"';
+                const strokeAttrs = ' stroke-linejoin="round" stroke-linecap="round"';
                 const col = muted ? ph.border : colors.border;
                 const outerOutline = ps([pi, pA, pB]);
                 return `
@@ -507,7 +507,7 @@ export function createSquare1Core(initialState = {}) {
                 const rightMaskId = `mask-abid-corner-right-${piece}-${maskSeed}`;
                 const topMaskId = `mask-abid-corner-top-${piece}-${maskSeed}`;
                 const col = muted ? ph.border : colors.border;
-                const strokeAttrs = 'stroke-linejoin="round" stroke-linecap="round"';
+                const strokeAttrs = ' stroke-linejoin="round" stroke-linecap="round"';
                 const leftPts = ps([pi, pOL, pAp, psB, psL]);
                 const rightPts = ps([pi, psR, psB, pAp, pOR]);
                 const topPts = ps([pi, psL, psB, psR]);
