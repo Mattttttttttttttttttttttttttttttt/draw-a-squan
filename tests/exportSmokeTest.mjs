@@ -401,6 +401,7 @@ async function browserSmoke(options = {}) {
     async function blobRecord(blob, filename = '') {
         const bytes = new Uint8Array(await blob.arrayBuffer());
         const isText = blob.type.includes('svg') || blob.type.startsWith('text/') || filename.endsWith('.svg');
+        const shouldKeepBytes = options.persist || filename.endsWith('.zip') || filename.endsWith('.xlsx');
         return {
             filename,
             type: blob.type,
@@ -408,7 +409,7 @@ async function browserSmoke(options = {}) {
             head: Array.from(bytes.slice(0, 16)),
             textHead: new TextDecoder().decode(bytes.slice(0, Math.min(bytes.length, 256))),
             text: isText ? new TextDecoder().decode(bytes) : '',
-            base64: options.persist ? bytesToBase64(bytes) : '',
+            base64: shouldKeepBytes ? bytesToBase64(bytes) : '',
         };
     }
 
@@ -569,6 +570,112 @@ async function browserSmoke(options = {}) {
         });
     }
 
+    function base64ToBytes(base64) {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return bytes;
+    }
+
+    async function inflateRaw(bytes) {
+        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+        return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+
+    async function zipEntries(record) {
+        const bytes = base64ToBytes(record.base64);
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        const entries = [];
+
+        for (let offset = 0; offset <= bytes.length - 30;) {
+            if (view.getUint32(offset, true) !== 0x04034b50) break;
+            const compression = view.getUint16(offset + 8, true);
+            const compressedSize = view.getUint32(offset + 18, true);
+            const uncompressedSize = view.getUint32(offset + 22, true);
+            const nameLen = view.getUint16(offset + 26, true);
+            const extraLen = view.getUint16(offset + 28, true);
+            const nameStart = offset + 30;
+            const dataStart = nameStart + nameLen + extraLen;
+            const dataEnd = dataStart + compressedSize;
+            if (dataEnd > bytes.length) throw new Error(`ZIP entry overruns file at byte ${offset}`);
+
+            const filename = new TextDecoder().decode(bytes.slice(nameStart, nameStart + nameLen));
+            let data = bytes.slice(dataStart, dataEnd);
+            if (compression === 8) data = await inflateRaw(data);
+            else if (compression !== 0) throw new Error(`Unsupported ZIP compression ${compression} for ${filename}`);
+            if (uncompressedSize && data.length !== uncompressedSize) {
+                throw new Error(`ZIP entry ${filename} has ${data.length} bytes, expected ${uncompressedSize}`);
+            }
+            entries.push({ filename, data, head: Array.from(data.slice(0, 16)) });
+            offset = dataEnd;
+        }
+
+        return entries.filter(entry => !entry.filename.endsWith('/'));
+    }
+
+    function expectedZipImageFormat(meta) {
+        if (meta.section !== 'bulk' || meta.kind !== 'download') return '';
+        const match = meta.label.match(/(?:text|xlsx zip) (svg|png|jpeg|bmp)$/);
+        if (!match) return '';
+        return match[1] === 'svg' ? 'png' : match[1];
+    }
+
+    function expectedXlsxImageFormat(meta) {
+        if (meta.section !== 'bulk' || meta.kind !== 'download') return '';
+        const match = meta.label.match(/xlsx workbook (svg|png|jpeg|bmp)$/);
+        if (!match) return '';
+        return match[1] === 'jpeg' ? 'jpeg' : 'png';
+    }
+
+    function assertExtension(filename, expected) {
+        const ext = filename.split('.').pop().toLowerCase();
+        const accepted = expected === 'jpeg' ? ['jpg', 'jpeg'] : [expected];
+        if (!accepted.includes(ext)) {
+            throw new Error(`ZIP entry ${filename} has .${ext}, expected .${accepted.join(' or .')}`);
+        }
+    }
+
+    function assertMagicBytes(head, expected, filename) {
+        if (expected === 'svg') return;
+        if (expected === 'png' && !(head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47)) {
+            throw new Error(`ZIP entry ${filename} is not PNG`);
+        }
+        if (expected === 'jpeg' && !(head[0] === 0xff && head[1] === 0xd8)) {
+            throw new Error(`ZIP entry ${filename} is not JPEG`);
+        }
+        if (expected === 'bmp' && !(head[0] === 0x42 && head[1] === 0x4d)) {
+            throw new Error(`ZIP entry ${filename} is not BMP`);
+        }
+    }
+
+    async function assertZipContents(record, meta) {
+        const expected = expectedZipImageFormat(meta);
+        if (!expected) return;
+
+        const entries = await zipEntries(record);
+        if (entries.length !== BULK_INPUTS.length) {
+            throw new Error(`ZIP contains ${entries.length} files, expected ${BULK_INPUTS.length}`);
+        }
+        for (const entry of entries) {
+            assertExtension(entry.filename, expected);
+            assertMagicBytes(entry.head, expected, entry.filename);
+        }
+    }
+
+    async function assertXlsxContents(record, meta) {
+        const expected = expectedXlsxImageFormat(meta);
+        if (!expected) return;
+
+        const mediaEntries = (await zipEntries(record)).filter(entry => entry.filename.startsWith('xl/media/'));
+        if (mediaEntries.length !== BULK_INPUTS.length) {
+            throw new Error(`XLSX contains ${mediaEntries.length} embedded images, expected ${BULK_INPUTS.length}`);
+        }
+        for (const entry of mediaEntries) {
+            assertExtension(entry.filename, expected);
+            assertMagicBytes(entry.head, expected, entry.filename);
+        }
+    }
+
     async function assertBlob(record, expected) {
         if (!record) throw new Error('No output blob was captured');
         if (!record.size) throw new Error('Output blob is empty');
@@ -656,6 +763,8 @@ async function browserSmoke(options = {}) {
         try {
             const record = await fn();
             await assertBlob(record, expected);
+            if (expected === 'zip') await assertZipContents(record, meta);
+            if (expected === 'xlsx') await assertXlsxContents(record, meta);
             await pass(meta, record, expected);
         } catch (err) {
             await fail(meta, err);

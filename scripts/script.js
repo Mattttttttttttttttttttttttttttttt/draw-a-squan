@@ -2283,11 +2283,13 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
         const doExportZip = async () => {
             const JSZip = await getJSZip();
             const zip = new JSZip();
+            const fmt = exportFmt === 'svg' ? 'png' : exportFmt;
+            const ext = exportFmt === 'jpeg' ? 'jpeg' : fmt;
             for (const item of valid) {
                 try {
                     const svgStr = svgStringForHex(item.hex, s);
-                    const blob = await rasterizeBlob(svgStr, exportFmt === 'svg' ? 'png' : exportFmt);
-                    zip.file(`${item.label}.png`, blob);
+                    const blob = await rasterizeBlob(svgStr, fmt);
+                    zip.file(`${item.label}.${ext}`, blob);
                 } catch { /* skip render errors silently */ }
             }
             const blob = await zip.generateAsync({ type: 'blob' });
@@ -2305,10 +2307,13 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
         const [JSZip, XLSX] = await Promise.all([getJSZip(), getXLSX()]);
         const s   = getCurrentSettings();
         const fmt = exportFmt === 'svg' ? 'png' : exportFmt; // svg doesn't embed well in xlsx, fallback to png
+        const renderFmt = outputMode === 'xlsx' && fmt === 'bmp' ? 'png' : fmt;
         const mimeForFmt = { png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/png' }; // bmp→png for xlsx compat
         const extForFmt  = { png: 'png', jpeg: 'jpeg', bmp: 'png' };
+        const zipExtForFmt = { png: 'png', jpeg: 'jpeg', bmp: 'bmp' };
         const imgMime    = mimeForFmt[fmt] || 'image/png';
         const imgExt     = extForFmt[fmt]  || 'png';
+        const zipImgExt  = zipExtForFmt[fmt] || 'png';
         const imgContentType = imgMime === 'image/jpeg'
             ? 'image/jpeg'
             : 'image/png';
@@ -2349,7 +2354,7 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
                 if (!t.valid) continue;
                 try {
                     const svgStr = svgStringForHex(t.hex, s);
-                    const blob = await rasterizeBlob(svgStr, fmt);
+                    const blob = await rasterizeBlob(svgStr, renderFmt);
                     const abuf = await blob.arrayBuffer();
                     const uint8 = new Uint8Array(abuf);
                     // Read dimensions from PNG/JPEG header
@@ -2380,7 +2385,7 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
                 const zip = new JSZip();
                 for (const [i, img] of taskImgMap) {
                     const t = tasks[i];
-                    zip.file(`${t.sheetName}-${t.cellAddr}.${imgExt}`, img.blob);
+                    zip.file(`${t.sheetName}-${t.cellAddr}.${zipImgExt}`, img.blob);
                 }
                 const blob = await zip.generateAsync({ type: 'blob' });
                 triggerDownload(blob, 'bulk-export.zip');
