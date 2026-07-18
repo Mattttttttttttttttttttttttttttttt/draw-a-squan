@@ -31,7 +31,6 @@ let isCustomMode = false;
 let classicalSnapshot = null;
 let customSnapshot = null;
 let customMuteActive = false;
-let classicalMuteActive = false;
 
 function buildSchemeGrid() {
     if (typeof Pickr === 'undefined') { console.error('Pickr not loaded'); return; }
@@ -558,7 +557,6 @@ function setSchemeMode(isCustom, { redraw = true, persist = true } = {}) {
                 mute: muteActive,
             };
         }
-        classicalMuteActive = classicalSnapshot.mute;
         if (customSnapshot) {
             sq1vis.setPiecesColors(customSnapshot.piecesColors);
             muteActive = customSnapshot.mute;
@@ -664,7 +662,6 @@ const unfillBtn = document.getElementById('fill-unfill-btn');
 const resetBtn = document.getElementById('fill-reset-btn');
 const muteBtn = document.getElementById('fill-mute-btn');
 const fillColorInput = { value: '#CC0000', _transparent: false };
-const fillColorSwitch = { style: {} }; // replaced by Pickr
 
 let fillModeActive = false;
 let fillResetActive = false;
@@ -1318,9 +1315,10 @@ window.CURSOR_SVG = {
 };
 
 window.encodeCursors = function () {
-    for (const [name, svg] of Object.entries(window.CURSOR_SVG)) {
-        const encoded = 'url("data:image/svg+xml,' + encodeURIComponent(svg.replace(/\n\s*/g, '')) + '")';
-    }
+    return Object.fromEntries(Object.entries(window.CURSOR_SVG).map(([name, svg]) => [
+        name,
+        'url("data:image/svg+xml,' + encodeURIComponent(svg.replace(/\n\s*/g, '')) + '")',
+    ]));
 };
 
 function activateFill() {
@@ -1634,7 +1632,6 @@ function getExportSVGString(layer) {
     tmp.innerHTML = renderVis.getSVG(hex, size, gap, muted, isVertical, showSlice, showSides, PAD);
     const svgs = tmp.querySelectorAll('svg');
 
-    let svgEl;
     if (layer === 'both') {
         const svg0 = svgs[0], svg1 = svgs[1];
         const vb = svg0.getAttribute('viewBox').split(' ').map(parseFloat);
@@ -1704,6 +1701,33 @@ async function optimizeSvgForExport(svgStr) {
     }
 }
 
+function sanitizeSvgForImageDecode(svgStr) {
+    return svgStr.replace(/\bid="([0-9a-fA-F])\s+([^"]+)"/g, 'id="$1-$2"');
+}
+
+function loadSvgImage(svgStr) {
+    function attempt(src, cleanup) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                cleanup?.();
+                resolve(img);
+            };
+            img.onerror = () => {
+                cleanup?.();
+                reject(new Error('img load failed'));
+            };
+            img.src = src;
+        });
+    }
+
+    const blobUrl = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' }));
+    return attempt(blobUrl, () => URL.revokeObjectURL(blobUrl)).catch(() => {
+        const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgStr)}`;
+        return attempt(dataUrl);
+    });
+}
+
 async function doExport(methodOverride) {
     const method = methodOverride || 'download';
 
@@ -1730,11 +1754,9 @@ async function doExport(methodOverride) {
     }
 
     function rasterize(svgStr, fmt) {
+        const imageSvgStr = sanitizeSvgForImageDecode(svgStr);
         return new Promise((resolve, reject) => {
-            const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(svgBlob);
-            const img = new Image();
-            img.onload = () => {
+            loadSvgImage(imageSvgStr).then(img => {
                 // wait a tick to ensure full paint
                 setTimeout(() => {
                     const canvas = document.createElement('canvas');
@@ -1743,13 +1765,32 @@ async function doExport(methodOverride) {
                     const ctx = canvas.getContext('2d');
                     if (fmt === 'jpeg' || fmt === 'bmp') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
                     ctx.drawImage(img, 0, 0);
-                    URL.revokeObjectURL(url);
                     resolve(canvas);
                 }, 100);
-            };
-            img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img load failed')); };
-            img.src = url;
+            }).catch(reject);
         });
+    }
+
+    function cropLayerCanvas(canvas, layer) {
+        const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
+        const cropSize = isVertical ? canvas.width : canvas.height;
+        const sx = isVertical ? 0 : (layer === 'bottom' ? canvas.width - cropSize : 0);
+        const sy = isVertical ? (layer === 'bottom' ? canvas.height - cropSize : 0) : 0;
+        const out = document.createElement('canvas');
+        out.width = cropSize;
+        out.height = cropSize;
+        out.getContext('2d').drawImage(canvas, sx, sy, cropSize, cropSize, 0, 0, cropSize, cropSize);
+        return out;
+    }
+
+    async function rasterizeExportSvg(svgStr, fmt) {
+        try {
+            return await rasterize(svgStr, fmt);
+        } catch (err) {
+            if (exportLayer === 'both') throw err;
+            const bothCanvas = await rasterize(getExportSVGString('both'), fmt);
+            return cropLayerCanvas(bothCanvas, exportLayer);
+        }
     }
 
     function canvasToBlob(canvas, mime) {
@@ -1768,14 +1809,14 @@ async function doExport(methodOverride) {
                 return;
             }
 
-            const pngBlobPromise = rasterize(svgStr, exportFmt).then(canvas => canvasToBlob(canvas, 'image/png'));
+            const pngBlobPromise = rasterizeExportSvg(svgStr, exportFmt).then(canvas => canvasToBlob(canvas, 'image/png'));
             await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlobPromise })]);
             if (exportFmt === 'png') flashBtn('Copied to clipboard!');
             else flashBtn(`Browser copying ${exportFmt.toLocaleUpperCase()}s isn't possible. Copied PNG instead.`);
             return;
         }
 
-        const canvas = await rasterize(svgStr, exportFmt);
+        const canvas = await rasterizeExportSvg(svgStr, exportFmt);
         const mimeMap = { png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/png' };
         const extMap  = { png: 'png', jpeg: 'jpg', bmp: 'bmp' };
         const mime = mimeMap[exportFmt] || 'image/png';
@@ -2137,23 +2178,19 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
     }
 
     async function rasterizeBlob(svgStr, fmt) {
+        const imageSvgStr = sanitizeSvgForImageDecode(svgStr);
         return new Promise((res, rej) => {
-            const img = new Image();
-            const url = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
-            img.onload = () => {
+            loadSvgImage(imageSvgStr).then(img => {
                 const c = document.createElement('canvas');
                 c.width = img.naturalWidth || img.width;
                 c.height = img.naturalHeight || img.height;
                 const ctx = c.getContext('2d');
                 if (fmt === 'jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height); }
                 ctx.drawImage(img, 0, 0);
-                URL.revokeObjectURL(url);
                 if (fmt === 'bmp') { res(createBMP32(c)); return; }
                 const mime = fmt === 'jpeg' ? 'image/jpeg' : 'image/png';
                 c.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), mime);
-            };
-            img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('img load failed')); };
-            img.src = url;
+            }).catch(rej);
         });
     }
 
@@ -2246,11 +2283,13 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
         const doExportZip = async () => {
             const JSZip = await getJSZip();
             const zip = new JSZip();
+            const fmt = exportFmt === 'svg' ? 'png' : exportFmt;
+            const ext = exportFmt === 'jpeg' ? 'jpeg' : fmt;
             for (const item of valid) {
                 try {
                     const svgStr = svgStringForHex(item.hex, s);
-                    const blob = await rasterizeBlob(svgStr, exportFmt === 'svg' ? 'png' : exportFmt);
-                    zip.file(`${item.label}.png`, blob);
+                    const blob = await rasterizeBlob(svgStr, fmt);
+                    zip.file(`${item.label}.${ext}`, blob);
                 } catch { /* skip render errors silently */ }
             }
             const blob = await zip.generateAsync({ type: 'blob' });
@@ -2268,15 +2307,16 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
         const [JSZip, XLSX] = await Promise.all([getJSZip(), getXLSX()]);
         const s   = getCurrentSettings();
         const fmt = exportFmt === 'svg' ? 'png' : exportFmt; // svg doesn't embed well in xlsx, fallback to png
+        const renderFmt = outputMode === 'xlsx' && fmt === 'bmp' ? 'png' : fmt;
         const mimeForFmt = { png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/png' }; // bmp→png for xlsx compat
         const extForFmt  = { png: 'png', jpeg: 'jpeg', bmp: 'png' };
+        const zipExtForFmt = { png: 'png', jpeg: 'jpeg', bmp: 'bmp' };
         const imgMime    = mimeForFmt[fmt] || 'image/png';
         const imgExt     = extForFmt[fmt]  || 'png';
+        const zipImgExt  = zipExtForFmt[fmt] || 'png';
         const imgContentType = imgMime === 'image/jpeg'
             ? 'image/jpeg'
             : 'image/png';
-        const xlsxImgType = imgMime === 'image/jpeg' ? 'jpeg' : 'png';
-
         const arrayBuf = await loadedXlsxFile.arrayBuffer();
         const wb = XLSX.read(arrayBuf, { type: 'array' });
 
@@ -2314,7 +2354,7 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
                 if (!t.valid) continue;
                 try {
                     const svgStr = svgStringForHex(t.hex, s);
-                    const blob = await rasterizeBlob(svgStr, fmt);
+                    const blob = await rasterizeBlob(svgStr, renderFmt);
                     const abuf = await blob.arrayBuffer();
                     const uint8 = new Uint8Array(abuf);
                     // Read dimensions from PNG/JPEG header
@@ -2345,7 +2385,7 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
                 const zip = new JSZip();
                 for (const [i, img] of taskImgMap) {
                     const t = tasks[i];
-                    zip.file(`${t.sheetName}-${t.cellAddr}.${imgExt}`, img.blob);
+                    zip.file(`${t.sheetName}-${t.cellAddr}.${zipImgExt}`, img.blob);
                 }
                 const blob = await zip.generateAsync({ type: 'blob' });
                 triggerDownload(blob, 'bulk-export.zip');
@@ -2377,10 +2417,6 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
 
             // ── Helpers ────────────────────────────────────────
             const nsR   = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-            const nsCT  = 'http://schemas.openxmlformats.org/package/2006/content-types';
-            const nsDrw = 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing';
-            const nsA   = 'http://schemas.openxmlformats.org/drawingml/2006/main';
-            const nsRel = 'http://schemas.openxmlformats.org/package/2006/relationships';
 
             function xmlEscape(s) {
                 return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
