@@ -156,13 +156,13 @@ function getPieceSurfaceId(value, surface) {
     return piece ? `${piece} ${surface}` : '';
 }
 
-function getTopBottomSurfaceColor(value, isTopLayer, piecesColors, scheme, muted) {
+function getTopBottomSurfaceColor(value, piecesColors, scheme, muted) {
     const piece = pieceHexFromLayerValue(value);
     if (!piece) return scheme.internal;
     const bucket = Math.abs(value) < 1 ? piecesColors.edgeColors : piecesColors.cornerColors;
     const role = Math.abs(value) < 1 ? 'inner' : 'top';
     const current = bucket[piece]?.[role];
-    const color = resolveColor(isSchemeColorName(current) ? (isTopLayer ? 'top' : 'bottom') : current, scheme);
+    const color = resolveColor(current, scheme);
     return muted ? '#4d4d4d' : color;
 }
 
@@ -530,12 +530,12 @@ export class Dalton3DRenderer {
                 p.rotateZ(Math.PI / 6 * i);
                 if (Math.abs(value) < 1) {
                     const id = isInternal ? '' : getPieceSurfaceId(value, 'inner');
-                    const color = isInternal ? state.scheme.internal : getTopBottomSurfaceColor(value, true, state.piecesColors, state.scheme, state.muted);
+                    const color = isInternal ? state.scheme.internal : getTopBottomSurfaceColor(value, state.piecesColors, state.scheme, state.muted);
                     this.fillSurface(p, state, color, id);
                     this.edge(p);
                 } else {
                     const id = isInternal ? '' : getPieceSurfaceId(value, 'top');
-                    const color = isInternal ? state.scheme.internal : getTopBottomSurfaceColor(value, true, state.piecesColors, state.scheme, state.muted);
+                    const color = isInternal ? state.scheme.internal : getTopBottomSurfaceColor(value, state.piecesColors, state.scheme, state.muted);
                     this.fillSurface(p, state, color, id);
                     this.corner(p);
                     i++;
@@ -551,13 +551,13 @@ export class Dalton3DRenderer {
                 if (Math.abs(value) < 1) {
                     p.rotateZ(-(i + 1) * Math.PI / 6);
                     const id = isInternal ? '' : getPieceSurfaceId(value, 'inner');
-                    const color = isInternal ? state.scheme.internal : getTopBottomSurfaceColor(value, false, state.piecesColors, state.scheme, state.muted);
+                    const color = isInternal ? state.scheme.internal : getTopBottomSurfaceColor(value, state.piecesColors, state.scheme, state.muted);
                     this.fillSurface(p, state, color, id);
                     this.edge(p);
                 } else {
                     p.rotateZ(-(i + 2) * Math.PI / 6);
                     const id = isInternal ? '' : getPieceSurfaceId(value, 'top');
-                    const color = isInternal ? state.scheme.internal : getTopBottomSurfaceColor(value, false, state.piecesColors, state.scheme, state.muted);
+                    const color = isInternal ? state.scheme.internal : getTopBottomSurfaceColor(value, state.piecesColors, state.scheme, state.muted);
                     this.fillSurface(p, state, color, id);
                     this.corner(p);
                     i++;
