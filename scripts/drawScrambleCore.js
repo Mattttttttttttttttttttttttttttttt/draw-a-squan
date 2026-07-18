@@ -457,13 +457,13 @@ export function createSquare1Core(initialState = {}) {
                 const outerOutline = ps([pi, pA, pB]);
                 return `
                     <defs>
-                        <mask id="${outerMaskId}" maskUnits="userSpaceOnUse">
+                        <mask id="${outerMaskId}">
                             <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
                             <polygon points="${ps([pi, pmA, pmB])}" fill="black"/>
                             <line x1="${pmA.x}" y1="${pmA.y}" x2="${pmB.x}" y2="${pmB.y}" stroke="black" stroke-width="${swInner}" stroke-linecap="round"/>
                             <polygon points="${outerOutline}" fill="none" stroke="black" stroke-width="${swOuter}" ${strokeAttrs}/>
                         </mask>
-                        <mask id="${innerMaskId}" maskUnits="userSpaceOnUse">
+                        <mask id="${innerMaskId}">
                             <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
                             <line x1="${pmA.x}" y1="${pmA.y}" x2="${pmB.x}" y2="${pmB.y}" stroke="black" stroke-width="${swInner}" stroke-linecap="round"/>
                             <polygon points="${outerOutline}" fill="none" stroke="black" stroke-width="${swOuter}" ${strokeAttrs}/>
@@ -515,7 +515,7 @@ export function createSquare1Core(initialState = {}) {
                 const outerOutline = ps([pi, pOL, pAp, pOR]);
                 return `
                     <defs>
-                        <mask id="${leftMaskId}" maskUnits="userSpaceOnUse">
+                        <mask id="${leftMaskId}">
                             <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
                             <polygon points="${rightPts}" fill="black"/>
                             <polygon points="${topPts}" fill="black"/>
@@ -523,14 +523,14 @@ export function createSquare1Core(initialState = {}) {
                             <line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="black" stroke-width="${swInner}" stroke-linecap="round"/>
                             <polygon points="${outerOutline}" fill="none" stroke="black" stroke-width="${swOuter}" ${strokeAttrs}/>
                         </mask>
-                        <mask id="${rightMaskId}" maskUnits="userSpaceOnUse">
+                        <mask id="${rightMaskId}">
                             <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
                             <polygon points="${topPts}" fill="black"/>
                             <polyline points="${innerStrokePts}" fill="none" stroke="black" stroke-width="${swInner}" ${strokeAttrs}/>
                             <line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="black" stroke-width="${swInner}" stroke-linecap="round"/>
                             <polygon points="${outerOutline}" fill="none" stroke="black" stroke-width="${swOuter}" ${strokeAttrs}/>
                         </mask>
-                        <mask id="${topMaskId}" maskUnits="userSpaceOnUse">
+                        <mask id="${topMaskId}">
                             <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
                             <polyline points="${innerStrokePts}" fill="none" stroke="black" stroke-width="${swInner}" ${strokeAttrs}/>
                             <line x1="${pAp.x}" y1="${pAp.y}" x2="${psB.x}" y2="${psB.y}" stroke="black" stroke-width="${swInner}" stroke-linecap="round"/>
@@ -792,7 +792,7 @@ export function createSquare1Core(initialState = {}) {
 
         return `
             <defs>
-                <mask id="${maskId}" maskUnits="userSpaceOnUse">
+                <mask id="${maskId}">
                     <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
                     ${occlusion}
                 </mask>
