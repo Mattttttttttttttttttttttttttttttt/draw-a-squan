@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="./css/style.css">
   <link rel="stylesheet" href="./css/pickr.css" />
   <link rel="icon" href="./favicon.ico">
+  <link rel="manifest" href="./manifest.webmanifest">
 </head>
 
 <body>
@@ -384,6 +385,11 @@
 
     //usage example
     // squan-go.web.app/draw/?input=(4,-3)/(0,3)/(-1,-4)/(0,-3)/(0,-3)/(3,0)/(-2,0)/(-3,-3)/(5,0)/(-4,-4)/(0,-4)/(4,0)/&size=400&gap=100&layer=both&fmt=png
+  </script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./service-worker.js").catch(console.error);
+    }
   </script>
 </body>
 

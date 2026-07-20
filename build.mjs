@@ -1,6 +1,6 @@
 import * as esbuild from 'esbuild';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, rmSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, relative, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -217,7 +217,10 @@ function copyAssets() {
   cp('favicon.ico', 'favicon.ico');
   cp('scripts/pickr.js', 'pickr.js');
   cp('vendor/p5.min.js', 'p5.min.js');
-  console.log('✓ Vendor scripts & static assets copied');
+  cp('manifest.webmanifest', 'manifest.webmanifest');
+  cp('icon-192.png', 'icon-192.png');
+  cp('icon-512.png', 'icon-512.png');
+  console.log('✓ Vendor scripts, PWA assets & static assets copied');
 }
 
 function buildHTML() {
@@ -237,6 +240,31 @@ function buildHTML() {
   console.log('✓ index.html generated');
 }
 
+function buildServiceWorker() {
+  const CACHE_FILE_TYPES = [
+    'html', 'htm', 'css', 'js', 'mjs', 'json',
+    'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico',
+    'woff', 'woff2', 'ttf', 'webmanifest',
+  ];
+
+  function extensionOf(name) {
+    const dot = name.lastIndexOf('.');
+    return dot === -1 ? '' : name.slice(dot + 1).toLowerCase();
+  }
+
+  const files = readdirRecursive(dst)
+    .map(f => './' + relative(dst, f).replace(/\\/g, '/'))
+    .filter(f => CACHE_FILE_TYPES.includes(extensionOf(f)));
+
+  const swSrc = readFileSync(join(__dirname, 'service-worker.js'), 'utf-8');
+  const swBuilt = swSrc.replace(
+    'const PRECACHE = /*__PRECACHE__*/[];',
+    'const PRECACHE = ' + JSON.stringify(files) + ';'
+  );
+  writeFileSync(join(dst, 'service-worker.js'), swBuilt, 'utf-8');
+  console.log(`✓ Service worker built with ${files.length} precached files`);
+}
+
 function clean() {
   rmSync(dst, { recursive: true, force: true });
   console.log('✓ Cleaned public/');
@@ -249,6 +277,7 @@ async function main() {
   await buildCSS();
   copyAssets();
   buildHTML();
+  buildServiceWorker();
   console.log('\n✓ Build complete! Output in ./public/');
 }
 
