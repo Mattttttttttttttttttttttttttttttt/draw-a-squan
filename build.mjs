@@ -70,13 +70,13 @@ const SVGO_CONFIG = {
   ],
 };
 
-function compressHTML(str) {
-  return str
+function compressHTML(str, { trim = true } = {}) {
+  const compressed = str
     .replace(/>\s+</g, '><')
     .replace(/\s{2,}/g, ' ')
     .replace(/\s+(\/?>)/g, '$1')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .trim();
+    .replace(/<!--[\s\S]*?-->/g, '');
+  return trim ? compressed.trim() : compressed;
 }
 
 function hasMarkup(content) {
@@ -95,6 +95,7 @@ async function compressContent(content) {
 
   const optimize = await getSvgo();
 
+  const hasInterpolations = parts.length > 1;
   const processed = parts.map(part => {
     if (/^\$\{[^}]*\}$/.test(part)) return part;
     if (!part.trim()) return part;
@@ -106,7 +107,7 @@ async function compressContent(content) {
       } catch { }
     }
 
-    return compressHTML(part);
+    return compressHTML(part, { trim: !hasInterpolations });
   });
 
   return processed.join('');

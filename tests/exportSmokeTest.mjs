@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import net from 'node:net';
@@ -306,6 +306,10 @@ function printSummary(result) {
 
 async function main() {
     const root = new URL('../public/', import.meta.url).pathname;
+    const bundle = await readFile(join(root, 'app.bundle.js'), 'utf8');
+    if (!/id="\$\{[^}]+\} (?:outer|inner|top|left|right)"/.test(bundle)) {
+        throw new Error('Bundled sticker IDs lost whitespace around a template interpolation');
+    }
     const server = await createStaticServer(root);
     const profileDir = join(tmpdir(), `sq1-export-smoke-${Date.now()}`);
     await mkdir(profileDir, { recursive: true });
@@ -480,6 +484,11 @@ async function browserSmoke(options = {}) {
     };
 
     await waitFor(() => document.getElementById('svg-style-select')?.options.length >= 3, 'app init');
+
+    const recentSlots = [...document.querySelectorAll('.ctb-recent-slot')];
+    if (recentSlots.length !== 6 || recentSlots.some((slot, index) => slot.id !== `ctb-recent-${index}`)) {
+        throw new Error('Expected six ordered recent-color swatches');
+    }
 
     const styleSelect = document.getElementById('svg-style-select');
     const styles = [...styleSelect.options].map(option => ({
