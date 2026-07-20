@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dalton 3D Element Editor</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d1017;
+      --panel: #151a24;
+      --panel-2: #1b2230;
+      --line: #2b3547;
+      --muted: #8490a5;
+      --text: #edf2f8;
+      --accent: #65d6c4;
+      --accent-2: #7aa2ff;
+      --danger: #ff7185;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font: 13px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input, select, textarea { font: inherit; }
+
+    button, select, input[type="number"] {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #111620;
+      color: var(--text);
+    }
+
+    button { padding: 0 12px; cursor: pointer; }
+    button:hover { border-color: #526079; background: #192130; }
+    button.primary { border-color: #3e8e83; background: #173d3a; color: #b9fff4; }
+    button.small { min-height: 29px; padding: 0 9px; font-size: 12px; }
+
+    .app {
+      display: grid;
+      grid-template-columns: 310px minmax(360px, 1fr) minmax(360px, 520px);
+      height: 100vh;
+    }
+
+    .sidebar, .code-panel {
+      min-height: 0;
+      overflow: auto;
+      background: var(--panel);
+    }
+
+    .sidebar { border-right: 1px solid var(--line); }
+    .code-panel { border-left: 1px solid var(--line); display: flex; flex-direction: column; }
+
+    .brand {
+      padding: 18px 18px 15px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand h1 { margin: 0; font-size: 16px; letter-spacing: .02em; }
+    .brand p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+
+    .section { padding: 15px 18px; border-bottom: 1px solid var(--line); }
+    .section-title {
+      margin-bottom: 11px;
+      color: #b9c4d6;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+
+    .stack { display: grid; gap: 9px; }
+    .field { display: grid; grid-template-columns: 1fr 82px; align-items: center; gap: 10px; }
+    .field label { color: #b7c0cf; }
+    .field input[type="number"] { width: 100%; padding: 5px 7px; font-family: ui-monospace, monospace; }
+    select { width: 100%; padding: 5px 8px; }
+
+    .range-field { display: grid; grid-template-columns: 72px 1fr 45px; align-items: center; gap: 8px; }
+    .range-field label { color: #aeb8c8; }
+    .range-field input[type="range"] { width: 100%; accent-color: var(--accent); }
+    .range-field output { text-align: right; color: #dce7f6; font-family: ui-monospace, monospace; }
+
+    .check-row { display: flex; flex-wrap: wrap; gap: 12px; }
+    .check-row label { display: flex; align-items: center; gap: 6px; color: #b6c0d0; }
+    input[type="checkbox"] { accent-color: var(--accent); }
+
+    .toolbar { display: flex; gap: 7px; flex-wrap: wrap; }
+    .hint { margin: 8px 0 0; color: var(--muted); font-size: 11px; }
+
+    .preview {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 44%, #222b3b 0, #111721 46%, #090c12 100%);
+    }
+
+    #canvas-host { position: absolute; inset: 0; }
+    #canvas-host canvas { display: block; }
+
+    .preview-bar {
+      position: absolute;
+      z-index: 3;
+      left: 14px;
+      right: 14px;
+      top: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .preview-chip {
+      padding: 7px 10px;
+      border: 1px solid #ffffff18;
+      border-radius: 8px;
+      background: #0a0e16bb;
+      box-shadow: 0 8px 25px #0005;
+      backdrop-filter: blur(8px);
+      color: #cad4e3;
+    }
+
+    #element-name { color: white; font-weight: 700; }
+    #stats { color: var(--muted); font-family: ui-monospace, monospace; font-size: 11px; }
+
+    .preview-help {
+      position: absolute;
+      z-index: 3;
+      left: 50%;
+      bottom: 14px;
+      transform: translateX(-50%);
+      padding: 6px 10px;
+      border-radius: 99px;
+      background: #080b11bb;
+      color: #9ca8ba;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .code-head { padding: 16px; border-bottom: 1px solid var(--line); }
+    .code-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 10px; }
+    .code-tab.active { border-color: #487d76; background: #173630; color: #c5fff6; }
+
+    .status {
+      min-height: 21px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+    }
+    .status.error { color: var(--danger); }
+    .status.ok { color: var(--accent); }
+
+    #code {
+      flex: 1;
+      min-height: 280px;
+      width: 100%;
+      resize: none;
+      border: 0;
+      outline: 0;
+      padding: 16px;
+      background: #0b0f16;
+      color: #d5deec;
+      tab-size: 2;
+      font: 12px/1.6 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      white-space: pre;
+    }
+    #code[readonly] { color: #aebbd0; }
+
+    .face-list { display: grid; gap: 7px; }
+    .face-row {
+      display: grid;
+      grid-template-columns: 1fr 42px 45px;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #111620;
+    }
+    .face-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c1cad8; }
+    .face-row input[type="color"] { width: 38px; height: 27px; padding: 2px; border: 0; background: transparent; }
+
+    @media (max-width: 1050px) {
+      body { overflow: auto; }
+      .app { grid-template-columns: 285px 1fr; grid-template-rows: minmax(520px, 100vh) 620px; height: auto; }
+      .code-panel { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); }
+    }
+
+    @media (max-width: 700px) {
+      .app { display: flex; flex-direction: column; }
+      .sidebar, .code-panel { overflow: visible; }
+      .preview { min-height: 520px; order: -1; }
+      .preview-help { white-space: normal; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <aside class="sidebar">
+      <header class="brand">
+        <h1>Dalton element editor</h1>
+        <p>Inspect and reshape the procedural 3D parts used by Dalton’s design.</p>
+      </header>
+
+      <section class="section stack">
+        <div class="section-title">Element</div>
+        <select id="preset" aria-label="Element preset">
+          <optgroup label="Complete pieces">
+            <option value="edge-piece">Edge piece</option>
+            <option value="corner-piece">Corner piece</option>
+            <option value="slice-half">Slice half</option>
+          </optgroup>
+          <optgroup label="Renderer primitives">
+            <option value="edge-cap">edge() cap</option>
+            <option value="corner-cap">corner() cap</option>
+            <option value="edge-adjacent">eadj() panel</option>
+            <option value="corner-adjacent">cadj() panel</option>
+            <option value="equator-bar">equatorBar() panel</option>
+            <option value="equator-long">equatorEndLong() panel</option>
+            <option value="core-top">coreTops() cap</option>
+            <option value="slice-internal">sliceInternal() panel</option>
+          </optgroup>
+        </select>
+        <div class="toolbar">
+          <button id="reset" class="small">Reset preset</button>
+          <button id="frame" class="small">Frame object</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Geometry values</div>
+        <div class="stack">
+          <div class="field"><label for="length">Base length</label><input id="length" type="number" min="20" max="1000" step="1" value="250"></div>
+          <div class="field"><label for="edge-factor">Edge radius ×</label><input id="edge-factor" type="number" min="0.1" max="2" step="0.001" value="0.518"></div>
+          <div class="field"><label for="corner-factor">Corner radius ×</label><input id="corner-factor" type="number" min="0.1" max="2" step="0.001" value="0.707"></div>
+          <div class="field"><label for="outer-z">Outer Z ×</label><input id="outer-z" type="number" min="-2" max="2" step="0.01" value="0.5"></div>
+          <div class="field"><label for="inner-z">Inner Z ×</label><input id="inner-z" type="number" min="-2" max="2" step="0.01" value="0.167"></div>
+          <div class="field"><label for="angle">Sector angle</label><input id="angle" type="number" min="1" max="179" step="1" value="60"></div>
+        </div>
+        <p class="hint">These generate the same default ratios as <code>dalton3dRenderer.js</code>. Changing a value rewrites the JSON.</p>
+      </section>
+
+      <section class="section">
+        <div class="section-title">View</div>
+        <div class="stack">
+          <div class="range-field"><label for="rot-x">Rotate X</label><input id="rot-x" type="range" min="-180" max="180" value="-28"><output>-28°</output></div>
+          <div class="range-field"><label for="rot-y">Rotate Y</label><input id="rot-y" type="range" min="-180" max="180" value="0"><output>0°</output></div>
+          <div class="range-field"><label for="rot-z">Rotate Z</label><input id="rot-z" type="range" min="-180" max="180" value="-25"><output>-25°</output></div>
+          <div class="range-field"><label for="zoom">Zoom</label><input id="zoom" type="range" min="20" max="300" value="100"><output>100%</output></div>
+          <div class="check-row">
+            <label><input id="wireframe" type="checkbox"> Wireframe</label>
+            <label><input id="grid" type="checkbox" checked> Grid</label>
+            <label><input id="axes" type="checkbox" checked> Axes</label>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">Face colors</div>
+        <div id="face-list" class="face-list"></div>
+      </section>
+    </aside>
+
+    <section class="preview">
+      <div id="canvas-host"></div>
+      <div class="preview-bar">
+        <div class="preview-chip"><div id="element-name">Edge piece</div><div id="stats"></div></div>
+        <div id="source-chip" class="preview-chip">generated from controls</div>
+      </div>
+      <div class="preview-help">Drag to orbit · mouse wheel to zoom · edit vertices in Geometry JSON</div>
+    </section>
+
+    <section class="code-panel">
+      <div class="code-head">
+        <div class="code-tabs">
+          <button class="code-tab active" data-mode="json">Geometry JSON</button>
+          <button class="code-tab" data-mode="p5">Generated p5.js</button>
+        </div>
+        <div class="toolbar">
+          <button id="apply" class="primary small">Apply JSON</button>
+          <button id="format" class="small">Format</button>
+          <button id="copy" class="small">Copy</button>
+          <button id="download" class="small">Download JSON</button>
+        </div>
+        <div id="status" class="status">Edit a coordinate, then press Ctrl+Enter or Apply JSON.</div>
+      </div>
+      <textarea id="code" spellcheck="false" aria-label="Geometry code editor"></textarea>
+    </section>
+  </main>
+
+  <script src="../vendor/p5.min.js"></script>
+  <script>
+    (() => {
+      'use strict';
+
+      const $ = selector => document.querySelector(selector);
+      const degrees = value => value * Math.PI / 180;
+      const rounded = value => Number(value.toFixed(3));
+      const clone = value => JSON.parse(JSON.stringify(value));
+
+      const palette = {
+        top: '#f0f2f5',
+        inner: '#414b5d',
+        outer: '#ffb14e',
+        left: '#ff647c',
+        right: '#65d6c4',
+        cut: '#6f7c91',
+        front: '#67a6ff',
+        back: '#a47cff',
+        internal: '#343c4b'
+      };
+
+      const defaults = {
+        length: 250,
+        edgeFactor: 1 / (2 * Math.cos(Math.PI / 12)),
+        cornerFactor: Math.sqrt(2) / 2,
+        outerZ: 0.5,
+        innerZ: 1 / 6,
+        angle: 60
+      };
+
+      const state = {
+        geometry: null,
+        mode: 'json',
+        source: 'controls',
+        orbit: { x: -28, y: 0, z: -25 },
+        zoom: 1,
+        fitScale: 1,
+        center: [0, 0, 0],
+        parseTimer: 0
+      };
+
+      function geometryValues() {
+        return {
+          length: Number($('#length').value),
+          edgeFactor: Number($('#edge-factor').value),
+          cornerFactor: Number($('#corner-factor').value),
+          outerZ: Number($('#outer-z').value),
+          innerZ: Number($('#inner-z').value),
+          angle: Number($('#angle').value)
+        };
+      }
+
+      function point(x, y, z) { return [rounded(x), rounded(y), rounded(z)]; }
+
+      function makeFace(name, color, vertices) {
+        return { name, color, vertices };
+      }
+
+      function reverseFace(face, name = face.name, color = face.color) {
+        return makeFace(name, color, clone(face.vertices).reverse());
+      }
+
+      function prism(name, polygon, zOuter, zInner, capNames) {
+        const outer = polygon.map(([x, y]) => point(x, y, zOuter));
+        const inner = polygon.map(([x, y]) => point(x, y, zInner));
+        const faces = [
+          makeFace(capNames.outer, palette.top, outer),
+          makeFace(capNames.inner, palette.inner, inner.reverse())
+        ];
+        const sideNames = capNames.sides;
+        for (let i = 0; i < polygon.length; i++) {
+          const next = (i + 1) % polygon.length;
+          const sideName = sideNames[i] || `side-${i + 1}`;
+          const colorKey = sideName.split('-')[0];
+          faces.push(makeFace(sideName, palette[colorKey] || palette.cut, [
+            point(polygon[i][0], polygon[i][1], zOuter),
+            point(polygon[next][0], polygon[next][1], zOuter),
+            point(polygon[next][0], polygon[next][1], zInner),
+            point(polygon[i][0], polygon[i][1], zInner)
+          ]));
+        }
+        return { name, faces };
+      }
+
+      function buildPreset(id, values = geometryValues()) {
+        const len = values.length;
+        const er = len * values.edgeFactor;
+        const cr = len * values.cornerFactor;
+        const zOuter = len * values.outerZ;
+        const zInner = len * values.innerZ;
+        const a = degrees(values.angle);
+        const half = a / 2;
+        const edgePolygon = [
+          [0, 0],
+          [0, -er],
+          [er * Math.cos(a), -er * Math.sin(a)]
+        ];
+        const cornerPolygon = [
+          [0, 0],
+          [0, -er],
+          [cr * Math.cos(a), -cr * Math.sin(a)],
+          [er * Math.cos(half), -er * Math.sin(half)]
+        ];
+
+        if (id === 'edge-piece') {
+          return prism('Edge piece', edgePolygon, zOuter, zInner, {
+            outer: 'top', inner: 'inner', sides: ['cut-left', 'outer', 'cut-right']
+          });
+        }
+        if (id === 'corner-piece') {
+          return prism('Corner piece', cornerPolygon, zOuter, zInner, {
+            outer: 'top', inner: 'inner', sides: ['cut-left', 'left', 'right', 'cut-right']
+          });
+        }
+
+        const edgeCap = makeFace('edge-cap', palette.top, edgePolygon.map(([x, y]) => point(x, y, 0)));
+        const cornerCap = makeFace('corner-cap', palette.top, cornerPolygon.map(([x, y]) => point(x, y, 0)));
+        const edgeAdjacent = makeFace('edge-adjacent', palette.outer, [
+          point(0, -er, zInner),
+          point(er * Math.cos(a), -er * Math.sin(a), zInner),
+          point(er * Math.cos(a), -er * Math.sin(a), -zInner),
+          point(0, -er, -zInner)
+        ]);
+        const cornerAdjacent = makeFace('corner-adjacent', palette.right, [
+          point(0, -er, zInner),
+          point(cr * Math.cos(a), -cr * Math.sin(a), zInner),
+          point(cr * Math.cos(a), -cr * Math.sin(a), -zInner),
+          point(0, -er, -zInner)
+        ]);
+        const equatorBar = makeFace('equator-bar', palette.right, [
+          point(cr * Math.cos(a), -cr * Math.sin(a), zInner),
+          point(cr * Math.cos(half), cr * Math.sin(half), zInner),
+          point(cr * Math.cos(half), cr * Math.sin(half), -zInner),
+          point(cr * Math.cos(a), -cr * Math.sin(a), -zInner)
+        ]);
+        const equatorLong = makeFace('equator-long', palette.front, [
+          point(0, er, zInner),
+          point(cr * Math.cos(half), cr * Math.sin(half), zInner),
+          point(cr * Math.cos(half), cr * Math.sin(half), -zInner),
+          point(0, er, -zInner)
+        ]);
+        const sliceInternal = makeFace('slice-internal', palette.internal, [
+          point(0, -er, -zOuter),
+          point(0, er, -zOuter),
+          point(0, er, zOuter),
+          point(0, -er, zOuter)
+        ]);
+        const corePolygon = [
+          [0, -er],
+          [-cr * Math.cos(half), -cr * Math.sin(half)],
+          [-cr * Math.cos(a), cr * Math.sin(a)],
+          [0, er]
+        ];
+        const coreTop = makeFace('core-top', palette.internal, corePolygon.map(([x, y]) => point(x, y, zInner)));
+
+        const coreBottom = reverseFace(coreTop, 'core-bottom', palette.internal);
+        coreBottom.vertices.forEach(vertex => { vertex[2] = -zInner; });
+        const primitiveMap = {
+          'edge-cap': ['edge() cap', [edgeCap]],
+          'corner-cap': ['corner() cap', [cornerCap]],
+          'edge-adjacent': ['eadj() panel', [edgeAdjacent]],
+          'corner-adjacent': ['cadj() panel', [cornerAdjacent]],
+          'equator-bar': ['equatorBar() panel', [equatorBar]],
+          'equator-long': ['equatorEndLong() panel', [equatorLong]],
+          'core-top': ['coreTops() caps', [coreTop, coreBottom]],
+          'slice-internal': ['sliceInternal() panel', [sliceInternal]]
+        };
+        if (primitiveMap[id]) {
+          const [name, faces] = primitiveMap[id];
+          return { name, faces };
+        }
+
+        const sliceFaces = [coreTop, coreBottom, equatorBar, equatorLong, cornerAdjacent];
+        return { name: 'Slice half', faces: sliceFaces };
+      }
+
+      function validateGeometry(candidate) {
+        if (!candidate || typeof candidate !== 'object') throw new Error('The root must be an object.');
+        if (typeof candidate.name !== 'string' || !candidate.name.trim()) throw new Error('A non-empty "name" is required.');
+        if (!Array.isArray(candidate.faces) || !candidate.faces.length) throw new Error('"faces" must be a non-empty array.');
+        candidate.faces.forEach((face, faceIndex) => {
+          if (!face || typeof face.name !== 'string') throw new Error(`Face ${faceIndex + 1} needs a name.`);
+          if (typeof face.color !== 'string') throw new Error(`Face "${face.name}" needs a CSS color string.`);
+          if (!Array.isArray(face.vertices) || face.vertices.length < 3) throw new Error(`Face "${face.name}" needs at least 3 vertices.`);
+          face.vertices.forEach((vertex, vertexIndex) => {
+            if (!Array.isArray(vertex) || vertex.length !== 3 || vertex.some(value => !Number.isFinite(Number(value)))) {
+              throw new Error(`Face "${face.name}", vertex ${vertexIndex + 1} must be [x, y, z].`);
+            }
+            vertex.forEach((value, axis) => { vertex[axis] = Number(value); });
+          });
+        });
+        return candidate;
+      }
+
+      function geometryBounds(geometry) {
+        const points = geometry.faces.flatMap(face => face.vertices);
+        const min = [0, 1, 2].map(axis => Math.min(...points.map(vertex => vertex[axis])));
+        const max = [0, 1, 2].map(axis => Math.max(...points.map(vertex => vertex[axis])));
+        const size = max.map((value, axis) => value - min[axis]);
+        return {
+          min,
+          max,
+          size,
+          center: min.map((value, axis) => (value + max[axis]) / 2),
+          span: Math.max(...size, 1)
+        };
+      }
+
+      function p5Code(geometry) {
+        const lines = [
+          `// ${geometry.name} — generated by Dalton element editor`,
+          'function drawElement(p) {'
+        ];
+        geometry.faces.forEach(face => {
+          lines.push(`  // ${face.name}`);
+          lines.push(`  p.fill('${face.color}');`);
+          lines.push('  p.beginShape();');
+          face.vertices.forEach(vertex => lines.push(`  p.vertex(${vertex.join(', ')});`));
+          lines.push('  p.endShape(p.CLOSE);', '');
+        });
+        lines.push('}');
+        return lines.join('\n');
+      }
+
+      function updateCode() {
+        const editor = $('#code');
+        if (state.mode === 'json') {
+          editor.readOnly = false;
+          editor.value = JSON.stringify(state.geometry, null, 2);
+        } else {
+          editor.readOnly = true;
+          editor.value = p5Code(state.geometry);
+        }
+      }
+
+      function setStatus(message, kind = '') {
+        const status = $('#status');
+        status.textContent = message;
+        status.className = `status ${kind}`;
+      }
+
+      function frameGeometry() {
+        const bounds = geometryBounds(state.geometry);
+        state.center = bounds.center;
+        state.fitScale = 300 / bounds.span;
+        state.zoom = 1;
+        $('#zoom').value = 100;
+        $('#zoom').nextElementSibling.value = '100%';
+      }
+
+      function updateFaceList() {
+        const list = $('#face-list');
+        list.replaceChildren();
+        state.geometry.faces.forEach((face, index) => {
+          const row = document.createElement('div');
+          row.className = 'face-row';
+          const name = document.createElement('span');
+          name.className = 'face-name';
+          name.textContent = face.name;
+          name.title = face.name;
+          const color = document.createElement('input');
+          color.type = 'color';
+          color.value = /^#[0-9a-f]{6}$/i.test(face.color) ? face.color : '#ffffff';
+          color.title = `Color for ${face.name}`;
+          color.addEventListener('input', () => {
+            state.geometry.faces[index].color = color.value;
+            state.source = 'edited';
+            updateCode();
+            updateMeta();
+          });
+          const count = document.createElement('span');
+          count.textContent = `${face.vertices.length}v`;
+          count.style.color = 'var(--muted)';
+          count.style.fontFamily = 'ui-monospace, monospace';
+          row.append(name, color, count);
+          list.append(row);
+        });
+      }
+
+      function updateMeta() {
+        const vertices = state.geometry.faces.reduce((sum, face) => sum + face.vertices.length, 0);
+        $('#element-name').textContent = state.geometry.name;
+        $('#stats').textContent = `${state.geometry.faces.length} faces · ${vertices} face vertices`;
+        $('#source-chip').textContent = state.source === 'controls' ? 'generated from controls' : 'edited geometry';
+      }
+
+      function setGeometry(geometry, source = 'controls', shouldFrame = true) {
+        state.geometry = validateGeometry(clone(geometry));
+        state.source = source;
+        if (shouldFrame) frameGeometry();
+        updateCode();
+        updateFaceList();
+        updateMeta();
+      }
+
+      function generateFromControls(shouldFrame = false) {
+        setGeometry(buildPreset($('#preset').value), 'controls', shouldFrame);
+        setStatus('Geometry regenerated from the numeric controls.', 'ok');
+      }
+
+      function applyJSON() {
+        if (state.mode !== 'json') return;
+        try {
+          const parsed = JSON.parse($('#code').value);
+          setGeometry(parsed, 'edited', false);
+          frameGeometry();
+          updateMeta();
+          setStatus('JSON applied to the preview.', 'ok');
+        } catch (error) {
+          setStatus(error.message, 'error');
+        }
+      }
+
+      function resetControls() {
+        $('#length').value = defaults.length;
+        $('#edge-factor').value = rounded(defaults.edgeFactor);
+        $('#corner-factor').value = rounded(defaults.cornerFactor);
+        $('#outer-z').value = defaults.outerZ;
+        $('#inner-z').value = rounded(defaults.innerZ);
+        $('#angle').value = defaults.angle;
+        generateFromControls(true);
+      }
+
+      function copyText() {
+        const value = $('#code').value;
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(value)
+            .then(() => setStatus('Copied to clipboard.', 'ok'))
+            .catch(error => setStatus(`Copy failed: ${error.message}`, 'error'));
+          return;
+        }
+        const editor = $('#code');
+        editor.focus();
+        editor.select();
+        const copied = document.execCommand('copy');
+        setStatus(copied ? 'Copied to clipboard.' : 'Copy is unavailable in this browser.', copied ? 'ok' : 'error');
+      }
+
+      function downloadJSON() {
+        const data = JSON.stringify(state.geometry, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${state.geometry.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      }
+
+      function bindUI() {
+        $('#preset').addEventListener('change', () => generateFromControls(true));
+        ['#length', '#edge-factor', '#corner-factor', '#outer-z', '#inner-z', '#angle'].forEach(selector => {
+          $(selector).addEventListener('input', () => generateFromControls(false));
+        });
+        $('#reset').addEventListener('click', resetControls);
+        $('#frame').addEventListener('click', frameGeometry);
+        $('#apply').addEventListener('click', applyJSON);
+        $('#format').addEventListener('click', () => {
+          if (state.mode === 'json') applyJSON();
+          if (state.mode === 'json' && state.source === 'edited') setStatus('JSON formatted.', 'ok');
+        });
+        $('#copy').addEventListener('click', copyText);
+        $('#download').addEventListener('click', downloadJSON);
+
+        document.querySelectorAll('.code-tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            state.mode = tab.dataset.mode;
+            document.querySelectorAll('.code-tab').forEach(item => item.classList.toggle('active', item === tab));
+            $('#apply').disabled = state.mode !== 'json';
+            $('#format').disabled = state.mode !== 'json';
+            updateCode();
+            setStatus(state.mode === 'json' ? 'Geometry JSON is editable.' : 'Generated p5.js is read-only; use Copy to reuse it.');
+          });
+        });
+
+        $('#code').addEventListener('input', () => {
+          if (state.mode !== 'json') return;
+          clearTimeout(state.parseTimer);
+          setStatus('Unapplied changes…');
+          state.parseTimer = setTimeout(applyJSON, 450);
+        });
+        $('#code').addEventListener('keydown', event => {
+          if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+            event.preventDefault();
+            applyJSON();
+          }
+          if (event.key === 'Tab') {
+            event.preventDefault();
+            const editor = event.currentTarget;
+            const start = editor.selectionStart;
+            editor.setRangeText('  ', start, editor.selectionEnd, 'end');
+          }
+        });
+
+        ['x', 'y', 'z'].forEach(axis => {
+          const input = $(`#rot-${axis}`);
+          input.addEventListener('input', () => {
+            state.orbit[axis] = Number(input.value);
+            input.nextElementSibling.value = `${input.value}°`;
+          });
+        });
+        $('#zoom').addEventListener('input', event => {
+          state.zoom = Number(event.target.value) / 100;
+          event.target.nextElementSibling.value = `${event.target.value}%`;
+        });
+      }
+
+      function drawGrid(p, span) {
+        const extent = Math.max(250, Math.ceil(span / 100) * 150);
+        const step = extent / 5;
+        p.push();
+        p.strokeWeight(1 / Math.max(state.fitScale * state.zoom, .01));
+        p.stroke(75, 87, 108, 90);
+        for (let value = -extent; value <= extent; value += step) {
+          p.line(-extent, value, 0, extent, value, 0);
+          p.line(value, -extent, 0, value, extent, 0);
+        }
+        p.pop();
+      }
+
+      function drawAxes(p, span) {
+        const length = Math.max(span * .75, 90);
+        const weight = 2 / Math.max(state.fitScale * state.zoom, .01);
+        p.push();
+        p.strokeWeight(weight);
+        p.stroke('#ff657a'); p.line(0, 0, 0, length, 0, 0);
+        p.stroke('#65d68b'); p.line(0, 0, 0, 0, length, 0);
+        p.stroke('#6d9fff'); p.line(0, 0, 0, 0, 0, length);
+        p.pop();
+      }
+
+      function startSketch() {
+        if (!window.p5) {
+          setStatus('p5.js could not be loaded from ../vendor/p5.min.js.', 'error');
+          return;
+        }
+        new window.p5(p => {
+          const host = $('#canvas-host');
+          const resize = () => p.resizeCanvas(host.clientWidth, host.clientHeight);
+
+          p.setup = () => {
+            const canvas = p.createCanvas(host.clientWidth, host.clientHeight, p.WEBGL);
+            canvas.parent(host);
+            p.pixelDensity(Math.min(window.devicePixelRatio || 1, 2));
+            p.frameRate(30);
+            window.addEventListener('resize', resize);
+          };
+
+          p.draw = () => {
+            p.clear();
+            if (!state.geometry) return;
+            const bounds = geometryBounds(state.geometry);
+            p.push();
+            p.scale(state.fitScale * state.zoom);
+            p.rotateX(degrees(state.orbit.x));
+            p.rotateY(degrees(state.orbit.y));
+            p.rotateZ(degrees(state.orbit.z));
+            p.translate(-state.center[0], -state.center[1], -state.center[2]);
+
+            if ($('#grid').checked) drawGrid(p, bounds.span);
+            if ($('#axes').checked) drawAxes(p, bounds.span);
+
+            p.stroke('#080b10');
+            p.strokeWeight(1.7 / Math.max(state.fitScale * state.zoom, .01));
+            state.geometry.faces.forEach(face => {
+              if ($('#wireframe').checked) p.noFill();
+              else p.fill(face.color);
+              p.beginShape();
+              face.vertices.forEach(([x, y, z]) => p.vertex(x, y, z));
+              p.endShape(p.CLOSE);
+            });
+            p.pop();
+          };
+
+          p.mouseDragged = event => {
+            if (p.mouseX < 0 || p.mouseY < 0 || p.mouseX > p.width || p.mouseY > p.height) return;
+            state.orbit.z += event.movementX * .45;
+            state.orbit.x += event.movementY * .45;
+            $('#rot-z').value = Math.max(-180, Math.min(180, state.orbit.z));
+            $('#rot-x').value = Math.max(-180, Math.min(180, state.orbit.x));
+            $('#rot-z').nextElementSibling.value = `${Math.round(state.orbit.z)}°`;
+            $('#rot-x').nextElementSibling.value = `${Math.round(state.orbit.x)}°`;
+            return false;
+          };
+
+          p.mouseWheel = event => {
+            if (p.mouseX < 0 || p.mouseY < 0 || p.mouseX > p.width || p.mouseY > p.height) return;
+            state.zoom = Math.max(.2, Math.min(3, state.zoom * Math.exp(-event.delta * .001)));
+            $('#zoom').value = Math.round(state.zoom * 100);
+            $('#zoom').nextElementSibling.value = `${Math.round(state.zoom * 100)}%`;
+            return false;
+          };
+        });
+      }
+
+      bindUI();
+      setGeometry(buildPreset('edge-piece'), 'controls', true);
+      startSketch();
+    })();
+  </script>
+</body>
+</html>
