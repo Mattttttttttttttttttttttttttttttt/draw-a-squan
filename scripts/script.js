@@ -667,6 +667,17 @@ let fillModeActive = false;
 let fillResetActive = false;
 let muteActive = false;
 
+// An empty scramble renders the non-interactive placeholder, so piece fills
+// are not visible until there is a real position to apply them to. Seed a
+// solved position when the user starts filling in custom mode.
+function prepareCustomFillInteraction() {
+    if (!isCustomMode || document.getElementById('scramble-input').value.trim()) return;
+
+    document.getElementById('scramble-input').value = '0';
+    muteActive = true;
+    muteBtn.classList.add('active');
+}
+
 function setFillColor(hex) {
     fillColorInput.value = hex;
     if (fillPickr) fillPickr.setColor(hex);
@@ -933,6 +944,7 @@ async function renderDalton3D(moves, muted = false) {
             onStickerClick: (pieceId) => {
                 if (!pieceId) return;
                 if (fillModeActive) {
+                    prepareCustomFillInteraction();
                     pushUndo();
                     sq1vis.setPieceColor(pieceId, fillColorInput.value || 'transparent');
                     updateLastUsed();
@@ -1383,6 +1395,7 @@ document.getElementById('canvas-inner').addEventListener('click', e => {
     if (fillModeActive) {
         const piece = e.target.closest('.sticker[id]');
         if (!piece || !piece.id.trim()) return;
+        prepareCustomFillInteraction();
         pushUndo();
         sq1vis.setPieceColor(piece.id, fillColorInput.value || 'transparent');
         updateLastUsed();
