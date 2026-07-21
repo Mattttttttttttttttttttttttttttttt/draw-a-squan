@@ -1,10 +1,12 @@
 import * as esbuild from 'esbuild';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, rmSync } from 'fs';
-import { join, relative, dirname } from 'path';
+import { join, relative, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const dst = join(__dirname, 'public');
+const dst = process.env.BUILD_OUT_DIR
+  ? resolve(process.env.BUILD_OUT_DIR)
+  : join(__dirname, 'public');
 
 function mkdirp(p) {
   mkdirSync(p, { recursive: true });
