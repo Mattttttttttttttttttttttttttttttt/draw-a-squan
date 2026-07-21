@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/Mattttttttttttttttttttttttttttttt/draw-a-squan#readme",
   "devDependencies": {
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.1",
     "svgo": "^4.0.1"
   }
 }
