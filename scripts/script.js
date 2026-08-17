@@ -1450,6 +1450,33 @@ syncPair('size-slider', 'size-input', draw);
 syncPair('pad-slider', 'pad-input', draw);
 syncPair('gap-slider', 'gap-input', draw);
 
+/* ─── Padding preview: show dotted outline while slider is focused ── */
+let padPreviewActive = false;
+const padSlider = document.getElementById('pad-slider');
+const padInput = document.getElementById('pad-input');
+
+function applyPadPreview() {
+    const padPct = parseInt(document.getElementById('pad-input').value, 10);
+    canvasInner.querySelectorAll('svg.squan').forEach(svg => {
+        const w = parseFloat(svg.getAttribute('width'));
+        const offset = Math.round(w * padPct / 100);
+        svg.style.outline = '2px dashed rgba(255, 255, 255, .3)';
+        svg.style.outlineOffset = offset + 'px';
+    });
+}
+
+function removePadPreview() {
+    canvasInner.querySelectorAll('svg.squan').forEach(svg => {
+        svg.style.outline = '';
+        svg.style.outlineOffset = '';
+    });
+}
+
+padSlider.addEventListener('focus', () => { padPreviewActive = true; applyPadPreview(); });
+padSlider.addEventListener('blur', () => { padPreviewActive = false; removePadPreview(); });
+padInput.addEventListener('focus', () => { padPreviewActive = true; applyPadPreview(); });
+padInput.addEventListener('blur', () => { padPreviewActive = false; removePadPreview(); });
+
 /* ─── Orientation ─────────────────────────────────── */
 document.querySelectorAll('input[name=orientation]').forEach(r =>
     r.addEventListener('change', draw));
@@ -1595,6 +1622,16 @@ function draw() {
         const html = sq1vis.getSVG(hex, size, gap, muteActive, isVertical, showSlice, showSides);
         canvasInner.innerHTML = html;
         updateCanvasCursor();
+
+        const padPct = parseInt(document.getElementById('pad-input').value, 10);
+        const scaledSize = size * (220 / 400);
+        const minSafePad = Math.ceil((19.6 / 220) * scaledSize);
+        const userPad = Math.round(scaledSize * padPct / 100);
+        if (userPad < minSafePad) {
+            flashBtn('Warning: image may get cut off at this padding');
+        }
+
+        if (padPreviewActive) applyPadPreview();
 
     } catch (err) {
         canvasInner.innerHTML = `<div class="error-banner">⚠ ${err.message}</div>`;

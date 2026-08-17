@@ -848,8 +848,7 @@ export function createSquare1Core(initialState = {}) {
         const cx = size / 2, cy = size / 2;
         const margin = size * (0.44 * (2 + ringDistance / 100) - 1);
 
-        const topApexY = cy - (123.5 / 220) * size;
-        const padTop = exportPad + Math.max(0, Math.ceil(-topApexY + (122 / 220) * size * 0.05));
+        const padTop = exportPad;
         const padOther = exportPad;
         const vbX = -padOther, vbY = -padTop;
         const vbW = size + padOther * 2, vbH = size + padTop + padOther;
