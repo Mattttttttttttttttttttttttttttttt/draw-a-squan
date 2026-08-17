@@ -418,6 +418,14 @@ function buildSidebar() {
           </div>
         </div>
 
+        <div class="field" id="pad-row">
+          <label class="field-label">Padding Size</label>
+          <div class="slider-combo">
+            <input type="range" id="pad-slider" min="0" max="100" step="1" value="28" />
+            <input type="number" id="pad-input" min="0" max="100" value="28" />
+          </div>
+        </div>
+
         <div class="field" id="layer-distance-row">
           <label class="field-label">Layer Distance</label>
           <div class="slider-combo">
@@ -1106,6 +1114,7 @@ function saveSettings() {
     const settings = {
         // Display
         size: document.getElementById('size-input').value,
+        padPct: document.getElementById('pad-input').value,
         gap: document.getElementById('gap-input').value,
         orientation: document.querySelector('input[name=orientation]:checked').value,
         hideSlice: document.getElementById('hide-slice').checked,
@@ -1171,6 +1180,10 @@ function loadSettings() {
     // Display
     if (s.size != null) {
         setDisplaySize(s.size);
+    }
+    if (s.padPct != null) {
+        document.getElementById('pad-input').value = s.padPct;
+        document.getElementById('pad-slider').value = s.padPct;
     }
     if (s.gap != null) {
         document.getElementById('gap-input').value = s.gap;
@@ -1434,6 +1447,7 @@ function syncPair(sliderId, inputId, onChange) {
     input.addEventListener('input', () => { slider.value = input.value; onChange(); });
 }
 syncPair('size-slider', 'size-input', draw);
+syncPair('pad-slider', 'pad-input', draw);
 syncPair('gap-slider', 'gap-input', draw);
 
 /* ─── Orientation ─────────────────────────────────── */
@@ -1450,6 +1464,8 @@ document.getElementById('hide-sides').addEventListener('change', e => {
 
 document.getElementById('display-reset-default').addEventListener('click', () => {
     setDisplaySize(isDalton3DStyle() ? 560 : 400);
+    document.getElementById('pad-input').value = 28;
+    document.getElementById('pad-slider').value = 28;
     document.getElementById('gap-input').value = 100;
     document.getElementById('gap-slider').value = 100;
     document.querySelector('input[name=orientation][value="horizontal"]').checked = true;
@@ -1611,6 +1627,7 @@ document.addEventListener('keydown', e => {
 /* ─── Core export ─────────────────────────────────────── */
 function getExportSVGString(layer) {
     const size = parseInt(document.getElementById('size-input').value, 10);
+    const padPct = parseInt(document.getElementById('pad-input').value, 10);
     const gap = parseInt(document.getElementById('gap-input').value, 10);
     const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
     const showSlice = !document.getElementById('hide-slice').checked;
@@ -1641,7 +1658,7 @@ function getExportSVGString(layer) {
 
     // Render to a temp div so we can grab individual SVGs
     const scaledSize = size * (220 / 400);
-    const PAD = Math.round(scaledSize * 0.28);
+    const PAD = Math.round(scaledSize * padPct / 100);
     const tmp = document.createElement('div');
     tmp.innerHTML = renderVis.getSVG(hex, size, gap, muted, isVertical, showSlice, showSides, PAD);
     const svgs = tmp.querySelectorAll('svg');
@@ -1675,7 +1692,7 @@ function getExportSVGString(layer) {
             `<g transform="${g0shift}">${inner0}</g><g transform="${g1shift}">${inner1}</g></svg>`;
     } else {
         const scaledSize = size * (220 / 400);
-        const PAD = Math.round(scaledSize * 0.28);
+        const PAD = Math.round(scaledSize * padPct / 100);
         return renderVis.getSingleLayerSVG(hex, size, muted, showSlice, layer, PAD);
     }
 }
@@ -2146,6 +2163,7 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
     function getCurrentSettings() {
         return {
             size:       parseInt(document.getElementById('size-input').value, 10),
+            padPct:     parseInt(document.getElementById('pad-input').value, 10),
             gap:        parseInt(document.getElementById('gap-input').value, 10),
             isVertical: document.querySelector('input[name=orientation]:checked').value === 'vertical',
             showSlice:  !document.getElementById('hide-slice').checked,
@@ -2167,7 +2185,7 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
     }
 
     function svgStringForHex(hex, s) {
-        const PAD = Math.round(s.size * (220 / 400) * 0.28);
+        const PAD = Math.round(s.size * (220 / 400) * s.padPct / 100);
         const tmp = document.createElement('div');
         tmp.innerHTML = sq1vis.getSVG(hex, s.size, s.gap, muteActive, s.isVertical, s.showSlice, s.showSides, PAD);
         const svgs = tmp.querySelectorAll('svg');

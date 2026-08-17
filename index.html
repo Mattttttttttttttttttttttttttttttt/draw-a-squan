@@ -274,6 +274,7 @@
       const rawInput = params.get('input');          // may contain slashes
       const mode = params.get('mode') || 'scramble'; // scramble | inverse | hex
       const size = parseInt(params.get('size') || '400', 10);
+      const padPct = parseInt(params.get('pad') || '28', 10);
       const gap = parseInt(params.get('gap') || '100', 10);
       const layer = params.get('layer') || 'both';   // both | top | bottom
       const fmt = params.get('fmt') || 'png';    // png | jpeg | bmp | svg
@@ -292,7 +293,7 @@
 
       function getDeeplinkSVGString(hex, layer) {
         const sc = Math.round(size * (220 / 400));
-        const PAD = Math.round(sc * 0.28);
+        const PAD = Math.round(sc * padPct / 100);
         const tmp = document.createElement('div');
         tmp.innerHTML = sq1vis.getSVG(hex, size, gap, false, vert, true, true, PAD);
         const svgs = tmp.querySelectorAll('svg');
