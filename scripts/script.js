@@ -143,6 +143,7 @@ function buildStyleDropdown() {
         updateStyleToggles();
         buildSchemeGrid();
         draw();
+        if (isPadInDangerZone()) { showPadWarn(); dismissPadWarnLater(); }
     });
 }
 
@@ -158,6 +159,12 @@ function updateStyleToggles() {
     document.getElementById('size-field-label').textContent = is3D ? 'Size' : 'Image Size';
     document.getElementById('layer-distance-row').style.display = is3D ? 'none' : '';
     document.getElementById('orientation-row').style.display = is3D ? 'none' : '';
+
+    const padSlider = document.getElementById('pad-slider');
+    const padInput = document.getElementById('pad-input');
+    padSlider.min = -20;
+    padInput.min = -20;
+
     const hideSidesRow = document.getElementById('hide-sides-row');
     const hideSliceRow = document.getElementById('hide-slice-row');
     hideSidesRow.style.display = !is3D && style.hidableSideColor  ? '' : 'none';
@@ -421,8 +428,8 @@ function buildSidebar() {
         <div class="field" id="pad-row">
           <label class="field-label">Padding Size</label>
           <div class="slider-combo">
-            <input type="range" id="pad-slider" min="0" max="100" step="1" value="28" />
-            <input type="number" id="pad-input" min="0" max="100" value="28" />
+            <input type="range" id="pad-slider" min="-20" max="100" step="1" value="0" />
+            <input type="number" id="pad-input" min="-20" max="100" value="0" />
           </div>
         </div>
 
@@ -1450,17 +1457,37 @@ syncPair('size-slider', 'size-input', draw);
 syncPair('pad-slider', 'pad-input', draw);
 syncPair('gap-slider', 'gap-input', draw);
 
+/* ─── Padding offset: slider 0 = tightest safe padding per style ─── */
+const PAD_SAFE_ZERO = { Abid: 12, SAC2: 11, Dalton3D: -13 };
+function getEffectivePadPct() {
+    const raw = parseInt(document.getElementById('pad-input').value, 10);
+    const source = sq1vis.getActiveStyle()?.source;
+    return raw + (PAD_SAFE_ZERO[source] ?? 11);
+}
+
 /* ─── Padding preview: show dotted outline while slider is focused ── */
 let padPreviewActive = false;
 const padSlider = document.getElementById('pad-slider');
 const padInput = document.getElementById('pad-input');
 
 function applyPadPreview() {
-    const padPct = parseInt(document.getElementById('pad-input').value, 10);
-    const svgs = canvasInner.querySelectorAll('svg.squan');
+    const padPct = getEffectivePadPct();
 
     canvasInner.querySelectorAll('.pad-overlay').forEach(el => el.remove());
-    svgs.forEach(svg => { svg.style.outline = ''; svg.style.outlineOffset = ''; });
+    canvasInner.querySelectorAll('svg.squan').forEach(svg => { svg.style.outline = ''; svg.style.outlineOffset = ''; });
+    const d3Canvas = canvasInner.querySelector('canvas.dalton-3d-canvas');
+    if (d3Canvas) { d3Canvas.style.outline = ''; d3Canvas.style.outlineOffset = ''; }
+
+    const svgs = canvasInner.querySelectorAll('svg.squan');
+
+    // Dalton3D: single canvas, outline like single-SVG case
+    if (!svgs.length && d3Canvas) {
+        const w = d3Canvas.width;
+        const offset = Math.round(w * padPct / 100);
+        d3Canvas.style.outline = '2px dashed rgba(255, 255, 255, .3)';
+        d3Canvas.style.outlineOffset = offset + 'px';
+        return;
+    }
 
     if (!svgs.length) return;
 
@@ -1530,9 +1557,9 @@ function applyPadPreview() {
 
 function removePadPreview() {
     canvasInner.querySelectorAll('.pad-overlay').forEach(el => el.remove());
-    canvasInner.querySelectorAll('svg.squan').forEach(svg => {
-        svg.style.outline = '';
-        svg.style.outlineOffset = '';
+    canvasInner.querySelectorAll('svg.squan, canvas.dalton-3d-canvas').forEach(el => {
+        el.style.outline = '';
+        el.style.outlineOffset = '';
     });
 }
 
@@ -1561,8 +1588,8 @@ document.getElementById('hide-sides').addEventListener('change', e => {
 
 document.getElementById('display-reset-default').addEventListener('click', () => {
     setDisplaySize(isDalton3DStyle() ? 560 : 400);
-    document.getElementById('pad-input').value = 28;
-    document.getElementById('pad-slider').value = 28;
+    document.getElementById('pad-input').value = 0;
+    document.getElementById('pad-slider').value = 0;
     document.getElementById('gap-input').value = 100;
     document.getElementById('gap-slider').value = 100;
     document.querySelector('input[name=orientation][value="horizontal"]').checked = true;
@@ -1673,6 +1700,8 @@ function draw() {
             canvasInner.innerHTML = `<div class="error-banner">⚠ ${err.message}</div>`;
             console.error(err);
         }
+        updatePadWarning();
+        if (padPreviewActive) applyPadPreview();
         return;
     }
 
@@ -1727,7 +1756,7 @@ document.addEventListener('keydown', e => {
 /* ─── Core export ─────────────────────────────────────── */
 function getExportSVGString(layer) {
     const size = parseInt(document.getElementById('size-input').value, 10);
-    const padPct = parseInt(document.getElementById('pad-input').value, 10);
+    const padPct = getEffectivePadPct();
     const gap = parseInt(document.getElementById('gap-input').value, 10);
     const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
     const showSlice = !document.getElementById('hide-slice').checked;
@@ -1987,8 +2016,12 @@ async function doDalton3DExport(method) {
         if (!dalton3DRenderer?.getCanvas()) {
             await renderDalton3D(currentInputToDaltonMoves(), !document.getElementById('scramble-input').value.trim());
         }
-        const canvas = dalton3DRenderer?.getExportCanvas();
-        if (!canvas) throw new Error('3D canvas is not ready.');
+        const source = dalton3DRenderer?.getExportCanvas();
+        if (!source) throw new Error('3D canvas is not ready.');
+
+        const padPct = getEffectivePadPct();
+        const pad = Math.round(source.width * padPct / 100);
+        const canvas = pad !== 0 ? paddedCanvas(source, pad) : source;
 
         if (method === 'clipboard') {
             if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
@@ -2013,13 +2046,28 @@ async function doDalton3DExport(method) {
 
         const mime = exportFmt === 'jpeg' ? 'image/jpeg' : 'image/png';
         const ext = exportFmt === 'jpeg' ? 'jpg' : 'png';
-        const source = exportFmt === 'jpeg' ? canvasWithBackground(canvas) : canvas;
-        const blob = await canvasToBlob(source, mime);
+        const source2 = exportFmt === 'jpeg' ? canvasWithBackground(canvas) : canvas;
+        const blob = await canvasToBlob(source2, mime);
         triggerDownload(blob, `sq1-3d.${ext}`);
     } catch (err) {
         flashBtn(method === 'clipboard' ? 'Failed to copy to clipboard' : 'Export failed');
         console.error(err);
     }
+}
+
+function paddedCanvas(source, pad) {
+    const c = document.createElement('canvas');
+    if (pad >= 0) {
+        c.width = source.width + pad * 2;
+        c.height = source.height + pad * 2;
+        c.getContext('2d').drawImage(source, pad, pad);
+    } else {
+        const crop = -pad;
+        c.width = Math.max(1, source.width + pad * 2);
+        c.height = Math.max(1, source.height + pad * 2);
+        c.getContext('2d').drawImage(source, crop, crop, c.width, c.height, 0, 0, c.width, c.height);
+    }
+    return c;
 }
 
 function createBMP32(canvas) {
@@ -2104,10 +2152,8 @@ function flashBtn(msg) {
 let padWarnTimer = null;
 
 function isPadInDangerZone() {
-    const size = parseInt(document.getElementById('size-input').value, 10);
-    const padPct = parseInt(document.getElementById('pad-input').value, 10);
-    const scaledSize = size * (220 / 400);
-    return Math.round(scaledSize * padPct / 100) < Math.ceil((19.6 / 220) * scaledSize);
+    const raw = parseInt(document.getElementById('pad-input').value, 10);
+    return raw < 0;
 }
 
 function showPadWarn() {
@@ -2300,7 +2346,7 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
     function getCurrentSettings() {
         return {
             size:       parseInt(document.getElementById('size-input').value, 10),
-            padPct:     parseInt(document.getElementById('pad-input').value, 10),
+            padPct:     getEffectivePadPct(),
             gap:        parseInt(document.getElementById('gap-input').value, 10),
             isVertical: document.querySelector('input[name=orientation]:checked').value === 'vertical',
             showSlice:  !document.getElementById('hide-slice').checked,
