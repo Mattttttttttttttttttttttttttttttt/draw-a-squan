@@ -1457,25 +1457,95 @@ const padInput = document.getElementById('pad-input');
 
 function applyPadPreview() {
     const padPct = parseInt(document.getElementById('pad-input').value, 10);
-    canvasInner.querySelectorAll('svg.squan').forEach(svg => {
-        const w = parseFloat(svg.getAttribute('width'));
-        const offset = Math.round(w * padPct / 100);
-        svg.style.outline = '2px dashed rgba(255, 255, 255, .3)';
-        svg.style.outlineOffset = offset + 'px';
-    });
+    const svgs = canvasInner.querySelectorAll('svg.squan');
+
+    canvasInner.querySelectorAll('.pad-overlay').forEach(el => el.remove());
+    svgs.forEach(svg => { svg.style.outline = ''; svg.style.outlineOffset = ''; });
+
+    if (!svgs.length) return;
+
+    const canvasRect = canvasInner.getBoundingClientRect();
+    const w = parseFloat(svgs[0].getAttribute('width'));
+    const offset = Math.round(w * padPct / 100);
+
+    if (svgs.length === 1) {
+        svgs[0].style.outline = '2px dashed rgba(255, 255, 255, .3)';
+        svgs[0].style.outlineOffset = offset + 'px';
+        return;
+    }
+
+    const r0 = svgs[0].getBoundingClientRect();
+    const r1 = svgs[1].getBoundingClientRect();
+    const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
+
+    // Compute padded bounds for each square (relative to canvasInner)
+    const s0 = {
+        l: r0.left - canvasRect.left - offset,
+        t: r0.top - canvasRect.top - offset,
+        r: r0.right - canvasRect.left + offset,
+        b: r0.bottom - canvasRect.top + offset,
+    };
+    const s1 = {
+        l: r1.left - canvasRect.left - offset,
+        t: r1.top - canvasRect.top - offset,
+        r: r1.right - canvasRect.left + offset,
+        b: r1.bottom - canvasRect.top + offset,
+    };
+
+    // Single SVG overlay — one <path> so dash pattern is seamless
+    const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svgEl.classList.add('pad-overlay');
+    svgEl.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;';
+
+    let d;
+    if (isVertical) {
+        // Continuous left & right lines spanning both squares + gap
+        // Individual top & bottom edges for each square
+        d = `M${s0.l},${s0.t} H${s0.r}` +
+            `M${s0.l},${s0.b} H${s0.r}` +
+            `M${s1.l},${s1.t} H${s1.r}` +
+            `M${s1.l},${s1.b} H${s1.r}` +
+            `M${s0.l},${s0.t} V${s1.b}` +
+            `M${s0.r},${s0.t} V${s1.b}`;
+    } else {
+        // Continuous top & bottom lines spanning both squares + gap
+        // Individual left & right edges for each square
+        d = `M${s0.l},${s0.t} V${s0.b}` +
+            `M${s0.r},${s0.t} V${s0.b}` +
+            `M${s1.l},${s1.t} V${s1.b}` +
+            `M${s1.r},${s1.t} V${s1.b}` +
+            `M${s0.l},${s0.t} H${s1.r}` +
+            `M${s0.l},${s0.b} H${s1.r}`;
+    }
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'rgba(255,255,255,.3)');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('stroke-dasharray', '8 6');
+    svgEl.appendChild(path);
+    canvasInner.appendChild(svgEl);
 }
 
 function removePadPreview() {
+    canvasInner.querySelectorAll('.pad-overlay').forEach(el => el.remove());
     canvasInner.querySelectorAll('svg.squan').forEach(svg => {
         svg.style.outline = '';
         svg.style.outlineOffset = '';
     });
 }
 
-padSlider.addEventListener('focus', () => { padPreviewActive = true; applyPadPreview(); });
-padSlider.addEventListener('blur', () => { padPreviewActive = false; removePadPreview(); });
-padInput.addEventListener('focus', () => { padPreviewActive = true; applyPadPreview(); });
-padInput.addEventListener('blur', () => { padPreviewActive = false; removePadPreview(); });
+padSlider.addEventListener('focus', () => { padPreviewActive = true; applyPadPreview(); updatePadWarning(); });
+padSlider.addEventListener('blur', () => {
+    padPreviewActive = false; removePadPreview();
+    if (isPadInDangerZone()) dismissPadWarnLater(); else hidePadWarn();
+});
+padInput.addEventListener('focus', () => { padPreviewActive = true; applyPadPreview(); updatePadWarning(); });
+padInput.addEventListener('blur', () => {
+    padPreviewActive = false; removePadPreview();
+    if (isPadInDangerZone()) dismissPadWarnLater(); else hidePadWarn();
+});
 
 /* ─── Orientation ─────────────────────────────────── */
 document.querySelectorAll('input[name=orientation]').forEach(r =>
@@ -1613,30 +1683,23 @@ function draw() {
         const html = getPlaceholderSVG(size, gap, isVertical, showSlice, showSides);
         canvasInner.innerHTML = html;
         updateCanvasCursor();
-        return;
-    }
+    } else {
+        try {
+            const hex = currentInputToHex();
 
-    try {
-        const hex = currentInputToHex();
+            const html = sq1vis.getSVG(hex, size, gap, muteActive, isVertical, showSlice, showSides);
+            canvasInner.innerHTML = html;
+            updateCanvasCursor();
 
-        const html = sq1vis.getSVG(hex, size, gap, muteActive, isVertical, showSlice, showSides);
-        canvasInner.innerHTML = html;
-        updateCanvasCursor();
-
-        const padPct = parseInt(document.getElementById('pad-input').value, 10);
-        const scaledSize = size * (220 / 400);
-        const minSafePad = Math.ceil((19.6 / 220) * scaledSize);
-        const userPad = Math.round(scaledSize * padPct / 100);
-        if (userPad < minSafePad) {
-            flashBtn('Warning: image may get cut off at this padding');
+        } catch (err) {
+            canvasInner.innerHTML = `<div class="error-banner">⚠ ${err.message}</div>`;
+            console.error(err);
         }
-
-        if (padPreviewActive) applyPadPreview();
-
-    } catch (err) {
-        canvasInner.innerHTML = `<div class="error-banner">⚠ ${err.message}</div>`;
-        console.error(err);
     }
+
+    updatePadWarning();
+
+    if (padPreviewActive) applyPadPreview();
 }
 
 /* ─── Export state ────────────────────────────────────── */
@@ -2032,9 +2095,46 @@ function triggerDownload(blob, filename) {
 function flashBtn(msg) {
     const toast = document.getElementById('toast');
     toast.textContent = msg;
-    toast.classList.add('show');
+    toast.className = 'toast show';
     clearTimeout(flashBtn._t);
     flashBtn._t = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+/* ─── Pad warning state machine ────────────────────── */
+let padWarnTimer = null;
+
+function isPadInDangerZone() {
+    const size = parseInt(document.getElementById('size-input').value, 10);
+    const padPct = parseInt(document.getElementById('pad-input').value, 10);
+    const scaledSize = size * (220 / 400);
+    return Math.round(scaledSize * padPct / 100) < Math.ceil((19.6 / 220) * scaledSize);
+}
+
+function showPadWarn() {
+    clearTimeout(padWarnTimer);
+    padWarnTimer = null;
+    const toast = document.getElementById('toast');
+    toast.textContent = 'Warning: image may get cut off at this padding';
+    toast.className = 'toast toast-warn show';
+}
+
+function hidePadWarn() {
+    clearTimeout(padWarnTimer);
+    padWarnTimer = null;
+    document.getElementById('toast').classList.remove('show');
+}
+
+function dismissPadWarnLater() {
+    clearTimeout(padWarnTimer);
+    padWarnTimer = setTimeout(hidePadWarn, 6000);
+}
+
+function updatePadWarning() {
+    if (padPreviewActive && isPadInDangerZone()) {
+        showPadWarn();
+    } else {
+        hidePadWarn();
+    }
 }
 
 /* ─── Floating export button ──────────────────────── */

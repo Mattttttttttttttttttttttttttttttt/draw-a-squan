@@ -1492,6 +1492,11 @@ button:disabled {
     transform: translateX(-50%) translateY(0);
 }
 
+.toast-warn {
+    color: #ff8a8a;
+    border-color: rgba(255, 92, 92, .35);
+}
+
 /* ── Hamburger ──────────────────────────────────── */
 .hamburger-btn {
     display: flex;
