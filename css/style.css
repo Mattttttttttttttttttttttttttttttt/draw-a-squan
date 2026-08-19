@@ -1694,6 +1694,15 @@ button:disabled {
         pointer-events: none;
     }
 
+    .sidebar-right {
+        left: auto;
+        right: 0;
+    }
+
+    .sidebar-right.hidden {
+        transform: translateX(100%);
+    }
+
     .viewport {
         width: 100%;
     }
@@ -2132,13 +2141,8 @@ button:disabled {
     left: 50%;
     top: 50%;
     pointer-events: auto;
-    cursor: move;
+    cursor: default;
     transform-origin: center center;
-    transition: box-shadow 0.15s ease;
-}
-
-.pu-layer.selected {
-    box-shadow: 0 0 0 0px transparent;
 }
 
 #pu-selection-overlay {
@@ -2161,15 +2165,20 @@ button:disabled {
     z-index: 10000;
 }
 
-/* ── Layer list ── */
+/* ── Right sidebar ── */
+.sidebar-right {
+    border-left: 1px solid var(--border);
+    border-right: none;
+    width: 260px;
+}
+
 .pu-layer-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    margin-bottom: .8rem;
+    gap: 3px;
 }
 
-.pu-layer-item {
+.pu-layer-card {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -2178,92 +2187,172 @@ button:disabled {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     cursor: pointer;
-    transition: border-color var(--transition);
+    transition: border-color var(--transition), background var(--transition);
+    min-height: 42px;
 }
 
-.pu-layer-item:hover {
+.pu-layer-card:hover {
     border-color: var(--border2);
 }
 
-.pu-layer-item.selected {
+.pu-layer-card.selected {
     border-color: var(--accent);
     background: rgba(79, 255, 176, .06);
 }
 
-.pu-layer-icon {
-    font-size: .75rem;
+.pu-layer-card.hidden-layer {
+    opacity: .45;
+}
+
+.pu-layer-card-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: .5rem;
     color: var(--muted);
-    width: 20px;
-    text-align: center;
+}
+
+.pu-layer-card-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.pu-layer-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.pu-layer-card-title {
+    font-size: .68rem;
+    font-family: var(--font-mono);
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pu-layer-card-type {
+    font-size: .55rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+
+.pu-layer-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
     flex-shrink: 0;
 }
 
-.pu-layer-label {
-    font-size: .7rem;
-    font-family: var(--font-mono);
-    color: var(--text);
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.pu-layer-del {
+.pu-layer-card-btn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: none;
-    border: none;
-    color: var(--muted);
-    font-size: .85rem;
-    cursor: pointer;
-    padding: 2px 4px;
+    border: 1px solid transparent;
     border-radius: 4px;
-    line-height: 1;
-    transition: color var(--transition), background var(--transition);
+    color: var(--muted);
+    cursor: pointer;
+    font-size: .6rem;
+    transition: color var(--transition), background var(--transition), border-color var(--transition);
+    padding: 0;
 }
 
-.pu-layer-del:hover {
+.pu-layer-card-btn:hover {
+    color: var(--text);
+    background: var(--border);
+}
+
+.pu-layer-card-btn.btn-visibility:hover {
+    color: var(--accent);
+}
+
+.pu-layer-card-btn.btn-delete:hover {
     color: var(--danger);
     background: rgba(255, 92, 92, .12);
 }
 
-.pu-layer-empty {
-    font-size: .68rem;
+.pu-layer-card-btn svg {
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.pu-add-layer-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.pu-add-layer-row .btn {
+    flex: 1;
+    font-size: .62rem;
+    padding: .4rem .5rem;
+    min-height: 30px;
+}
+
+.pu-empty-layers {
+    font-size: .65rem;
     color: var(--muted);
     text-align: center;
-    padding: 1rem .5rem;
+    padding: 1.2rem .5rem;
     font-style: italic;
 }
 
-.pu-layer-add {
+/* ── Left sidebar PU panels ── */
+.pu-section-title {
+    color: #ff6b35;
+    margin-bottom: .5rem;
+}
+
+.pu-style-toggles {
     display: flex;
-    gap: 6px;
+    gap: 4px;
+    flex-wrap: wrap;
 }
 
-.pu-layer-add .btn {
-    flex: 1;
-    font-size: .65rem;
-    padding: .45rem .5rem;
-    min-height: 32px;
-}
-
-/* ── Layer property panel ── */
-.pu-back-btn {
-    font-size: .65rem;
-    padding: .35rem .6rem;
-    min-height: 28px;
-    margin-bottom: .6rem;
-}
-
-.pu-layer-type-badge {
-    display: inline-block;
+.pu-style-toggle {
+    width: 30px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: .7rem;
     font-family: var(--font-mono);
-    font-size: .55rem;
     font-weight: 700;
-    letter-spacing: .1em;
-    background: rgba(79, 255, 176, .12);
+    transition: all var(--transition);
+    padding: 0;
+}
+
+.pu-style-toggle:hover {
+    border-color: var(--border2);
+    color: var(--text);
+}
+
+.pu-style-toggle.active {
+    border-color: var(--accent);
     color: var(--accent);
-    padding: 2px 8px;
-    border-radius: 4px;
-    margin-bottom: .7rem;
+    background: rgba(79, 255, 176, .08);
 }
 
 .pu-text-input {
@@ -2293,6 +2382,16 @@ button:disabled {
     padding: 2px;
 }
 
+.pu-outline-row {
+    display: flex;
+    gap: 6px;
+    align-items: flex-end;
+}
+
+.pu-outline-row .field {
+    flex: 1;
+}
+
 .pu-layer-delete-btn {
     margin-top: .8rem;
     min-height: 32px;
@@ -2304,4 +2403,93 @@ button:disabled {
 .pu-layer-delete-btn:hover {
     background: rgba(255, 92, 92, .1);
     border-color: var(--danger);
+}
+
+/* ── Confirm modal ── */
+.pu-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+}
+
+.pu-confirm-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    max-width: 340px;
+    width: 90%;
+}
+
+.pu-confirm-msg {
+    font-size: .75rem;
+    color: var(--text);
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+.pu-confirm-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.pu-confirm-actions .btn {
+    font-size: .65rem;
+    min-height: 30px;
+    padding: .4rem .8rem;
+}
+
+/* ── Workspace bar ── */
+.pu-workspace-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: .5rem;
+}
+
+.pu-workspace-bar .btn {
+    font-size: .58rem;
+    padding: .3rem .5rem;
+    min-height: 26px;
+}
+
+.pu-bg-preview {
+    width: 100%;
+    height: 60px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: .5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.pu-bg-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.pu-bg-dropzone {
+    border: 2px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: .8rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--transition);
+    font-size: .62rem;
+    color: var(--muted);
+}
+
+.pu-bg-dropzone:hover {
+    border-color: var(--accent);
+}
+
+.pu-bg-dropzone.has-image {
+    padding: .3rem;
 }

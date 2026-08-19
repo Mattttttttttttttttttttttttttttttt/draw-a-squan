@@ -411,14 +411,14 @@ function handleDaltonRotationKeyboardStep(event, currentValue, min, max, apply) 
 function buildSidebar() {
     const sidebar = document.getElementById('sidebar');
     sidebar.innerHTML = `
-      <div class="section">
+      <div class="section" id="section-designs">
         <div class="section-title">Designs</div>
         <div class="field">
           <select id="svg-style-select" class="style-select"></select>
         </div>
       </div>
 
-      <div class="section">
+      <div class="section" id="section-display">
         <div class="section-title">Display</div>
 
         <div class="field" id="size-row">
@@ -479,7 +479,7 @@ function buildSidebar() {
         <button class="btn btn-secondary" id="display-reset-default">Reset to Default</button>
       </div>
 
-      <div class="section">
+      <div class="section" id="section-color-scheme">
         <div class="section-title section-title-toggle" id="color-scheme-toggle">
           Color Scheme <span class="section-arrow">\u25B2</span>
         </div>
@@ -619,9 +619,9 @@ function buildSidebar() {
         <button class="btn btn-secondary power-user-reset-btn" id="pu-reset-all">Reset All Offsets</button>
       </div>
 
-      <div class="power-user-section" id="pu-layers-section">
-        <div class="section-title">Layers</div>
-        <div id="pu-layers-panel"></div>
+      <div class="power-user-section" id="pu-layer-props-section">
+        <div class="section-title">Layer Properties</div>
+        <div id="pu-layer-props-panel"></div>
       </div>
 
       <div class="section">
@@ -3119,18 +3119,28 @@ function convertOffsetsForMode(layer, newMode) {
 function togglePowerUserMode() {
     powerUserMode = !powerUserMode;
     const section = document.getElementById('power-user-section');
-    const layersSection = document.getElementById('pu-layers-section');
+    const propsSection = document.getElementById('pu-layer-props-section');
+    const rightSidebar = document.getElementById('sidebar-right');
     const badge = document.querySelector('.logo .power-user-badge');
     const vpCanvas = document.getElementById('viewport-canvas');
     const inner = document.getElementById('canvas-inner');
+    const secDesigns = document.getElementById('section-designs');
+    const secDisplay = document.getElementById('section-display');
+    const secColor = document.getElementById('section-color-scheme');
 
     section.classList.toggle('visible', powerUserMode);
-    if (layersSection) layersSection.classList.toggle('visible', powerUserMode);
+    if (propsSection) propsSection.classList.toggle('visible', powerUserMode);
+    if (rightSidebar) rightSidebar.classList.toggle('hidden', !powerUserMode);
     if (badge) badge.style.display = powerUserMode ? '' : 'none';
+
+    if (secDesigns) secDesigns.style.display = powerUserMode ? 'none' : '';
+    if (secDisplay) secDisplay.style.display = powerUserMode ? 'none' : '';
+    if (secColor) secColor.style.display = powerUserMode ? 'none' : '';
 
     if (powerUserMode) {
         vpCanvas.classList.add('power-user-active');
         inner.classList.add('power-user-active');
+        ensureBuiltinLayers();
     } else {
         vpCanvas.classList.remove('power-user-active');
         inner.classList.remove('power-user-active');
@@ -3138,7 +3148,7 @@ function togglePowerUserMode() {
 
     applyPowerUserTransforms();
     if (powerUserMode) {
-        requestAnimationFrame(() => { renderPULayers(); refreshPULayerSidebar(); });
+        requestAnimationFrame(() => renderPU());
     }
     if (!powerUserMode) {
         const overlay = document.getElementById('pu-selection-overlay');
@@ -3166,7 +3176,7 @@ function applyPowerUserTransforms() {
         applySingleTransform(svgs[1], 'right', rightIdx);
     }
 
-    if (puLayers.length) renderPULayers();
+    if (puLayers.length) renderPUCanvas();
 }
 
 function applySingleTransform(svgEl, layer, zIndex) {
@@ -3235,13 +3245,21 @@ function loadPUSettings() {
     if (s.powerUserMode) {
         powerUserMode = true;
         const section = document.getElementById('power-user-section');
-        const layersSection = document.getElementById('pu-layers-section');
+        const layersSection = document.getElementById('pu-layer-props-section');
+        const rightSidebar = document.getElementById('sidebar-right');
         const vpCanvas = document.getElementById('viewport-canvas');
         const inner = document.getElementById('canvas-inner');
+        const secDesigns = document.getElementById('section-designs');
+        const secDisplay = document.getElementById('section-display');
+        const secColor = document.getElementById('section-color-scheme');
         if (section) section.classList.add('visible');
         if (layersSection) layersSection.classList.add('visible');
+        if (rightSidebar) rightSidebar.classList.remove('hidden');
         if (vpCanvas) vpCanvas.classList.add('power-user-active');
         if (inner) inner.classList.add('power-user-active');
+        if (secDesigns) secDesigns.style.display = 'none';
+        if (secDisplay) secDisplay.style.display = 'none';
+        if (secColor) secColor.style.display = 'none';
         const badge = document.querySelector('.logo .power-user-badge');
         if (badge) badge.style.display = '';
     }
@@ -3353,70 +3371,13 @@ document.getElementById('pu-reset-all').addEventListener('click', resetAllPUOffs
     };
 })();
 
+
 /* ═══════════════════════════════════════════════════════════════
-   ═══ PU LAYERS (TEXT & IMAGE OVERLAY) ═══
+   ═══ PU LAYERS (COMPREHENSIVE LAYER SYSTEM) ═══
    ═══════════════════════════════════════════════════════════════ */
 
-function makePULayerData(type, overrides) {
-    return {
-        id: `pul-${++puLayerIdCounter}`,
-        type,
-        x: 0, y: 0, z: 0,
-        rx: 0, ry: 0, rz: 0,
-        rotMode: 'absolute',
-        zIndex: 10 + puLayers.length,
-        text: type === 'text' ? 'Text' : '',
-        color: '#ffffff',
-        fontFamily: 'Syne',
-        fontSize: 48,
-        imageData: '',
-        naturalWidth: 200,
-        naturalHeight: 60,
-        scaleX: 1,
-        scaleY: 1,
-        ...overrides,
-    };
-}
-
-function addPULayer(type, overrides) {
-    const layer = makePULayerData(type, overrides);
-    puLayers.push(layer);
-    selectedPULayerId = layer.id;
-    if (type === 'image') puHasImageLayers = true;
-    renderPULayers();
-    refreshPULayerSidebar();
-    savePULayersToSettings();
-    updateDalton3DUI();
-    return layer;
-}
-
-function removePULayer(id) {
-    puLayers = puLayers.filter(l => l.id !== id);
-    if (selectedPULayerId === id) selectedPULayerId = null;
-    puHasImageLayers = puLayers.some(l => l.type === 'image');
-    renderPULayers();
-    refreshPULayerSidebar();
-    savePULayersToSettings();
-    updateDalton3DUI();
-}
-
-function updatePULayer(id, props) {
-    const layer = puLayers.find(l => l.id === id);
-    if (!layer) return;
-    Object.assign(layer, props);
-    renderPULayers();
-    savePULayersToSettings();
-}
-
-function selectPULayer(id) {
-    selectedPULayerId = id;
-    renderPULayers();
-    refreshPULayerSidebar();
-}
-
-function getSelectedPULayer() {
-    return puLayers.find(l => l.id === selectedPULayerId) || null;
-}
+const PU_BUILTIN_BG = '__bg__';
+const PU_BUILTIN_CUBE = '__cube__';
 
 function escHTML(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -3447,13 +3408,149 @@ function hookPUFieldSlider(sliderId, numId, initial, min, max, decimals, onChang
     num.addEventListener('input', () => sync(num.value));
 }
 
-/* ── Rendering ── */
+/* ── Builtin layers ── */
 
-function renderPULayers() {
+function ensureBuiltinLayers() {
+    if (!puLayers.find(l => l.id === PU_BUILTIN_BG)) {
+        puLayers.unshift({
+            id: PU_BUILTIN_BG,
+            type: 'bg',
+            visible: true,
+            bgColor: '#1a1a2e',
+            bgImageData: '',
+            bgOpacity: 1,
+        });
+    }
+    if (!puLayers.find(l => l.id === PU_BUILTIN_CUBE)) {
+        const bgIdx = puLayers.findIndex(l => l.id === PU_BUILTIN_BG);
+        const insertAt = bgIdx >= 0 ? bgIdx + 1 : 0;
+        puLayers.splice(insertAt, 0, {
+            id: PU_BUILTIN_CUBE,
+            type: 'cube',
+            visible: true,
+        });
+    }
+}
+
+function isBuiltinLayer(id) {
+    return id === PU_BUILTIN_BG || id === PU_BUILTIN_CUBE;
+}
+
+/* ── CRUD ── */
+
+function makePULayerData(type, overrides) {
+    return {
+        id: `pul-${++puLayerIdCounter}`,
+        type,
+        visible: true,
+        x: 0, y: 0, z: 0,
+        rx: 0, ry: 0, rz: 0,
+        rotMode: 'absolute',
+        text: type === 'text' ? 'Text' : '',
+        color: '#ffffff',
+        fontFamily: 'Syne',
+        fontSize: 48,
+        bold: false,
+        italic: false,
+        underline: false,
+        strikethrough: false,
+        outlineColor: '#000000',
+        outlineSize: 0,
+        outlineFade: 0,
+        imageData: '',
+        naturalWidth: 200,
+        naturalHeight: 60,
+        scaleX: 1,
+        scaleY: 1,
+        ...overrides,
+    };
+}
+
+function addPULayer(type, overrides) {
+    ensureBuiltinLayers();
+    const layer = makePULayerData(type, overrides);
+    puLayers.push(layer);
+    selectedPULayerId = layer.id;
+    if (type === 'image') puHasImageLayers = true;
+    renderPU();
+    savePULayersToSettings();
+    updateDalton3DUI();
+    return layer;
+}
+
+function removePULayer(id) {
+    if (isBuiltinLayer(id)) return;
+    puLayers = puLayers.filter(l => l.id !== id);
+    if (selectedPULayerId === id) selectedPULayerId = null;
+    puHasImageLayers = puLayers.some(l => l.type === 'image');
+    renderPU();
+    savePULayersToSettings();
+    updateDalton3DUI();
+}
+
+function updatePULayer(id, props) {
+    const layer = puLayers.find(l => l.id === id);
+    if (!layer) return;
+    Object.assign(layer, props);
+    renderPU();
+    savePULayersToSettings();
+}
+
+function selectPULayer(id) {
+    selectedPULayerId = id;
+    renderPU();
+}
+
+function getSelectedPULayer() {
+    return puLayers.find(l => l.id === selectedPULayerId) || null;
+}
+
+function movePULayer(id, dir) {
+    const idx = puLayers.findIndex(l => l.id === id);
+    if (idx < 0) return;
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= puLayers.length) return;
+    const tmp = puLayers[idx];
+    puLayers[idx] = puLayers[newIdx];
+    puLayers[newIdx] = tmp;
+    renderPU();
+    savePULayersToSettings();
+}
+
+function togglePULayerVisibility(id) {
+    const layer = puLayers.find(l => l.id === id);
+    if (!layer) return;
+    layer.visible = !layer.visible;
+    renderPU();
+    savePULayersToSettings();
+}
+
+/* ── Master render ── */
+
+function renderPU() {
+    renderPUCards();
+    renderPUCanvas();
+    renderPUProps();
+    requestAnimationFrame(updatePUSelectionOverlay);
+}
+
+/* ── Canvas rendering ── */
+
+function renderPUCanvas() {
     const inner = document.getElementById('canvas-inner');
     if (!inner) return;
 
     let container = document.getElementById('pu-layers-container');
+    let bgDiv = document.getElementById('pu-bg-div');
+
+    if (!powerUserMode) {
+        if (container) container.innerHTML = '';
+        if (bgDiv) bgDiv.style.display = 'none';
+        return;
+    }
+
+    ensureBuiltinLayers();
+
     if (!container) {
         container = document.createElement('div');
         container.id = 'pu-layers-container';
@@ -3461,19 +3558,65 @@ function renderPULayers() {
     }
     container.innerHTML = '';
 
+    if (!bgDiv) {
+        bgDiv = document.createElement('div');
+        bgDiv.id = 'pu-bg-div';
+        inner.insertBefore(bgDiv, inner.firstChild);
+    }
+
+    const bgLayer = puLayers.find(l => l.id === PU_BUILTIN_BG);
+    if (bgLayer && bgLayer.visible) {
+        bgDiv.style.display = '';
+        bgDiv.style.position = 'absolute';
+        bgDiv.style.inset = '0';
+        bgDiv.style.zIndex = '0';
+        if (bgLayer.bgImageData) {
+            bgDiv.style.backgroundImage = `url(${bgLayer.bgImageData})`;
+            bgDiv.style.backgroundSize = 'cover';
+            bgDiv.style.backgroundPosition = 'center';
+        } else {
+            bgDiv.style.backgroundImage = 'none';
+            bgDiv.style.backgroundColor = bgLayer.bgColor || '#1a1a2e';
+        }
+        bgDiv.style.opacity = bgLayer.bgOpacity != null ? bgLayer.bgOpacity : 1;
+    } else if (bgDiv) {
+        bgDiv.style.display = 'none';
+    }
+
+    const cubeLayer = puLayers.find(l => l.id === PU_BUILTIN_CUBE);
+    if (cubeLayer && !cubeLayer.visible) {
+        inner.querySelectorAll('svg').forEach(svg => { svg.style.display = 'none'; });
+    } else {
+        inner.querySelectorAll('svg').forEach(svg => { svg.style.display = ''; });
+    }
+
     for (const layer of puLayers) {
+        if (layer.type === 'bg' || layer.type === 'cube') continue;
+        if (!layer.visible) continue;
+
         const el = document.createElement('div');
         el.className = 'pu-layer' + (layer.id === selectedPULayerId ? ' selected' : '');
         el.dataset.layerId = layer.id;
 
         if (layer.type === 'text') {
-            el.textContent = layer.text;
-            el.style.color = layer.color;
-            el.style.fontFamily = `'${layer.fontFamily}', sans-serif`;
-            el.style.fontSize = layer.fontSize + 'px';
-            el.style.fontWeight = '700';
-            el.style.whiteSpace = 'nowrap';
-            el.style.lineHeight = '1';
+            const span = document.createElement('span');
+            span.textContent = layer.text;
+            span.style.color = layer.color;
+            span.style.fontFamily = `'${layer.fontFamily}', sans-serif`;
+            span.style.fontSize = layer.fontSize + 'px';
+            span.style.fontWeight = layer.bold ? '700' : '400';
+            span.style.fontStyle = layer.italic ? 'italic' : 'normal';
+            if (layer.underline) span.style.textDecoration = 'underline';
+            if (layer.strikethrough) span.style.textDecoration += ' line-through';
+            if (!layer.underline && !layer.strikethrough) span.style.textDecoration = 'none';
+            span.style.whiteSpace = 'nowrap';
+            span.style.lineHeight = '1';
+            span.style.userSelect = 'none';
+            if (layer.outlineSize > 0) {
+                const fade = layer.outlineFade || 0;
+                span.style.textShadow = `0 0 ${fade}px ${layer.outlineColor}, 0 0 ${layer.outlineSize}px ${layer.outlineColor}`;
+            }
+            el.appendChild(span);
             el.style.userSelect = 'none';
             el.style.padding = '4px 8px';
         } else if (layer.type === 'image' && layer.imageData) {
@@ -3489,8 +3632,6 @@ function renderPULayers() {
         applyPULayerTransform(el, layer);
         container.appendChild(el);
     }
-
-    requestAnimationFrame(updatePUSelectionOverlay);
 }
 
 function applyPULayerTransform(el, layer) {
@@ -3510,7 +3651,7 @@ function applyPULayerTransform(el, layer) {
         `translateX(${layer.x}px) translateY(${layer.y}px) ` +
         `scale(${layer.scaleX}, ${layer.scaleY}) ` +
         rot;
-    el.style.zIndex = layer.zIndex;
+    el.style.zIndex = layer.zIndex || 10;
     el.style.pointerEvents = 'auto';
     el.style.cursor = 'move';
 }
@@ -3567,6 +3708,381 @@ function updatePUSelectionOverlay() {
         hd.style.cursor = h.c;
         overlay.appendChild(hd);
     }
+}
+
+/* ── Right sidebar: Layer cards ── */
+
+function renderPUCards() {
+    const rightSidebar = document.getElementById('sidebar-right');
+    if (!rightSidebar) return;
+
+    ensureBuiltinLayers();
+
+    const eyeSvg = '<svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    const eyeOffSvg = '<svg viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    const upSvg = '<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>';
+    const downSvg = '<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>';
+    const delSvg = '<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+
+    const textIcon = '<svg viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9.5" y1="20" x2="14.5" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>';
+    const imgIcon = '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
+    const bgIcon = '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>';
+    const cubeIcon = '<svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
+
+    let html = '<div class="pu-workspace-bar">';
+    html += '<button class="btn btn-secondary" id="pu-ws-save" title="Save workspace">Save</button>';
+    html += '<button class="btn btn-secondary" id="pu-ws-load" title="Load workspace">Load</button>';
+    html += '<button class="btn btn-secondary" id="pu-ws-export" title="Export workspace">Export</button>';
+    html += '<button class="btn btn-secondary" id="pu-ws-import" title="Import workspace">Import</button>';
+    html += '</div>';
+
+    if (puLayers.length <= 2) {
+        html += '<div class="pu-empty-layers">No user layers yet.<br>Add text or image below.</div>';
+    }
+
+    html += '<div class="pu-layer-list">';
+    for (let i = puLayers.length - 1; i >= 0; i--) {
+        const l = puLayers[i];
+        let icon, label, typeLabel;
+        if (l.type === 'bg') { icon = bgIcon; label = 'Background'; typeLabel = 'BG'; }
+        else if (l.type === 'cube') { icon = cubeIcon; label = 'Cube Image'; typeLabel = '3D'; }
+        else if (l.type === 'text') { icon = textIcon; label = (l.text || 'Text').substring(0, 24); typeLabel = 'TEXT'; }
+        else { icon = imgIcon; label = 'Image'; typeLabel = 'IMG'; }
+
+        const hiddenClass = l.visible ? '' : ' hidden-layer';
+        const selectedClass = l.id === selectedPULayerId ? ' selected' : '';
+
+        let thumbContent = '';
+        if (l.type === 'bg' && l.bgImageData) {
+            thumbContent = `<img src="${l.bgImageData}" />`;
+        } else if (l.type === 'bg') {
+            thumbContent = `<div style="width:100%;height:100%;background:${l.bgColor || '#1a1a2e'};border-radius:3px"></div>`;
+        } else if (l.type === 'image' && l.imageData) {
+            thumbContent = `<img src="${l.imageData}" />`;
+        } else if (l.type === 'cube') {
+            thumbContent = cubeIcon;
+        } else {
+            thumbContent = `<span style="font-size:.6rem;color:var(--text)">${escHTML((l.text || 'T').charAt(0))}</span>`;
+        }
+
+        html += `<div class="pu-layer-card${selectedClass}${hiddenClass}" data-pul-id="${l.id}">
+            <div class="pu-layer-card-thumb">${thumbContent}</div>
+            <div class="pu-layer-card-info">
+                <div class="pu-layer-card-title">${escHTML(label)}</div>
+                <div class="pu-layer-card-type">${typeLabel}</div>
+            </div>
+            <div class="pu-layer-card-actions">`;
+
+        if (!isBuiltinLayer(l.id)) {
+            html += `<button class="pu-layer-card-btn" data-pul-up="${l.id}" title="Move up">${upSvg}</button>`;
+            html += `<button class="pu-layer-card-btn" data-pul-down="${l.id}" title="Move down">${downSvg}</button>`;
+        }
+
+        html += `<button class="pu-layer-card-btn btn-visibility" data-pul-eye="${l.id}" title="Toggle visibility">${l.visible ? eyeSvg : eyeOffSvg}</button>`;
+
+        if (!isBuiltinLayer(l.id)) {
+            html += `<button class="pu-layer-card-btn btn-delete" data-pul-del="${l.id}" title="Delete layer">${delSvg}</button>`;
+        }
+
+        html += '</div></div>';
+    }
+    html += '</div>';
+
+    html += '<div class="pu-add-layer-row">';
+    html += '<button class="btn btn-secondary" id="pu-add-text">+ Text</button>';
+    html += '<button class="btn btn-secondary" id="pu-add-image">+ Image</button>';
+    html += '</div>';
+    html += '<input type="file" id="pu-image-input" accept="image/png,image/jpeg,image/webp" style="display:none" />';
+
+    rightSidebar.innerHTML = html;
+
+    rightSidebar.querySelectorAll('.pu-layer-card').forEach(el => {
+        el.addEventListener('click', e => {
+            if (e.target.closest('.pu-layer-card-btn')) return;
+            selectPULayer(el.dataset.pulId);
+        });
+    });
+
+    rightSidebar.querySelectorAll('[data-pul-up]').forEach(btn => {
+        btn.addEventListener('click', e => { e.stopPropagation(); movePULayer(btn.dataset.pulUp, 1); });
+    });
+    rightSidebar.querySelectorAll('[data-pul-down]').forEach(btn => {
+        btn.addEventListener('click', e => { e.stopPropagation(); movePULayer(btn.dataset.pulDown, -1); });
+    });
+    rightSidebar.querySelectorAll('[data-pul-eye]').forEach(btn => {
+        btn.addEventListener('click', e => { e.stopPropagation(); togglePULayerVisibility(btn.dataset.pulEye); });
+    });
+    rightSidebar.querySelectorAll('[data-pul-del]').forEach(btn => {
+        btn.addEventListener('click', e => { e.stopPropagation(); removePULayer(btn.dataset.pulDel); });
+    });
+
+    document.getElementById('pu-add-text')?.addEventListener('click', () => addPULayer('text'));
+    const addImgBtn = document.getElementById('pu-add-image');
+    const imgInput = document.getElementById('pu-image-input');
+    if (addImgBtn && imgInput) {
+        addImgBtn.addEventListener('click', () => imgInput.click());
+        imgInput.addEventListener('change', () => {
+            const file = imgInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const img = new Image();
+                img.onload = () => addPULayer('image', {
+                    imageData: reader.result,
+                    naturalWidth: img.naturalWidth,
+                    naturalHeight: img.naturalHeight,
+                });
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+            imgInput.value = '';
+        });
+    }
+
+    document.getElementById('pu-ws-save')?.addEventListener('click', puSaveWorkspace);
+    document.getElementById('pu-ws-load')?.addEventListener('click', puLoadWorkspaceDialog);
+    document.getElementById('pu-ws-export')?.addEventListener('click', puExportWorkspace);
+    document.getElementById('pu-ws-import')?.addEventListener('click', puImportWorkspace);
+}
+
+/* ── Left sidebar: Layer properties ── */
+
+function renderPUProps() {
+    const propsSection = document.getElementById('pu-layer-props-section');
+    if (!propsSection) return;
+
+    const layer = getSelectedPULayer();
+    if (!layer) {
+        propsSection.innerHTML = '<div class="pu-empty-layers">Select a layer to edit its properties.</div>';
+        return;
+    }
+
+    let html = '';
+
+    const layerTypeLabel = { bg: 'BACKGROUND', cube: 'CUBE IMAGE', text: 'TEXT', image: 'IMAGE' };
+    html += `<div class="pu-section-title" style="font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.6rem">${layerTypeLabel[layer.type] || 'LAYER'}</div>`;
+
+    if (layer.type === 'bg') {
+        html += `<div class="power-user-sub-group">
+            <div class="power-user-sub-label">Background</div>
+            <div class="field">
+                <label class="field-label">Color</label>
+                <input type="color" id="pul-bg-color" value="${layer.bgColor || '#1a1a2e'}" class="pu-color-input" />
+            </div>
+            ${puSliderField('pul-bg-opacity', 'Opacity', (layer.bgOpacity != null ? layer.bgOpacity : 1) * 100, 0, 100)}
+            <div class="field">
+                <label class="field-label">Background Image</label>
+                <div class="pu-bg-dropzone${layer.bgImageData ? ' has-image' : ''}" id="pul-bg-dropzone">
+                    ${layer.bgImageData ? '<img src="' + layer.bgImageData + '" style="max-width:100%;max-height:60px;object-fit:contain" />' : 'Click or drag image here'}
+                </div>
+                <input type="file" id="pul-bg-file" accept="image/*" style="display:none" />
+            </div>
+        </div>`;
+    } else if (layer.type === 'cube') {
+        html += '<div class="power-user-sub-group"><div class="power-user-sub-label">Use the offset controls above to position the cube images.</div></div>';
+    } else if (layer.type === 'text') {
+        html += `<div class="power-user-sub-group">
+            <div class="power-user-sub-label">Content</div>
+            <div class="field">
+                <input type="text" id="pul-text" class="pu-text-input" value="${escHTML(layer.text)}" />
+            </div>
+        </div>`;
+
+        html += `<div class="power-user-sub-group">
+            <div class="power-user-sub-label">Typography</div>
+            <div class="field">
+                <label class="field-label">Color</label>
+                <input type="color" id="pul-color" value="${layer.color}" class="pu-color-input" />
+            </div>
+            ${puSliderField('pul-fontsize', 'Font Size', layer.fontSize, 8, 200)}
+            <div class="field">
+                <label class="field-label">Font</label>
+                <select id="pul-font" class="style-select">
+                    ${['Syne', 'JetBrains Mono', 'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana']
+                        .map(f => `<option value="${f}"${layer.fontFamily === f ? ' selected' : ''}>${f}</option>`).join('')}
+                    <option value="__custom__">Custom URL...</option>
+                </select>
+            </div>
+            <div class="field" id="pul-font-url-wrap" style="display:none">
+                <label class="field-label">Font URL</label>
+                <input type="url" id="pul-font-url" class="pu-text-input" value="" placeholder="https://example.com/font.woff2" />
+            </div>
+            <div class="field">
+                <button class="btn btn-secondary" id="pu-upload-ttf" style="font-size:.65rem;min-height:30px">Upload TTF / WOFF2</button>
+                <input type="file" id="pu-ttf-input" accept=".ttf,.woff,.woff2,.otf" style="display:none" />
+            </div>
+            <div class="pu-style-toggles">
+                <button class="pu-style-toggle${layer.bold ? ' active' : ''}" id="pul-bold" title="Bold"><b>B</b></button>
+                <button class="pu-style-toggle${layer.italic ? ' active' : ''}" id="pul-italic" title="Italic"><i>I</i></button>
+                <button class="pu-style-toggle${layer.underline ? ' active' : ''}" id="pul-underline" title="Underline"><u>U</u></button>
+                <button class="pu-style-toggle${layer.strikethrough ? ' active' : ''}" id="pul-strike" title="Strikethrough"><s>S</s></button>
+            </div>
+        </div>`;
+
+        html += `<div class="power-user-sub-group">
+            <div class="power-user-sub-label">Outline</div>
+            <div class="pu-outline-row">
+                <div class="field">
+                    <label class="field-label">Color</label>
+                    <input type="color" id="pul-outline-color" value="${layer.outlineColor || '#000000'}" class="pu-color-input" />
+                </div>
+                <div class="field">
+                    ${puSliderField('pul-outline-size', 'Size', layer.outlineSize || 0, 0, 20)}
+                </div>
+            </div>
+            ${puSliderField('pul-outline-fade', 'Fade', layer.outlineFade || 0, 0, 30)}
+        </div>`;
+    } else if (layer.type === 'image') {
+        html += `<div class="power-user-sub-group">
+            <div class="power-user-sub-label">Image</div>
+            <div class="field">
+                <button class="btn btn-secondary" id="pul-replace-img" style="font-size:.65rem;min-height:30px">Replace Image</button>
+                <input type="file" id="pul-replace-img-input" accept="image/*" style="display:none" />
+            </div>
+        </div>`;
+    }
+
+    if (layer.type !== 'bg' && layer.type !== 'cube') {
+        html += `<div class="power-user-sub-group">
+            <div class="power-user-sub-label">Position</div>
+            ${puSliderField('pul-x', 'X', layer.x, -400, 400)}
+            ${puSliderField('pul-y', 'Y', layer.y, -400, 400)}
+            ${puSliderField('pul-z', 'Z (Depth)', layer.z, -500, 500)}
+        </div>`;
+
+        html += `<div class="power-user-sub-group">
+            <div class="power-user-sub-label">Rotation</div>
+            <div class="field">
+                <label class="field-label">Mode</label>
+                <div class="scheme-mode-seg pu-mode-seg">
+                    <button type="button" class="scheme-mode-btn${layer.rotMode === 'relative' ? ' active' : ''}" data-pul-rotmode="relative">Relative</button>
+                    <button type="button" class="scheme-mode-btn${layer.rotMode === 'absolute' ? ' active' : ''}" data-pul-rotmode="absolute">Absolute</button>
+                </div>
+            </div>
+            ${puSliderField('pul-rx', 'X (Tilt)', layer.rx, -180, 180)}
+            ${puSliderField('pul-ry', 'Y (Tilt)', layer.ry, -180, 180)}
+            ${puSliderField('pul-rz', 'Z (Rotate)', layer.rz, -180, 180)}
+        </div>`;
+    }
+
+    if (!isBuiltinLayer(layer.id)) {
+        html += '<button class="btn btn-secondary pu-layer-delete-btn" id="pu-delete-layer">Delete Layer</button>';
+    }
+
+    propsSection.innerHTML = html;
+
+    if (layer.type === 'bg') {
+        document.getElementById('pul-bg-color')?.addEventListener('input', e => updatePULayer(layer.id, { bgColor: e.target.value }));
+        hookPUFieldSlider('pul-bg-opacity', 'pul-bg-opacity-num', (layer.bgOpacity != null ? layer.bgOpacity : 1) * 100, 0, 100, 0, val => updatePULayer(layer.id, { bgOpacity: val / 100 }));
+        const dropzone = document.getElementById('pul-bg-dropzone');
+        const bgFile = document.getElementById('pul-bg-file');
+        if (dropzone && bgFile) {
+            dropzone.addEventListener('click', () => bgFile.click());
+            bgFile.addEventListener('change', () => {
+                const file = bgFile.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => updatePULayer(layer.id, { bgImageData: reader.result });
+                reader.readAsDataURL(file);
+            });
+        }
+    }
+
+    if (layer.type === 'text') {
+        document.getElementById('pul-text')?.addEventListener('input', e => updatePULayer(layer.id, { text: e.target.value }));
+        document.getElementById('pul-color')?.addEventListener('input', e => updatePULayer(layer.id, { color: e.target.value }));
+        hookPUFieldSlider('pul-fontsize', 'pul-fontsize-num', layer.fontSize, 8, 200, 0, val => updatePULayer(layer.id, { fontSize: Math.round(val) }));
+
+        const fontSelect = document.getElementById('pul-font');
+        const urlWrap = document.getElementById('pul-font-url-wrap');
+        if (fontSelect) {
+            fontSelect.addEventListener('change', () => {
+                if (fontSelect.value === '__custom__') {
+                    urlWrap.style.display = '';
+                } else {
+                    urlWrap.style.display = 'none';
+                    updatePULayer(layer.id, { fontFamily: fontSelect.value });
+                }
+            });
+        }
+        const fontUrl = document.getElementById('pul-font-url');
+        if (fontUrl) {
+            let debounce;
+            fontUrl.addEventListener('input', () => {
+                clearTimeout(debounce);
+                debounce = setTimeout(() => {
+                    const url = fontUrl.value.trim();
+                    if (!url) return;
+                    const familyName = `Custom-${++puFontCounter}`;
+                    loadPUFont(familyName, url);
+                    updatePULayer(layer.id, { fontFamily: familyName });
+                }, 600);
+            });
+        }
+        const ttfInput = document.getElementById('pu-ttf-input');
+        const ttfBtn = document.getElementById('pu-upload-ttf');
+        if (ttfBtn && ttfInput) {
+            ttfBtn.addEventListener('click', () => ttfInput.click());
+            ttfInput.addEventListener('change', () => {
+                const file = ttfInput.files[0];
+                if (!file) return;
+                const url = URL.createObjectURL(file);
+                const familyName = `Custom-${++puFontCounter}`;
+                loadPUFont(familyName, url);
+                updatePULayer(layer.id, { fontFamily: familyName });
+            });
+        }
+
+        document.getElementById('pul-bold')?.addEventListener('click', () => updatePULayer(layer.id, { bold: !layer.bold }));
+        document.getElementById('pul-italic')?.addEventListener('click', () => updatePULayer(layer.id, { italic: !layer.italic }));
+        document.getElementById('pul-underline')?.addEventListener('click', () => updatePULayer(layer.id, { underline: !layer.underline }));
+        document.getElementById('pul-strike')?.addEventListener('click', () => updatePULayer(layer.id, { strikethrough: !layer.strikethrough }));
+
+        document.getElementById('pul-outline-color')?.addEventListener('input', e => updatePULayer(layer.id, { outlineColor: e.target.value }));
+        hookPUFieldSlider('pul-outline-size', 'pul-outline-size-num', layer.outlineSize || 0, 0, 20, 0, val => updatePULayer(layer.id, { outlineSize: Math.round(val) }));
+        hookPUFieldSlider('pul-outline-fade', 'pul-outline-fade-num', layer.outlineFade || 0, 0, 30, 0, val => updatePULayer(layer.id, { outlineFade: Math.round(val) }));
+    }
+
+    if (layer.type === 'image') {
+        const replaceBtn = document.getElementById('pul-replace-img');
+        const replaceInput = document.getElementById('pul-replace-img-input');
+        if (replaceBtn && replaceInput) {
+            replaceBtn.addEventListener('click', () => replaceInput.click());
+            replaceInput.addEventListener('change', () => {
+                const file = replaceInput.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const img = new Image();
+                    img.onload = () => updatePULayer(layer.id, {
+                        imageData: reader.result,
+                        naturalWidth: img.naturalWidth,
+                        naturalHeight: img.naturalHeight,
+                    });
+                    img.src = reader.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+    }
+
+    hookPUFieldSlider('pul-x', 'pul-x-num', layer.x, -400, 400, 1, val => updatePULayer(layer.id, { x: val }));
+    hookPUFieldSlider('pul-y', 'pul-y-num', layer.y, -400, 400, 1, val => updatePULayer(layer.id, { y: val }));
+    hookPUFieldSlider('pul-z', 'pul-z-num', layer.z, -500, 500, 1, val => updatePULayer(layer.id, { z: val }));
+    hookPUFieldSlider('pul-rx', 'pul-rx-num', layer.rx, -180, 180, 0, val => updatePULayer(layer.id, { rx: val }));
+    hookPUFieldSlider('pul-ry', 'pul-ry-num', layer.ry, -180, 180, 0, val => updatePULayer(layer.id, { ry: val }));
+    hookPUFieldSlider('pul-rz', 'pul-rz-num', layer.rz, -180, 180, 0, val => updatePULayer(layer.id, { rz: val }));
+
+    propsSection.querySelectorAll('[data-pul-rotmode]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.dataset.pulRotmode === layer.rotMode) return;
+            updatePULayer(layer.id, { rotMode: btn.dataset.pulRotmode });
+        });
+    });
+
+    document.getElementById('pu-delete-layer')?.addEventListener('click', async () => {
+        if (await puConfirmDelete('Delete this layer?')) removePULayer(layer.id);
+    });
 }
 
 /* ── Drag & Resize ── */
@@ -3627,8 +4143,7 @@ function updatePUSelectionOverlay() {
             const zFactor = (P - drag.startLayer.z) / P;
             layer.x = drag.startLayer.x + dx * zFactor;
             layer.y = drag.startLayer.y + dy * zFactor;
-            renderPULayers();
-            refreshPULayerSidebar();
+            renderPU();
         } else if (drag.mode === 'resize') {
             const layer = puLayers.find(l => l.id === selectedPULayerId);
             if (!layer) return;
@@ -3643,7 +4158,8 @@ function updatePUSelectionOverlay() {
             if (h.includes('b')) newH = Math.max(20, sr.h + dy);
             else if (h.includes('t')) newH = Math.max(20, sr.h - dy);
 
-            if (h.length === 2) {
+            const isCorner = (h.includes('l') || h.includes('r')) && (h.includes('t') || h.includes('b'));
+            if (isCorner) {
                 if (Math.abs(dx / sr.w) > Math.abs(dy / sr.h)) {
                     newH = newW / aspect;
                 } else {
@@ -3668,8 +4184,7 @@ function updatePUSelectionOverlay() {
             layer.x = sl.x + (newCx - cx) * zFactor;
             layer.y = sl.y + (newCy - cy) * zFactor;
 
-            renderPULayers();
-            refreshPULayerSidebar();
+            renderPU();
         }
     });
 
@@ -3680,7 +4195,7 @@ function updatePUSelectionOverlay() {
 
 /* ── Font loading ── */
 
-window.__puCustomFonts = {};
+window.__puCustomFonts = window.__puCustomFonts || {};
 let puFontCounter = 0;
 
 function loadPUFont(familyName, url) {
@@ -3692,221 +4207,121 @@ function loadPUFont(familyName, url) {
     window.__puCustomFonts[familyName] = url;
 }
 
-/* ── Sidebar panel ── */
+/* ── Keyboard shortcuts ── */
 
-function refreshPULayerSidebar() {
-    const panel = document.getElementById('pu-layers-panel');
-    if (!panel) return;
+(function initPUKeyboard() {
+    document.addEventListener('keydown', e => {
+        if (!powerUserMode) return;
+        const layer = getSelectedPULayer();
+        if (!layer || layer.type === 'bg' || layer.type === 'cube') return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
-    const layer = getSelectedPULayer();
-    if (!layer) {
-        let html = '';
-        if (puLayers.length === 0) {
-            html = '<div class="pu-layer-empty">No layers yet. Add text or image below.</div>';
-        } else {
-            html = '<div class="pu-layer-list">';
-            for (let i = puLayers.length - 1; i >= 0; i--) {
-                const l = puLayers[i];
-                const icon = l.type === 'text' ? 'T' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
-                const label = l.type === 'text' ? (l.text || 'Text').substring(0, 20) : 'Image';
-                html += `<div class="pu-layer-item${l.id === selectedPULayerId ? ' selected' : ''}" data-pul-id="${l.id}">
-                    <span class="pu-layer-icon">${icon}</span>
-                    <span class="pu-layer-label">${escHTML(label)}</span>
-                    <button class="pu-layer-del" data-pul-del="${l.id}">&times;</button>
-                </div>`;
-            }
-            html += '</div>';
+        const step = e.shiftKey ? 10 : 1;
+        let handled = false;
+
+        if (e.key === 'ArrowLeft') { layer.x -= step; handled = true; }
+        else if (e.key === 'ArrowRight') { layer.x += step; handled = true; }
+        else if (e.key === 'ArrowUp' && !e.altKey) { layer.y -= step; handled = true; }
+        else if (e.key === 'ArrowDown' && !e.altKey) { layer.y += step; handled = true; }
+        else if (e.key === 'ArrowUp' && e.altKey) { layer.scaleX *= 1.02; layer.scaleY *= 1.02; handled = true; }
+        else if (e.key === 'ArrowDown' && e.altKey) { layer.scaleX *= 0.98; layer.scaleY *= 0.98; handled = true; }
+        else if (e.key === 'Delete') {
+            if (e.shiftKey) { removePULayer(layer.id); }
+            else { puConfirmDelete('Delete this layer?').then(yes => { if (yes) removePULayer(layer.id); }); }
+            handled = true;
         }
-        html += '<div class="pu-layer-add">';
-        html += '<button class="btn btn-secondary" id="pu-add-text">+ Text</button>';
-        html += '<button class="btn btn-secondary" id="pu-add-image">+ Image</button>';
-        html += '</div>';
-        html += '<input type="file" id="pu-image-input" accept="image/png,image/jpeg,image/webp" style="display:none" />';
-        panel.innerHTML = html;
 
-        panel.querySelectorAll('.pu-layer-item').forEach(el => {
-            el.addEventListener('click', e => {
-                if (e.target.closest('.pu-layer-del')) return;
-                selectPULayer(el.dataset.pulId);
-            });
-        });
-        panel.querySelectorAll('.pu-layer-del').forEach(btn => {
-            btn.addEventListener('click', e => { e.stopPropagation(); removePULayer(btn.dataset.pulDel); });
-        });
-        document.getElementById('pu-add-text')?.addEventListener('click', () => addPULayer('text'));
-        const addImgBtn = document.getElementById('pu-add-image');
-        const imgInput = document.getElementById('pu-image-input');
-        if (addImgBtn && imgInput) {
-            addImgBtn.addEventListener('click', () => imgInput.click());
-            imgInput.addEventListener('change', () => {
-                const file = imgInput.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const img = new Image();
-                    img.onload = () => addPULayer('image', {
-                        imageData: reader.result,
-                        naturalWidth: img.naturalWidth,
-                        naturalHeight: img.naturalHeight,
-                    });
-                    img.src = reader.result;
-                };
-                reader.readAsDataURL(file);
-                imgInput.value = '';
-            });
+        if (handled) {
+            e.preventDefault();
+            renderPU();
+            savePULayersToSettings();
         }
-        return;
-    }
-
-    const isText = layer.type === 'text';
-    let html = '';
-
-    html += '<button class="btn btn-secondary pu-back-btn" id="pu-layer-back">&larr; Back</button>';
-    html += `<div class="pu-layer-type-badge">${isText ? 'TEXT' : 'IMAGE'}</div>`;
-
-    if (isText) {
-        html += `<div class="power-user-sub-group">
-            <div class="power-user-sub-label">Content</div>
-            <div class="field">
-                <input type="text" id="pul-text" class="pu-text-input" value="${escHTML(layer.text)}" />
-            </div>
-        </div>`;
-    }
-
-    html += `<div class="power-user-sub-group">
-        <div class="power-user-sub-label">Stacking</div>
-        ${puSliderField('pul-zindex', 'Z-Index', layer.zIndex, 0, 100)}
-    </div>`;
-
-    html += `<div class="power-user-sub-group">
-        <div class="power-user-sub-label">Position</div>
-        ${puSliderField('pul-x', 'X', layer.x, -400, 400)}
-        ${puSliderField('pul-y', 'Y', layer.y, -400, 400)}
-        ${puSliderField('pul-z', 'Z (Depth)', layer.z, -500, 500)}
-    </div>`;
-
-    html += `<div class="power-user-sub-group">
-        <div class="power-user-sub-label">Rotation</div>
-        <div class="field">
-            <label class="field-label">Mode</label>
-            <div class="scheme-mode-seg pu-mode-seg">
-                <button type="button" class="scheme-mode-btn${layer.rotMode === 'relative' ? ' active' : ''}" data-pul-rotmode="relative">Relative</button>
-                <button type="button" class="scheme-mode-btn${layer.rotMode === 'absolute' ? ' active' : ''}" data-pul-rotmode="absolute">Absolute</button>
-            </div>
-        </div>
-        ${puSliderField('pul-rx', 'X (Tilt)', layer.rx, -180, 180)}
-        ${puSliderField('pul-ry', 'Y (Tilt)', layer.ry, -180, 180)}
-        ${puSliderField('pul-rz', 'Z (Rotate)', layer.rz, -180, 180)}
-    </div>`;
-
-    if (isText) {
-        const fontOptions = ['Syne', 'JetBrains Mono', 'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana']
-            .map(f => `<option value="${f}"${layer.fontFamily === f ? ' selected' : ''}>${f}</option>`)
-            .join('');
-        const isCustom = layer.fontFamily && !['Syne', 'JetBrains Mono', 'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana'].includes(layer.fontFamily);
-        html += `<div class="power-user-sub-group">
-            <div class="power-user-sub-label">Appearance</div>
-            <div class="field">
-                <label class="field-label">Color</label>
-                <input type="color" id="pul-color" value="${layer.color}" class="pu-color-input" />
-            </div>
-            <div class="field">
-                <label class="field-label">Font Size</label>
-                <div class="slider-combo">
-                    <input type="range" id="pul-fontsize" min="8" max="200" step="1" value="${layer.fontSize}" />
-                    <input type="number" id="pul-fontsize-num" min="8" max="200" value="${layer.fontSize}" />
-                </div>
-            </div>
-            <div class="field">
-                <label class="field-label">Font</label>
-                <select id="pul-font" class="style-select">
-                    ${fontOptions}
-                    <option value="__custom__"${isCustom ? ' selected' : ''}>Custom URL...</option>
-                </select>
-            </div>
-            <div class="field" id="pul-font-url-wrap" style="${isCustom ? '' : 'display:none'}">
-                <label class="field-label">Font URL</label>
-                <input type="url" id="pul-font-url" class="pu-text-input" value="${isCustom ? escHTML(window.__puCustomFonts[layer.fontFamily] || '') : ''}" placeholder="https://example.com/font.woff2" />
-            </div>
-            <div class="field">
-                <button class="btn btn-secondary" id="pu-upload-ttf" style="font-size:.65rem;min-height:30px">Upload TTF / WOFF2</button>
-                <input type="file" id="pu-ttf-input" accept=".ttf,.woff,.woff2,.otf" style="display:none" />
-            </div>
-        </div>`;
-    }
-
-    html += '<button class="btn btn-secondary pu-layer-delete-btn" id="pu-delete-layer">Delete Layer</button>';
-
-    panel.innerHTML = html;
-
-    document.getElementById('pu-layer-back')?.addEventListener('click', () => selectPULayer(null));
-    document.getElementById('pu-delete-layer')?.addEventListener('click', () => removePULayer(layer.id));
-
-    if (isText) {
-        const textInput = document.getElementById('pul-text');
-        if (textInput) textInput.addEventListener('input', () => updatePULayer(layer.id, { text: textInput.value }));
-        const colorInput = document.getElementById('pul-color');
-        if (colorInput) colorInput.addEventListener('input', () => updatePULayer(layer.id, { color: colorInput.value }));
-
-        hookPUFieldSlider('pul-fontsize', 'pul-fontsize-num', layer.fontSize, 8, 200, 0, val => updatePULayer(layer.id, { fontSize: Math.round(val) }));
-
-        const fontSelect = document.getElementById('pul-font');
-        const urlWrap = document.getElementById('pul-font-url-wrap');
-        if (fontSelect) fontSelect.addEventListener('change', () => {
-            const val = fontSelect.value;
-            if (val === '__custom__') {
-                urlWrap.style.display = '';
-            } else {
-                urlWrap.style.display = 'none';
-                updatePULayer(layer.id, { fontFamily: val });
-            }
-        });
-        const fontUrl = document.getElementById('pul-font-url');
-        if (fontUrl) {
-            let debounce;
-            fontUrl.addEventListener('input', () => {
-                clearTimeout(debounce);
-                debounce = setTimeout(() => {
-                    const url = fontUrl.value.trim();
-                    if (!url) return;
-                    const familyName = `Custom-${++puFontCounter}`;
-                    loadPUFont(familyName, url);
-                    updatePULayer(layer.id, { fontFamily: familyName });
-                }, 600);
-            });
-        }
-        const ttfInput = document.getElementById('pu-ttf-input');
-        const ttfBtn = document.getElementById('pu-upload-ttf');
-        if (ttfBtn && ttfInput) {
-            ttfBtn.addEventListener('click', () => ttfInput.click());
-            ttfInput.addEventListener('change', () => {
-                const file = ttfInput.files[0];
-                if (!file) return;
-                const url = URL.createObjectURL(file);
-                const familyName = `Custom-${++puFontCounter}`;
-                loadPUFont(familyName, url);
-                updatePULayer(layer.id, { fontFamily: familyName });
-                refreshPULayerSidebar();
-            });
-        }
-    }
-
-    hookPUFieldSlider('pul-zindex', 'pul-zindex-num', layer.zIndex, 0, 100, 0, val => updatePULayer(layer.id, { zIndex: Math.round(val) }));
-    hookPUFieldSlider('pul-x', 'pul-x-num', layer.x, -400, 400, 1, val => updatePULayer(layer.id, { x: val }));
-    hookPUFieldSlider('pul-y', 'pul-y-num', layer.y, -400, 400, 1, val => updatePULayer(layer.id, { y: val }));
-    hookPUFieldSlider('pul-z', 'pul-z-num', layer.z, -500, 500, 1, val => updatePULayer(layer.id, { z: val }));
-    hookPUFieldSlider('pul-rx', 'pul-rx-num', layer.rx, -180, 180, 0, val => updatePULayer(layer.id, { rx: val }));
-    hookPUFieldSlider('pul-ry', 'pul-ry-num', layer.ry, -180, 180, 0, val => updatePULayer(layer.id, { ry: val }));
-    hookPUFieldSlider('pul-rz', 'pul-rz-num', layer.rz, -180, 180, 0, val => updatePULayer(layer.id, { rz: val }));
-
-    panel.querySelectorAll('[data-pul-rotmode]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const mode = btn.dataset.pulRotmode;
-            if (mode === layer.rotMode) return;
-            updatePULayer(layer.id, { rotMode: mode });
-            refreshPULayerSidebar();
-        });
     });
+})();
+
+/* ── Confirm modal ── */
+
+function puConfirmDelete(msg) {
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = 'pu-confirm-overlay';
+        overlay.innerHTML = `<div class="pu-confirm-box">
+            <div class="pu-confirm-msg">${escHTML(msg)}</div>
+            <div class="pu-confirm-actions">
+                <button class="btn btn-secondary" id="pu-confirm-cancel">Cancel</button>
+                <button class="btn btn-secondary" id="pu-confirm-ok" style="color:var(--danger)">Delete</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#pu-confirm-cancel').addEventListener('click', () => { overlay.remove(); resolve(false); });
+        overlay.querySelector('#pu-confirm-ok').addEventListener('click', () => { overlay.remove(); resolve(true); });
+        overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.remove(); resolve(false); } });
+    });
+}
+
+/* ── Workspace ── */
+
+function puSaveWorkspace() {
+    const name = prompt('Workspace name:');
+    if (!name) return;
+    try {
+        const data = JSON.parse(localStorage.getItem('pu_workspaces') || '{}');
+        data[name] = { layers: puLayers, layerIdCounter: puLayerIdCounter, timestamp: Date.now() };
+        localStorage.setItem('pu_workspaces', JSON.stringify(data));
+    } catch (e) { console.error('Save workspace failed:', e); }
+}
+
+function puLoadWorkspaceDialog() {
+    let data;
+    try { data = JSON.parse(localStorage.getItem('pu_workspaces') || '{}'); } catch (e) { data = {}; }
+    const names = Object.keys(data);
+    if (!names.length) { alert('No saved workspaces.'); return; }
+    const name = prompt('Load which workspace?\nAvailable: ' + names.join(', '));
+    if (!name || !data[name]) return;
+    puLayers = data[name].layers || [];
+    puLayerIdCounter = data[name].layerIdCounter || puLayers.length;
+    puHasImageLayers = puLayers.some(l => l.type === 'image');
+    ensureBuiltinLayers();
+    renderPU();
+    savePULayersToSettings();
+    updateDalton3DUI();
+}
+
+function puExportWorkspace() {
+    const payload = { layers: puLayers, layerIdCounter: puLayerIdCounter };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'draw-squan-workspace.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+function puImportWorkspace() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.addEventListener('change', () => {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const data = JSON.parse(reader.result);
+                if (data.layers) {
+                    puLayers = data.layers;
+                    puLayerIdCounter = data.layerIdCounter || puLayers.length;
+                    puHasImageLayers = puLayers.some(l => l.type === 'image');
+                    ensureBuiltinLayers();
+                    renderPU();
+                    savePULayersToSettings();
+                    updateDalton3DUI();
+                }
+            } catch (e) { alert('Invalid workspace file.'); }
+        };
+        reader.readAsText(file);
+    });
+    input.click();
 }
 
 /* ── Persistence ── */
@@ -3922,9 +4337,14 @@ function savePULayersToSettings() {
     } catch (e) {}
 }
 
+
+
 loadPUSettings();
-if (powerUserMode && document.getElementById('pu-layers-panel')) {
-    refreshPULayerSidebar();
+ensureBuiltinLayers();
+if (powerUserMode) {
+    renderPU();
+} else {
+    renderPUCanvas();
 }
 if (puHasImageLayers) updateDalton3DUI();
 
