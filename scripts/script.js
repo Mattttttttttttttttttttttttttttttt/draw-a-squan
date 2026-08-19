@@ -492,6 +492,121 @@ function buildSidebar() {
         </div>
       </div>
 
+      <div class="power-user-section" id="power-user-section">
+        <div class="section-title">Offsets (Power User)</div>
+
+        <div class="power-user-layer-tabs" id="pu-layer-tabs">
+          <button class="power-user-layer-tab active" data-pu-layer="left">Left Image</button>
+          <button class="power-user-layer-tab" data-pu-layer="right">Right Image</button>
+        </div>
+
+        <!-- LEFT image offsets -->
+        <div id="pu-offsets-left">
+          <div class="power-user-sub-group">
+            <div class="power-user-sub-label">Position</div>
+            <div class="field">
+              <label class="field-label">X Offset</label>
+              <div class="slider-combo">
+                <input type="range" id="pu-left-tx" min="-200" max="200" step="1" value="0" />
+                <input type="number" id="pu-left-tx-num" min="-200" max="200" value="0" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label">Y Offset</label>
+              <div class="slider-combo">
+                <input type="range" id="pu-left-ty" min="-200" max="200" step="1" value="0" />
+                <input type="number" id="pu-left-ty-num" min="-200" max="200" value="0" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label">Z (Zoom)</label>
+              <div class="slider-combo">
+                <input type="range" id="pu-left-tz" min="10" max="300" step="1" value="100" />
+                <input type="number" id="pu-left-tz-num" min="10" max="300" value="100" />
+              </div>
+            </div>
+          </div>
+          <div class="power-user-sub-group">
+            <div class="power-user-sub-label">Rotation</div>
+            <div class="field">
+              <label class="field-label">Z (Rotate)</label>
+              <div class="slider-combo">
+                <input type="range" id="pu-left-rz" min="-180" max="180" step="1" value="0" />
+                <input type="number" id="pu-left-rz-num" min="-180" max="180" value="0" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label">X (Tilt)</label>
+              <div class="slider-combo">
+                <input type="range" id="pu-left-rx" min="-90" max="90" step="1" value="0" />
+                <input type="number" id="pu-left-rx-num" min="-90" max="90" value="0" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label">Y (Tilt)</label>
+              <div class="slider-combo">
+                <input type="range" id="pu-left-ry" min="-90" max="90" step="1" value="0" />
+                <input type="number" id="pu-left-ry-num" min="-90" max="90" value="0" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT image offsets -->
+        <div id="pu-offsets-right" style="display:none;">
+          <div class="power-user-sub-group">
+            <div class="power-user-sub-label">Position</div>
+            <div class="field">
+              <label class="field-label">X Offset</label>
+              <div class="slider-combo">
+                <input type="range" id="pu-right-tx" min="-200" max="200" step="1" value="0" />
+                <input type="number" id="pu-right-tx-num" min="-200" max="200" value="0" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label">Y Offset</label>
+              <div class="slider-combo">
+                <input type="range" id="pu-right-ty" min="-200" max="200" step="1" value="0" />
+                <input type="number" id="pu-right-ty-num" min="-200" max="200" value="0" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label">Z (Zoom)</label>
+              <div class="slider-combo">
+                <input type="range" id="pu-right-tz" min="10" max="300" step="1" value="100" />
+                <input type="number" id="pu-right-tz-num" min="10" max="300" value="100" />
+              </div>
+            </div>
+          </div>
+          <div class="power-user-sub-group">
+            <div class="power-user-sub-label">Rotation</div>
+            <div class="field">
+              <label class="field-label">Z (Rotate)</label>
+              <div class="slider-combo">
+                <input type="range" id="pu-right-rz" min="-180" max="180" step="1" value="0" />
+                <input type="number" id="pu-right-rz-num" min="-180" max="180" value="0" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label">X (Tilt)</label>
+              <div class="slider-combo">
+                <input type="range" id="pu-right-rx" min="-90" max="90" step="1" value="0" />
+                <input type="number" id="pu-right-rx-num" min="-90" max="90" value="0" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label">Y (Tilt)</label>
+              <div class="slider-combo">
+                <input type="range" id="pu-right-ry" min="-90" max="90" step="1" value="0" />
+                <input type="number" id="pu-right-ry-num" min="-90" max="90" value="0" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-secondary power-user-reset-btn" id="pu-reset-all">Reset All Offsets</button>
+      </div>
+
       <div class="section">
         <div class="section-title">Export</div>
 
@@ -2855,6 +2970,220 @@ document.getElementById('scheme-reset-default').addEventListener('click', () => 
     draw();
     saveSettings();
 });
+
+/* ═══════════════════════════════════════════════════════════════
+   ═══ POWER USER MODE ═══
+   ═══════════════════════════════════════════════════════════════ */
+
+let powerUserMode = false;
+let puActiveLayer = 'left';
+
+const PU_DEFAULTS = { tx: 0, ty: 0, tz: 100, rx: 0, ry: 0, rz: 0 };
+const puOffsets = {
+    left:  { ...PU_DEFAULTS },
+    right: { ...PU_DEFAULTS },
+};
+
+const PU_KEYS = ['tx', 'ty', 'tz', 'rx', 'ry', 'rz'];
+
+const PU_INPUT_MAP = {
+    left: {
+        tx:  { slider: 'pu-left-tx',  num: 'pu-left-tx-num' },
+        ty:  { slider: 'pu-left-ty',  num: 'pu-left-ty-num' },
+        tz:  { slider: 'pu-left-tz',  num: 'pu-left-tz-num' },
+        rx:  { slider: 'pu-left-rx',  num: 'pu-left-rx-num' },
+        ry:  { slider: 'pu-left-ry',  num: 'pu-left-ry-num' },
+        rz:  { slider: 'pu-left-rz',  num: 'pu-left-rz-num' },
+    },
+    right: {
+        tx:  { slider: 'pu-right-tx',  num: 'pu-right-tx-num' },
+        ty:  { slider: 'pu-right-ty',  num: 'pu-right-ty-num' },
+        tz:  { slider: 'pu-right-tz',  num: 'pu-right-tz-num' },
+        rx:  { slider: 'pu-right-rx',  num: 'pu-right-rx-num' },
+        ry:  { slider: 'pu-right-ry',  num: 'pu-right-ry-num' },
+        rz:  { slider: 'pu-right-rz',  num: 'pu-right-rz-num' },
+    },
+};
+
+function togglePowerUserMode() {
+    powerUserMode = !powerUserMode;
+    const section = document.getElementById('power-user-section');
+    const badge = document.querySelector('.logo .power-user-badge');
+    const vpCanvas = document.getElementById('viewport-canvas');
+    const inner = document.getElementById('canvas-inner');
+
+    section.classList.toggle('visible', powerUserMode);
+    if (badge) badge.style.display = powerUserMode ? '' : 'none';
+
+    if (powerUserMode) {
+        vpCanvas.classList.add('power-user-active');
+        inner.classList.add('power-user-active');
+    } else {
+        vpCanvas.classList.remove('power-user-active');
+        inner.classList.remove('power-user-active');
+    }
+
+    applyPowerUserTransforms();
+}
+
+function applyPowerUserTransforms() {
+    const inner = document.getElementById('canvas-inner');
+    if (!inner) return;
+
+    const svgs = inner.querySelectorAll('svg');
+    if (!svgs.length) return;
+
+    if (svgs.length === 1) {
+        applySingleTransform(svgs[0], puOffsets.left, 0);
+        return;
+    }
+
+    const leftZ = puOffsets.left.tz;
+    const rightZ = puOffsets.right.tz;
+    let leftIdx, rightIdx;
+    if (leftZ > rightZ) { leftIdx = 2; rightIdx = 0; }
+    else if (rightZ > leftZ) { leftIdx = 0; rightIdx = 2; }
+    else { leftIdx = 1; rightIdx = 0; }
+
+    applySingleTransform(svgs[0], puOffsets.left, leftIdx);
+    applySingleTransform(svgs[1], puOffsets.right, rightIdx);
+}
+
+function applySingleTransform(svgEl, offsets, zIndex) {
+    if (!svgEl) return;
+    const { tx, ty, tz, rx, ry, rz } = offsets;
+    const scale = tz / 100;
+    svgEl.style.transform =
+        `translateZ(${tz}px) ` +
+        `scale(${scale}) ` +
+        `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) ` +
+        `translateX(${tx}px) translateY(${ty}px)`;
+    svgEl.style.zIndex = zIndex;
+}
+
+function syncPUInputsFromState(layer) {
+    const map = PU_INPUT_MAP[layer];
+    const state = puOffsets[layer];
+    for (const key of PU_KEYS) {
+        const el = map[key];
+        if (!el) continue;
+        const val = state[key];
+        document.getElementById(el.slider).value = val;
+        document.getElementById(el.num).value = val;
+    }
+}
+
+function resetPUOffsets(layer) {
+    puOffsets[layer] = { ...PU_DEFAULTS };
+    syncPUInputsFromState(layer);
+    applyPowerUserTransforms();
+    savePUSettings();
+}
+
+function resetAllPUOffsets() {
+    resetPUOffsets('left');
+    resetPUOffsets('right');
+}
+
+function savePUSettings() {
+    try {
+        const s = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+        s.powerUserMode = powerUserMode;
+        s.puOffsets = puOffsets;
+        localStorage.setItem(LS_KEY, JSON.stringify(s));
+    } catch (e) {}
+}
+
+function loadPUSettings() {
+    let s;
+    try { s = JSON.parse(localStorage.getItem(LS_KEY)); } catch (e) {}
+    if (!s) return;
+
+    if (s.powerUserMode) {
+        powerUserMode = true;
+        const section = document.getElementById('power-user-section');
+        const vpCanvas = document.getElementById('viewport-canvas');
+        const inner = document.getElementById('canvas-inner');
+        if (section) section.classList.add('visible');
+        if (vpCanvas) vpCanvas.classList.add('power-user-active');
+        if (inner) inner.classList.add('power-user-active');
+    }
+
+    if (s.puOffsets) {
+        for (const layer of ['left', 'right']) {
+            if (s.puOffsets[layer]) {
+                puOffsets[layer] = { ...PU_DEFAULTS, ...s.puOffsets[layer] };
+                syncPUInputsFromState(layer);
+            }
+        }
+    }
+
+    if (powerUserMode) {
+        const badge = document.querySelector('.logo .power-user-badge');
+        if (badge) badge.style.display = '';
+    }
+}
+
+/* ── Alt+Shift+P keyboard shortcut ── */
+document.addEventListener('keydown', e => {
+    if (e.altKey && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+        e.preventDefault();
+        togglePowerUserMode();
+    }
+});
+
+/* ── Expose to console ── */
+window.togglePowerUserMode = togglePowerUserMode;
+
+/* ── Layer tab switching ── */
+document.getElementById('pu-layer-tabs').addEventListener('click', e => {
+    const tab = e.target.closest('[data-pu-layer]');
+    if (!tab) return;
+    puActiveLayer = tab.dataset.puLayer;
+    document.querySelectorAll('[data-pu-layer]').forEach(t => t.classList.toggle('active', t.dataset.puLayer === puActiveLayer));
+    document.getElementById('pu-offsets-left').style.display = puActiveLayer === 'left' ? '' : 'none';
+    document.getElementById('pu-offsets-right').style.display = puActiveLayer === 'right' ? '' : 'none';
+});
+
+/* ── Sync slider ↔ number for each offset input ── */
+function hookPUInput(layer, key) {
+    const map = PU_INPUT_MAP[layer][key];
+    const slider = document.getElementById(map.slider);
+    const num = document.getElementById(map.num);
+    slider.addEventListener('input', () => {
+        num.value = slider.value;
+        puOffsets[layer][key] = Number(slider.value);
+        applyPowerUserTransforms();
+        savePUSettings();
+    });
+    num.addEventListener('input', () => {
+        slider.value = num.value;
+        puOffsets[layer][key] = Number(num.value);
+        applyPowerUserTransforms();
+        savePUSettings();
+    });
+}
+
+for (const layer of ['left', 'right']) {
+    for (const key of PU_KEYS) {
+        hookPUInput(layer, key);
+    }
+}
+
+document.getElementById('pu-reset-all').addEventListener('click', resetAllPUOffsets);
+
+/* ── Hook into draw() to reapply transforms after SVGs are replaced ── */
+(function hookDrawForPU() {
+    const origDraw = draw;
+    draw = function () {
+        origDraw();
+        if (powerUserMode) {
+            requestAnimationFrame(() => applyPowerUserTransforms());
+        }
+    };
+})();
+
+loadPUSettings();
 
 hookSaveListeners();
 appInitialized = true;

@@ -2003,3 +2003,125 @@ button:disabled {
         inset: 0;
     }
 }
+
+/* ─── Power User Mode ─────────────────────────────── */
+.power-user-badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: .55rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #ff6b35, #ff3366);
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: .5rem;
+    vertical-align: middle;
+    animation: powerBadgePulse 2s ease-in-out infinite;
+}
+
+@keyframes powerBadgePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .7; }
+}
+
+.power-user-section {
+    border-bottom: 1px solid var(--border);
+    padding: 1.25rem 1.4rem;
+    display: none;
+}
+
+.power-user-section.visible {
+    display: block;
+}
+
+.power-user-section .section-title {
+    color: #ff6b35;
+    margin-bottom: .6rem;
+}
+
+.power-user-layer-tabs {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: .9rem;
+}
+
+.power-user-layer-tab {
+    flex: 1;
+    padding: .4rem .5rem;
+    background: var(--surface2);
+    border: none;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
+    text-align: center;
+}
+
+.power-user-layer-tab + .power-user-layer-tab {
+    border-left: 1px solid var(--border);
+}
+
+.power-user-layer-tab:hover {
+    background: var(--border);
+    color: var(--text);
+}
+
+.power-user-layer-tab.active {
+    background: rgba(255, 107, 53, .15);
+    color: #ff6b35;
+}
+
+.power-user-sub-group {
+    margin-bottom: .8rem;
+    padding-bottom: .6rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.power-user-sub-group:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.power-user-sub-label {
+    font-size: .6rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: .6rem;
+}
+
+.power-user-reset-btn {
+    margin-top: .5rem;
+    min-height: 34px;
+    padding: .5rem .8rem;
+    font-size: .7rem;
+    letter-spacing: .04em;
+}
+
+/* ── Viewport 3D perspective container ── */
+.viewport-canvas.power-user-active {
+    overflow: visible;
+    perspective: 2000px;
+    perspective-origin: 50% 50%;
+    transform-style: preserve-3d;
+}
+
+.canvas-inner.power-user-active {
+    transform-style: preserve-3d;
+}
+
+.canvas-inner.power-user-active > svg {
+    transition: transform 80ms ease-out;
+    transform-style: preserve-3d;
+    will-change: transform, z-index;
+}
