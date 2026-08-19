@@ -495,6 +495,14 @@ function buildSidebar() {
       <div class="power-user-section" id="power-user-section">
         <div class="section-title">Offsets (Power User)</div>
 
+        <div class="field">
+          <label class="field-label">Offset Mode</label>
+          <div class="scheme-mode-seg pu-mode-seg" id="pu-mode-seg">
+            <button type="button" class="scheme-mode-btn active" data-pu-mode="relative" title="Translation in screen space — positive Y is always down">Relative</button>
+            <button type="button" class="scheme-mode-btn" data-pu-mode="absolute" title="Translation in element's local space — direction rotates with the image">Absolute</button>
+          </div>
+        </div>
+
         <div class="power-user-layer-tabs" id="pu-layer-tabs">
           <button class="power-user-layer-tab active" data-pu-layer="left">Left Image</button>
           <button class="power-user-layer-tab" data-pu-layer="right">Right Image</button>
@@ -2977,6 +2985,7 @@ document.getElementById('scheme-reset-default').addEventListener('click', () => 
 
 let powerUserMode = false;
 let puActiveLayer = 'left';
+let puOffsetMode = { left: 'relative', right: 'relative' };
 
 const PU_DEFAULTS = { tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0 };
 const PU_PERSPECTIVE = 1200;
@@ -3005,6 +3014,68 @@ const PU_INPUT_MAP = {
         rz:  { slider: 'pu-right-rz',  num: 'pu-right-rz-num' },
     },
 };
+
+/* ── Rotation matrix helpers for mode conversion ── */
+function degToRad(d) { return d * Math.PI / 180; }
+
+function buildRotationMatrix(rx, ry, rz) {
+    const ax = degToRad(rx), ay = degToRad(ry), az = degToRad(rz);
+    const sx = Math.sin(ax), cx = Math.cos(ax);
+    const sy = Math.sin(ay), cy = Math.cos(ay);
+    const sz = Math.sin(az), cz = Math.cos(az);
+    return [
+        [cy*cz + sx*sy*sz,  cz*sx*sy - cy*sz,  cx*sy],
+        [cx*sz,             cx*cz,              -sx],
+        [-cz*sy + cy*sx*sz, sy*sz + cy*sx*cz,   cx*cy],
+    ];
+}
+
+function transpose(m) {
+    return [
+        [m[0][0], m[1][0], m[2][0]],
+        [m[0][1], m[1][1], m[2][1]],
+        [m[0][2], m[1][2], m[2][2]],
+    ];
+}
+
+function mulMatVec(m, v) {
+    return [
+        m[0][0]*v[0] + m[0][1]*v[1] + m[0][2]*v[2],
+        m[1][0]*v[0] + m[1][1]*v[1] + m[1][2]*v[2],
+        m[2][0]*v[0] + m[2][1]*v[1] + m[2][2]*v[2],
+    ];
+}
+
+function convertOffsetsForMode(layer, newMode) {
+    const o = puOffsets[layer];
+    const R = buildRotationMatrix(o.rx, o.ry, o.rz);
+
+    if (newMode === 'relative') {
+        const localVec = [o.tx, o.ty, 0];
+        const worldVec = mulMatVec(R, localVec);
+        o.tx = Math.round(worldVec[0] * 100) / 100;
+        o.ty = Math.round(worldVec[1] * 100) / 100;
+    } else {
+        const worldVec = [o.tx, o.ty, 0];
+        const Rinv = transpose(R);
+        const localVec = mulMatVec(Rinv, worldVec);
+        o.tx = Math.round(localVec[0] * 100) / 100;
+        o.ty = Math.round(localVec[1] * 100) / 100;
+    }
+}
+
+/* ── Get local-space offsets for the CSS transform ── */
+function getLocalOffsets(layer) {
+    const o = puOffsets[layer];
+    if (puOffsetMode[layer] === 'absolute') {
+        return { tx: o.tx, ty: o.ty, tz: o.tz, rx: o.rx, ry: o.ry, rz: o.rz };
+    }
+    const R = buildRotationMatrix(o.rx, o.ry, o.rz);
+    const Rinv = transpose(R);
+    const worldVec = [o.tx, o.ty, 0];
+    const localVec = mulMatVec(Rinv, worldVec);
+    return { tx: localVec[0], ty: localVec[1], tz: o.tz, rx: o.rx, ry: o.ry, rz: o.rz };
+}
 
 function togglePowerUserMode() {
     powerUserMode = !powerUserMode;
@@ -3035,7 +3106,7 @@ function applyPowerUserTransforms() {
     if (!svgs.length) return;
 
     if (svgs.length === 1) {
-        applySingleTransform(svgs[0], puOffsets.left, 0);
+        applySingleTransform(svgs[0], getLocalOffsets('left'), 0);
         return;
     }
 
@@ -3046,13 +3117,13 @@ function applyPowerUserTransforms() {
     else if (rightZ > leftZ) { leftIdx = 0; rightIdx = 2; }
     else { leftIdx = 1; rightIdx = 0; }
 
-    applySingleTransform(svgs[0], puOffsets.left, leftIdx);
-    applySingleTransform(svgs[1], puOffsets.right, rightIdx);
+    applySingleTransform(svgs[0], getLocalOffsets('left'), leftIdx);
+    applySingleTransform(svgs[1], getLocalOffsets('right'), rightIdx);
 }
 
-function applySingleTransform(svgEl, offsets, zIndex) {
+function applySingleTransform(svgEl, localOffsets, zIndex) {
     if (!svgEl) return;
-    const { tx, ty, tz, rx, ry, rz } = offsets;
+    const { tx, ty, tz, rx, ry, rz } = localOffsets;
     svgEl.style.transform =
         `perspective(${PU_PERSPECTIVE}px) ` +
         `translateZ(${tz}px) ` +
@@ -3069,7 +3140,7 @@ function syncPUInputsFromState(layer) {
         if (!el) continue;
         const val = state[key];
         document.getElementById(el.slider).value = val;
-        document.getElementById(el.num).value = val;
+        document.getElementById(el.num).value = Number(val).toFixed(key === 'tz' || key === 'tx' || key === 'ty' ? 1 : 0);
     }
 }
 
@@ -3090,6 +3161,7 @@ function savePUSettings() {
         const s = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
         s.powerUserMode = powerUserMode;
         s.puOffsets = puOffsets;
+        s.puOffsetMode = puOffsetMode;
         localStorage.setItem(LS_KEY, JSON.stringify(s));
     } catch (e) {}
 }
@@ -3107,6 +3179,13 @@ function loadPUSettings() {
         if (section) section.classList.add('visible');
         if (vpCanvas) vpCanvas.classList.add('power-user-active');
         if (inner) inner.classList.add('power-user-active');
+        const badge = document.querySelector('.logo .power-user-badge');
+        if (badge) badge.style.display = '';
+    }
+
+    if (s.puOffsetMode) {
+        puOffsetMode = { left: s.puOffsetMode.left || 'relative', right: s.puOffsetMode.right || 'relative' };
+        syncPUModeUI();
     }
 
     if (s.puOffsets) {
@@ -3116,11 +3195,6 @@ function loadPUSettings() {
                 syncPUInputsFromState(layer);
             }
         }
-    }
-
-    if (powerUserMode) {
-        const badge = document.querySelector('.logo .power-user-badge');
-        if (badge) badge.style.display = '';
     }
 }
 
@@ -3135,6 +3209,27 @@ document.addEventListener('keydown', e => {
 /* ── Expose to console ── */
 window.togglePowerUserMode = togglePowerUserMode;
 
+/* ── Mode toggle ── */
+function syncPUModeUI() {
+    document.querySelectorAll('[data-pu-mode]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.puMode === puOffsetMode[puActiveLayer]);
+    });
+}
+
+document.getElementById('pu-mode-seg').addEventListener('click', e => {
+    const btn = e.target.closest('[data-pu-mode]');
+    if (!btn) return;
+    const newMode = btn.dataset.puMode;
+    if (newMode === puOffsetMode[puActiveLayer]) return;
+
+    convertOffsetsForMode(puActiveLayer, newMode);
+    puOffsetMode[puActiveLayer] = newMode;
+    syncPUModeUI();
+    syncPUInputsFromState(puActiveLayer);
+    applyPowerUserTransforms();
+    savePUSettings();
+});
+
 /* ── Layer tab switching ── */
 document.getElementById('pu-layer-tabs').addEventListener('click', e => {
     const tab = e.target.closest('[data-pu-layer]');
@@ -3143,6 +3238,7 @@ document.getElementById('pu-layer-tabs').addEventListener('click', e => {
     document.querySelectorAll('[data-pu-layer]').forEach(t => t.classList.toggle('active', t.dataset.puLayer === puActiveLayer));
     document.getElementById('pu-offsets-left').style.display = puActiveLayer === 'left' ? '' : 'none';
     document.getElementById('pu-offsets-right').style.display = puActiveLayer === 'right' ? '' : 'none';
+    syncPUModeUI();
 });
 
 /* ── Sync slider ↔ number for each offset input ── */
@@ -3150,18 +3246,16 @@ function hookPUInput(layer, key) {
     const map = PU_INPUT_MAP[layer][key];
     const slider = document.getElementById(map.slider);
     const num = document.getElementById(map.num);
-    slider.addEventListener('input', () => {
-        num.value = slider.value;
-        puOffsets[layer][key] = Number(slider.value);
+    const decimals = (key === 'tz' || key === 'tx' || key === 'ty') ? 1 : 0;
+    const sync = (val) => {
+        num.value = Number(val).toFixed(decimals);
+        slider.value = val;
+        puOffsets[layer][key] = Number(val);
         applyPowerUserTransforms();
         savePUSettings();
-    });
-    num.addEventListener('input', () => {
-        slider.value = num.value;
-        puOffsets[layer][key] = Number(num.value);
-        applyPowerUserTransforms();
-        savePUSettings();
-    });
+    };
+    slider.addEventListener('input', () => sync(slider.value));
+    num.addEventListener('input', () => sync(num.value));
 }
 
 for (const layer of ['left', 'right']) {

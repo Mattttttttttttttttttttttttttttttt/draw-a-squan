@@ -2108,7 +2108,13 @@ button:disabled {
     letter-spacing: .04em;
 }
 
+.pu-mode-seg {
+    margin-bottom: .9rem;
+}
+
 /* ── Viewport 3D perspective container ── */
 .canvas-inner.power-user-active > svg {
+    transform-origin: center center;
+    backface-visibility: visible;
     will-change: transform, z-index;
 }
