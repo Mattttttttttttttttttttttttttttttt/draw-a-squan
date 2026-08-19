@@ -28,6 +28,10 @@ const DALTON_3D_CONTROL_AXES = {
 };
 
 let isCustomMode = false;
+let puLayers = [];
+let selectedPULayerId = null;
+let puLayerIdCounter = 0;
+let puHasImageLayers = false;
 let classicalSnapshot = null;
 let customSnapshot = null;
 let customMuteActive = false;
@@ -615,6 +619,11 @@ function buildSidebar() {
         <button class="btn btn-secondary power-user-reset-btn" id="pu-reset-all">Reset All Offsets</button>
       </div>
 
+      <div class="power-user-section" id="pu-layers-section">
+        <div class="section-title">Layers</div>
+        <div id="pu-layers-panel"></div>
+      </div>
+
       <div class="section">
         <div class="section-title">Export</div>
 
@@ -1114,6 +1123,8 @@ async function renderDalton3D(moves, muted = false) {
 
 function updateDalton3DUI() {
     const is3D = isDalton3DStyle();
+    const hasImgLayers = puHasImageLayers;
+    const hideSvgFmt = is3D || hasImgLayers;
     const bulkBtn = document.getElementById('bulk-export-btn');
     if (bulkBtn) {
         bulkBtn.disabled = is3D;
@@ -1122,10 +1133,10 @@ function updateDalton3DUI() {
     const layerGroup = document.getElementById('export-layer-group');
     if (layerGroup) layerGroup.style.display = is3D ? 'none' : '';
     const svgFormat = document.querySelector('.export-tab[data-group="fmt"][data-val="svg"]');
-    if (svgFormat) svgFormat.style.display = is3D ? 'none' : '';
+    if (svgFormat) svgFormat.style.display = hideSvgFmt ? 'none' : '';
     const ctxSvg = document.querySelector('#ctx-format-select option[value="svg"]');
-    if (ctxSvg) ctxSvg.hidden = is3D;
-    if (is3D && exportFmt === 'svg') {
+    if (ctxSvg) ctxSvg.hidden = hideSvgFmt;
+    if (hideSvgFmt && exportFmt === 'svg') {
         exportFmt = 'png';
         document.querySelectorAll('.export-tab[data-group="fmt"]').forEach(b => {
             b.classList.toggle('active', b.dataset.val === exportFmt);
@@ -3047,9 +3058,9 @@ function composeLocalEuler(rx, ry, rz) {
 
 function composeWorldEuler(rx, ry, rz) {
     let q = { w: 1, x: 0, y: 0, z: 0 };
-    q = multiplyQuaternions(axisAngleQuaternion('z', rz), q);
-    q = multiplyQuaternions(axisAngleQuaternion('y', ry), q);
     q = multiplyQuaternions(axisAngleQuaternion('x', rx), q);
+    q = multiplyQuaternions(axisAngleQuaternion('y', ry), q);
+    q = multiplyQuaternions(axisAngleQuaternion('z', rz), q);
     return q;
 }
 
@@ -3086,8 +3097,6 @@ function extractWorldEuler(q) {
 }
 
 function rotationMatrixToCSS(R) {
-    const p = PU_PERSPECTIVE;
-    const d = 1 / p;
     return `matrix3d(${R[0][0]},${R[1][0]},${R[2][0]},0,${R[0][1]},${R[1][1]},${R[2][1]},0,${R[0][2]},${R[1][2]},${R[2][2]},0,0,0,0,1)`;
 }
 
@@ -3110,11 +3119,13 @@ function convertOffsetsForMode(layer, newMode) {
 function togglePowerUserMode() {
     powerUserMode = !powerUserMode;
     const section = document.getElementById('power-user-section');
+    const layersSection = document.getElementById('pu-layers-section');
     const badge = document.querySelector('.logo .power-user-badge');
     const vpCanvas = document.getElementById('viewport-canvas');
     const inner = document.getElementById('canvas-inner');
 
     section.classList.toggle('visible', powerUserMode);
+    if (layersSection) layersSection.classList.toggle('visible', powerUserMode);
     if (badge) badge.style.display = powerUserMode ? '' : 'none';
 
     if (powerUserMode) {
@@ -3126,6 +3137,13 @@ function togglePowerUserMode() {
     }
 
     applyPowerUserTransforms();
+    if (powerUserMode) {
+        requestAnimationFrame(() => { renderPULayers(); refreshPULayerSidebar(); });
+    }
+    if (!powerUserMode) {
+        const overlay = document.getElementById('pu-selection-overlay');
+        if (overlay) overlay.style.display = 'none';
+    }
 }
 
 function applyPowerUserTransforms() {
@@ -3133,22 +3151,22 @@ function applyPowerUserTransforms() {
     if (!inner) return;
 
     const svgs = inner.querySelectorAll('svg');
-    if (!svgs.length) return;
 
     if (svgs.length === 1) {
         applySingleTransform(svgs[0], 'left', 0);
-        return;
+    } else if (svgs.length > 1) {
+        const leftZ = puOffsets.left.tz;
+        const rightZ = puOffsets.right.tz;
+        let leftIdx, rightIdx;
+        if (leftZ > rightZ) { leftIdx = 2; rightIdx = 0; }
+        else if (rightZ > leftZ) { leftIdx = 0; rightIdx = 2; }
+        else { leftIdx = 1; rightIdx = 0; }
+
+        applySingleTransform(svgs[0], 'left', leftIdx);
+        applySingleTransform(svgs[1], 'right', rightIdx);
     }
 
-    const leftZ = puOffsets.left.tz;
-    const rightZ = puOffsets.right.tz;
-    let leftIdx, rightIdx;
-    if (leftZ > rightZ) { leftIdx = 2; rightIdx = 0; }
-    else if (rightZ > leftZ) { leftIdx = 0; rightIdx = 2; }
-    else { leftIdx = 1; rightIdx = 0; }
-
-    applySingleTransform(svgs[0], 'left', leftIdx);
-    applySingleTransform(svgs[1], 'right', rightIdx);
+    if (puLayers.length) renderPULayers();
 }
 
 function applySingleTransform(svgEl, layer, zIndex) {
@@ -3201,6 +3219,10 @@ function savePUSettings() {
         s.powerUserMode = powerUserMode;
         s.puOffsets = puOffsets;
         s.puOffsetMode = puOffsetMode;
+        s.puLayers = puLayers;
+        s.puLayerIdCounter = puLayerIdCounter;
+        s.puHasImageLayers = puHasImageLayers;
+        s.puCustomFonts = window.__puCustomFonts || {};
         localStorage.setItem(LS_KEY, JSON.stringify(s));
     } catch (e) {}
 }
@@ -3213,9 +3235,11 @@ function loadPUSettings() {
     if (s.powerUserMode) {
         powerUserMode = true;
         const section = document.getElementById('power-user-section');
+        const layersSection = document.getElementById('pu-layers-section');
         const vpCanvas = document.getElementById('viewport-canvas');
         const inner = document.getElementById('canvas-inner');
         if (section) section.classList.add('visible');
+        if (layersSection) layersSection.classList.add('visible');
         if (vpCanvas) vpCanvas.classList.add('power-user-active');
         if (inner) inner.classList.add('power-user-active');
         const badge = document.querySelector('.logo .power-user-badge');
@@ -3233,6 +3257,19 @@ function loadPUSettings() {
                 puOffsets[layer] = { ...PU_DEFAULTS, ...s.puOffsets[layer] };
                 syncPUInputsFromState(layer);
             }
+        }
+    }
+
+    if (s.puLayers && s.puLayers.length) {
+        puLayers = s.puLayers;
+        puLayerIdCounter = s.puLayerIdCounter || puLayers.length;
+        puHasImageLayers = s.puHasImageLayers || puLayers.some(l => l.type === 'image');
+    }
+
+    if (s.puCustomFonts) {
+        window.__puCustomFonts = s.puCustomFonts;
+        for (const [family, url] of Object.entries(s.puCustomFonts)) {
+            loadPUFont(family, url);
         }
     }
 }
@@ -3316,7 +3353,580 @@ document.getElementById('pu-reset-all').addEventListener('click', resetAllPUOffs
     };
 })();
 
+/* ═══════════════════════════════════════════════════════════════
+   ═══ PU LAYERS (TEXT & IMAGE OVERLAY) ═══
+   ═══════════════════════════════════════════════════════════════ */
+
+function makePULayerData(type, overrides) {
+    return {
+        id: `pul-${++puLayerIdCounter}`,
+        type,
+        x: 0, y: 0, z: 0,
+        rx: 0, ry: 0, rz: 0,
+        rotMode: 'absolute',
+        zIndex: 10 + puLayers.length,
+        text: type === 'text' ? 'Text' : '',
+        color: '#ffffff',
+        fontFamily: 'Syne',
+        fontSize: 48,
+        imageData: '',
+        naturalWidth: 200,
+        naturalHeight: 60,
+        scaleX: 1,
+        scaleY: 1,
+        ...overrides,
+    };
+}
+
+function addPULayer(type, overrides) {
+    const layer = makePULayerData(type, overrides);
+    puLayers.push(layer);
+    selectedPULayerId = layer.id;
+    if (type === 'image') puHasImageLayers = true;
+    renderPULayers();
+    refreshPULayerSidebar();
+    savePULayersToSettings();
+    updateDalton3DUI();
+    return layer;
+}
+
+function removePULayer(id) {
+    puLayers = puLayers.filter(l => l.id !== id);
+    if (selectedPULayerId === id) selectedPULayerId = null;
+    puHasImageLayers = puLayers.some(l => l.type === 'image');
+    renderPULayers();
+    refreshPULayerSidebar();
+    savePULayersToSettings();
+    updateDalton3DUI();
+}
+
+function updatePULayer(id, props) {
+    const layer = puLayers.find(l => l.id === id);
+    if (!layer) return;
+    Object.assign(layer, props);
+    renderPULayers();
+    savePULayersToSettings();
+}
+
+function selectPULayer(id) {
+    selectedPULayerId = id;
+    renderPULayers();
+    refreshPULayerSidebar();
+}
+
+function getSelectedPULayer() {
+    return puLayers.find(l => l.id === selectedPULayerId) || null;
+}
+
+function escHTML(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function puSliderField(id, label, value, min, max) {
+    const dec = (min >= -500 && max >= 500) ? 1 : 0;
+    return `<div class="field">
+      <label class="field-label">${label}</label>
+      <div class="slider-combo">
+        <input type="range" id="${id}" min="${min}" max="${max}" step="1" value="${value}" />
+        <input type="number" id="${id}-num" min="${min}" max="${max}" value="${Number(value).toFixed(dec)}" />
+      </div>
+    </div>`;
+}
+
+function hookPUFieldSlider(sliderId, numId, initial, min, max, decimals, onChange) {
+    const slider = document.getElementById(sliderId);
+    const num = document.getElementById(numId);
+    if (!slider || !num) return;
+    const sync = (val) => {
+        const n = Number(val);
+        num.value = n.toFixed(decimals);
+        slider.value = n;
+        onChange(n);
+    };
+    slider.addEventListener('input', () => sync(slider.value));
+    num.addEventListener('input', () => sync(num.value));
+}
+
+/* ── Rendering ── */
+
+function renderPULayers() {
+    const inner = document.getElementById('canvas-inner');
+    if (!inner) return;
+
+    let container = document.getElementById('pu-layers-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'pu-layers-container';
+        inner.appendChild(container);
+    }
+    container.innerHTML = '';
+
+    for (const layer of puLayers) {
+        const el = document.createElement('div');
+        el.className = 'pu-layer' + (layer.id === selectedPULayerId ? ' selected' : '');
+        el.dataset.layerId = layer.id;
+
+        if (layer.type === 'text') {
+            el.textContent = layer.text;
+            el.style.color = layer.color;
+            el.style.fontFamily = `'${layer.fontFamily}', sans-serif`;
+            el.style.fontSize = layer.fontSize + 'px';
+            el.style.fontWeight = '700';
+            el.style.whiteSpace = 'nowrap';
+            el.style.lineHeight = '1';
+            el.style.userSelect = 'none';
+            el.style.padding = '4px 8px';
+        } else if (layer.type === 'image' && layer.imageData) {
+            const img = document.createElement('img');
+            img.src = layer.imageData;
+            img.draggable = false;
+            el.appendChild(img);
+            el.style.width = (layer.naturalWidth * layer.scaleX) + 'px';
+            el.style.height = (layer.naturalHeight * layer.scaleY) + 'px';
+            img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;pointer-events:none';
+        }
+
+        applyPULayerTransform(el, layer);
+        container.appendChild(el);
+    }
+
+    requestAnimationFrame(updatePUSelectionOverlay);
+}
+
+function applyPULayerTransform(el, layer) {
+    let rot;
+    if (layer.rotMode === 'relative') {
+        rot = `rotateZ(${layer.rz}deg) rotateY(${layer.ry}deg) rotateX(${layer.rx}deg)`;
+    } else {
+        rot = `rotateX(${layer.rx}deg) rotateY(${layer.ry}deg) rotateZ(${layer.rz}deg)`;
+    }
+    el.style.position = 'absolute';
+    el.style.left = '50%';
+    el.style.top = '50%';
+    el.style.transformOrigin = 'center center';
+    el.style.transform =
+        `perspective(${PU_PERSPECTIVE}px) ` +
+        `translateZ(${layer.z}px) ` +
+        `translateX(${layer.x}px) translateY(${layer.y}px) ` +
+        `scale(${layer.scaleX}, ${layer.scaleY}) ` +
+        rot;
+    el.style.zIndex = layer.zIndex;
+    el.style.pointerEvents = 'auto';
+    el.style.cursor = 'move';
+}
+
+/* ── Selection overlay ── */
+
+function updatePUSelectionOverlay() {
+    const inner = document.getElementById('canvas-inner');
+    if (!inner) return;
+
+    let overlay = document.getElementById('pu-selection-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'pu-selection-overlay';
+        inner.appendChild(overlay);
+    }
+    overlay.innerHTML = '';
+
+    if (!selectedPULayerId || !powerUserMode) {
+        overlay.style.display = 'none';
+        return;
+    }
+
+    const layerEl = inner.querySelector(`.pu-layer[data-layer-id="${selectedPULayerId}"]`);
+    if (!layerEl) { overlay.style.display = 'none'; return; }
+
+    const canvasRect = inner.getBoundingClientRect();
+    const lr = layerEl.getBoundingClientRect();
+
+    overlay.style.display = '';
+    overlay.style.position = 'absolute';
+    overlay.style.left = (lr.left - canvasRect.left) + 'px';
+    overlay.style.top = (lr.top - canvasRect.top) + 'px';
+    overlay.style.width = lr.width + 'px';
+    overlay.style.height = lr.height + 'px';
+
+    const handles = [
+        { n: 'tl', c: 'nwse-resize', l: 0, t: 0 },
+        { n: 'tc', c: 'ns-resize', l: '50%', t: 0 },
+        { n: 'tr', c: 'nesw-resize', l: '100%', t: 0 },
+        { n: 'ml', c: 'ew-resize', l: 0, t: '50%' },
+        { n: 'mr', c: 'ew-resize', l: '100%', t: '50%' },
+        { n: 'bl', c: 'nesw-resize', l: 0, t: '100%' },
+        { n: 'bc', c: 'ns-resize', l: '50%', t: '100%' },
+        { n: 'br', c: 'nwse-resize', l: '100%', t: '100%' },
+    ];
+
+    for (const h of handles) {
+        const hd = document.createElement('div');
+        hd.className = 'pu-handle';
+        hd.dataset.handle = h.n;
+        hd.style.left = typeof h.l === 'number' ? h.l + 'px' : h.l;
+        hd.style.top = typeof h.t === 'number' ? h.t + 'px' : h.t;
+        hd.style.cursor = h.c;
+        overlay.appendChild(hd);
+    }
+}
+
+/* ── Drag & Resize ── */
+
+(function initPULayerDragResize() {
+    let drag = null;
+
+    document.addEventListener('mousedown', e => {
+        if (!powerUserMode) return;
+        const inner = document.getElementById('canvas-inner');
+        if (!inner || !inner.contains(e.target)) return;
+
+        const handle = e.target.closest('.pu-handle');
+        if (handle && selectedPULayerId) {
+            e.preventDefault();
+            const layerEl = inner.querySelector(`.pu-layer[data-layer-id="${selectedPULayerId}"]`);
+            const layer = getSelectedPULayer();
+            if (!layerEl || !layer) return;
+            const lr = layerEl.getBoundingClientRect();
+            drag = {
+                mode: 'resize',
+                handle: handle.dataset.handle,
+                sx: e.clientX, sy: e.clientY,
+                startLayer: { ...layer },
+                startRect: { x: lr.left, y: lr.top, w: lr.width, h: lr.height },
+            };
+            return;
+        }
+
+        const layerEl = e.target.closest('.pu-layer');
+        if (layerEl) {
+            e.preventDefault();
+            selectPULayer(layerEl.dataset.layerId);
+            const layer = getSelectedPULayer();
+            if (!layer) return;
+            drag = {
+                mode: 'move',
+                sx: e.clientX, sy: e.clientY,
+                startLayer: { ...layer },
+            };
+            return;
+        }
+
+        if (e.target.closest('#pu-selection-overlay') || e.target.closest('#pu-layers-container')) return;
+        selectPULayer(null);
+    });
+
+    document.addEventListener('mousemove', e => {
+        if (!drag) return;
+        e.preventDefault();
+        const dx = e.clientX - drag.sx;
+        const dy = e.clientY - drag.sy;
+        const P = PU_PERSPECTIVE;
+
+        if (drag.mode === 'move') {
+            const layer = puLayers.find(l => l.id === selectedPULayerId);
+            if (!layer) return;
+            const zFactor = (P - drag.startLayer.z) / P;
+            layer.x = drag.startLayer.x + dx * zFactor;
+            layer.y = drag.startLayer.y + dy * zFactor;
+            renderPULayers();
+            refreshPULayerSidebar();
+        } else if (drag.mode === 'resize') {
+            const layer = puLayers.find(l => l.id === selectedPULayerId);
+            if (!layer) return;
+            const h = drag.handle;
+            const sr = drag.startRect;
+            const sl = drag.startLayer;
+            const aspect = sl.naturalWidth / sl.naturalHeight;
+
+            let newW = sr.w, newH = sr.h;
+            if (h.includes('r')) newW = Math.max(20, sr.w + dx);
+            else if (h.includes('l')) newW = Math.max(20, sr.w - dx);
+            if (h.includes('b')) newH = Math.max(20, sr.h + dy);
+            else if (h.includes('t')) newH = Math.max(20, sr.h - dy);
+
+            if (h.length === 2) {
+                if (Math.abs(dx / sr.w) > Math.abs(dy / sr.h)) {
+                    newH = newW / aspect;
+                } else {
+                    newW = newH * aspect;
+                }
+            }
+
+            layer.scaleX = sl.scaleX * (newW / sr.w);
+            layer.scaleY = sl.scaleY * (newH / sr.h);
+
+            const cx = sr.x + sr.w / 2;
+            const cy = sr.y + sr.h / 2;
+            let newCx, newCy;
+            if (h.includes('l')) newCx = sr.x + sr.w + dx / 2;
+            else if (h.includes('r')) newCx = sr.x + dx / 2;
+            else newCx = cx;
+            if (h.includes('t')) newCy = sr.y + sr.h + dy / 2;
+            else if (h.includes('b')) newCy = sr.y + dy / 2;
+            else newCy = cy;
+
+            const zFactor = (P - sl.z) / P;
+            layer.x = sl.x + (newCx - cx) * zFactor;
+            layer.y = sl.y + (newCy - cy) * zFactor;
+
+            renderPULayers();
+            refreshPULayerSidebar();
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (drag) { drag = null; savePULayersToSettings(); }
+    });
+})();
+
+/* ── Font loading ── */
+
+window.__puCustomFonts = {};
+let puFontCounter = 0;
+
+function loadPUFont(familyName, url) {
+    if (document.querySelector(`style[data-pu-font="${familyName}"]`)) return;
+    const style = document.createElement('style');
+    style.dataset.puFont = familyName;
+    style.textContent = `@font-face { font-family: '${familyName}'; src: url('${url}'); }`;
+    document.head.appendChild(style);
+    window.__puCustomFonts[familyName] = url;
+}
+
+/* ── Sidebar panel ── */
+
+function refreshPULayerSidebar() {
+    const panel = document.getElementById('pu-layers-panel');
+    if (!panel) return;
+
+    const layer = getSelectedPULayer();
+    if (!layer) {
+        let html = '';
+        if (puLayers.length === 0) {
+            html = '<div class="pu-layer-empty">No layers yet. Add text or image below.</div>';
+        } else {
+            html = '<div class="pu-layer-list">';
+            for (let i = puLayers.length - 1; i >= 0; i--) {
+                const l = puLayers[i];
+                const icon = l.type === 'text' ? 'T' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
+                const label = l.type === 'text' ? (l.text || 'Text').substring(0, 20) : 'Image';
+                html += `<div class="pu-layer-item${l.id === selectedPULayerId ? ' selected' : ''}" data-pul-id="${l.id}">
+                    <span class="pu-layer-icon">${icon}</span>
+                    <span class="pu-layer-label">${escHTML(label)}</span>
+                    <button class="pu-layer-del" data-pul-del="${l.id}">&times;</button>
+                </div>`;
+            }
+            html += '</div>';
+        }
+        html += '<div class="pu-layer-add">';
+        html += '<button class="btn btn-secondary" id="pu-add-text">+ Text</button>';
+        html += '<button class="btn btn-secondary" id="pu-add-image">+ Image</button>';
+        html += '</div>';
+        html += '<input type="file" id="pu-image-input" accept="image/png,image/jpeg,image/webp" style="display:none" />';
+        panel.innerHTML = html;
+
+        panel.querySelectorAll('.pu-layer-item').forEach(el => {
+            el.addEventListener('click', e => {
+                if (e.target.closest('.pu-layer-del')) return;
+                selectPULayer(el.dataset.pulId);
+            });
+        });
+        panel.querySelectorAll('.pu-layer-del').forEach(btn => {
+            btn.addEventListener('click', e => { e.stopPropagation(); removePULayer(btn.dataset.pulDel); });
+        });
+        document.getElementById('pu-add-text')?.addEventListener('click', () => addPULayer('text'));
+        const addImgBtn = document.getElementById('pu-add-image');
+        const imgInput = document.getElementById('pu-image-input');
+        if (addImgBtn && imgInput) {
+            addImgBtn.addEventListener('click', () => imgInput.click());
+            imgInput.addEventListener('change', () => {
+                const file = imgInput.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const img = new Image();
+                    img.onload = () => addPULayer('image', {
+                        imageData: reader.result,
+                        naturalWidth: img.naturalWidth,
+                        naturalHeight: img.naturalHeight,
+                    });
+                    img.src = reader.result;
+                };
+                reader.readAsDataURL(file);
+                imgInput.value = '';
+            });
+        }
+        return;
+    }
+
+    const isText = layer.type === 'text';
+    let html = '';
+
+    html += '<button class="btn btn-secondary pu-back-btn" id="pu-layer-back">&larr; Back</button>';
+    html += `<div class="pu-layer-type-badge">${isText ? 'TEXT' : 'IMAGE'}</div>`;
+
+    if (isText) {
+        html += `<div class="power-user-sub-group">
+            <div class="power-user-sub-label">Content</div>
+            <div class="field">
+                <input type="text" id="pul-text" class="pu-text-input" value="${escHTML(layer.text)}" />
+            </div>
+        </div>`;
+    }
+
+    html += `<div class="power-user-sub-group">
+        <div class="power-user-sub-label">Stacking</div>
+        ${puSliderField('pul-zindex', 'Z-Index', layer.zIndex, 0, 100)}
+    </div>`;
+
+    html += `<div class="power-user-sub-group">
+        <div class="power-user-sub-label">Position</div>
+        ${puSliderField('pul-x', 'X', layer.x, -400, 400)}
+        ${puSliderField('pul-y', 'Y', layer.y, -400, 400)}
+        ${puSliderField('pul-z', 'Z (Depth)', layer.z, -500, 500)}
+    </div>`;
+
+    html += `<div class="power-user-sub-group">
+        <div class="power-user-sub-label">Rotation</div>
+        <div class="field">
+            <label class="field-label">Mode</label>
+            <div class="scheme-mode-seg pu-mode-seg">
+                <button type="button" class="scheme-mode-btn${layer.rotMode === 'relative' ? ' active' : ''}" data-pul-rotmode="relative">Relative</button>
+                <button type="button" class="scheme-mode-btn${layer.rotMode === 'absolute' ? ' active' : ''}" data-pul-rotmode="absolute">Absolute</button>
+            </div>
+        </div>
+        ${puSliderField('pul-rx', 'X (Tilt)', layer.rx, -180, 180)}
+        ${puSliderField('pul-ry', 'Y (Tilt)', layer.ry, -180, 180)}
+        ${puSliderField('pul-rz', 'Z (Rotate)', layer.rz, -180, 180)}
+    </div>`;
+
+    if (isText) {
+        const fontOptions = ['Syne', 'JetBrains Mono', 'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana']
+            .map(f => `<option value="${f}"${layer.fontFamily === f ? ' selected' : ''}>${f}</option>`)
+            .join('');
+        const isCustom = layer.fontFamily && !['Syne', 'JetBrains Mono', 'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana'].includes(layer.fontFamily);
+        html += `<div class="power-user-sub-group">
+            <div class="power-user-sub-label">Appearance</div>
+            <div class="field">
+                <label class="field-label">Color</label>
+                <input type="color" id="pul-color" value="${layer.color}" class="pu-color-input" />
+            </div>
+            <div class="field">
+                <label class="field-label">Font Size</label>
+                <div class="slider-combo">
+                    <input type="range" id="pul-fontsize" min="8" max="200" step="1" value="${layer.fontSize}" />
+                    <input type="number" id="pul-fontsize-num" min="8" max="200" value="${layer.fontSize}" />
+                </div>
+            </div>
+            <div class="field">
+                <label class="field-label">Font</label>
+                <select id="pul-font" class="style-select">
+                    ${fontOptions}
+                    <option value="__custom__"${isCustom ? ' selected' : ''}>Custom URL...</option>
+                </select>
+            </div>
+            <div class="field" id="pul-font-url-wrap" style="${isCustom ? '' : 'display:none'}">
+                <label class="field-label">Font URL</label>
+                <input type="url" id="pul-font-url" class="pu-text-input" value="${isCustom ? escHTML(window.__puCustomFonts[layer.fontFamily] || '') : ''}" placeholder="https://example.com/font.woff2" />
+            </div>
+            <div class="field">
+                <button class="btn btn-secondary" id="pu-upload-ttf" style="font-size:.65rem;min-height:30px">Upload TTF / WOFF2</button>
+                <input type="file" id="pu-ttf-input" accept=".ttf,.woff,.woff2,.otf" style="display:none" />
+            </div>
+        </div>`;
+    }
+
+    html += '<button class="btn btn-secondary pu-layer-delete-btn" id="pu-delete-layer">Delete Layer</button>';
+
+    panel.innerHTML = html;
+
+    document.getElementById('pu-layer-back')?.addEventListener('click', () => selectPULayer(null));
+    document.getElementById('pu-delete-layer')?.addEventListener('click', () => removePULayer(layer.id));
+
+    if (isText) {
+        const textInput = document.getElementById('pul-text');
+        if (textInput) textInput.addEventListener('input', () => updatePULayer(layer.id, { text: textInput.value }));
+        const colorInput = document.getElementById('pul-color');
+        if (colorInput) colorInput.addEventListener('input', () => updatePULayer(layer.id, { color: colorInput.value }));
+
+        hookPUFieldSlider('pul-fontsize', 'pul-fontsize-num', layer.fontSize, 8, 200, 0, val => updatePULayer(layer.id, { fontSize: Math.round(val) }));
+
+        const fontSelect = document.getElementById('pul-font');
+        const urlWrap = document.getElementById('pul-font-url-wrap');
+        if (fontSelect) fontSelect.addEventListener('change', () => {
+            const val = fontSelect.value;
+            if (val === '__custom__') {
+                urlWrap.style.display = '';
+            } else {
+                urlWrap.style.display = 'none';
+                updatePULayer(layer.id, { fontFamily: val });
+            }
+        });
+        const fontUrl = document.getElementById('pul-font-url');
+        if (fontUrl) {
+            let debounce;
+            fontUrl.addEventListener('input', () => {
+                clearTimeout(debounce);
+                debounce = setTimeout(() => {
+                    const url = fontUrl.value.trim();
+                    if (!url) return;
+                    const familyName = `Custom-${++puFontCounter}`;
+                    loadPUFont(familyName, url);
+                    updatePULayer(layer.id, { fontFamily: familyName });
+                }, 600);
+            });
+        }
+        const ttfInput = document.getElementById('pu-ttf-input');
+        const ttfBtn = document.getElementById('pu-upload-ttf');
+        if (ttfBtn && ttfInput) {
+            ttfBtn.addEventListener('click', () => ttfInput.click());
+            ttfInput.addEventListener('change', () => {
+                const file = ttfInput.files[0];
+                if (!file) return;
+                const url = URL.createObjectURL(file);
+                const familyName = `Custom-${++puFontCounter}`;
+                loadPUFont(familyName, url);
+                updatePULayer(layer.id, { fontFamily: familyName });
+                refreshPULayerSidebar();
+            });
+        }
+    }
+
+    hookPUFieldSlider('pul-zindex', 'pul-zindex-num', layer.zIndex, 0, 100, 0, val => updatePULayer(layer.id, { zIndex: Math.round(val) }));
+    hookPUFieldSlider('pul-x', 'pul-x-num', layer.x, -400, 400, 1, val => updatePULayer(layer.id, { x: val }));
+    hookPUFieldSlider('pul-y', 'pul-y-num', layer.y, -400, 400, 1, val => updatePULayer(layer.id, { y: val }));
+    hookPUFieldSlider('pul-z', 'pul-z-num', layer.z, -500, 500, 1, val => updatePULayer(layer.id, { z: val }));
+    hookPUFieldSlider('pul-rx', 'pul-rx-num', layer.rx, -180, 180, 0, val => updatePULayer(layer.id, { rx: val }));
+    hookPUFieldSlider('pul-ry', 'pul-ry-num', layer.ry, -180, 180, 0, val => updatePULayer(layer.id, { ry: val }));
+    hookPUFieldSlider('pul-rz', 'pul-rz-num', layer.rz, -180, 180, 0, val => updatePULayer(layer.id, { rz: val }));
+
+    panel.querySelectorAll('[data-pul-rotmode]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const mode = btn.dataset.pulRotmode;
+            if (mode === layer.rotMode) return;
+            updatePULayer(layer.id, { rotMode: mode });
+            refreshPULayerSidebar();
+        });
+    });
+}
+
+/* ── Persistence ── */
+
+function savePULayersToSettings() {
+    try {
+        const s = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+        s.puLayers = puLayers;
+        s.puLayerIdCounter = puLayerIdCounter;
+        s.puHasImageLayers = puHasImageLayers;
+        s.puCustomFonts = window.__puCustomFonts || {};
+        localStorage.setItem(LS_KEY, JSON.stringify(s));
+    } catch (e) {}
+}
+
 loadPUSettings();
+if (powerUserMode && document.getElementById('pu-layers-panel')) {
+    refreshPULayerSidebar();
+}
+if (puHasImageLayers) updateDalton3DUI();
 
 hookSaveListeners();
 appInitialized = true;

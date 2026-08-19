@@ -2118,3 +2118,190 @@ button:disabled {
     backface-visibility: visible;
     will-change: transform, z-index;
 }
+
+/* ─── PU Layers ────────────────────────────────────── */
+#pu-layers-container {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.pu-layer {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    pointer-events: auto;
+    cursor: move;
+    transform-origin: center center;
+    transition: box-shadow 0.15s ease;
+}
+
+.pu-layer.selected {
+    box-shadow: 0 0 0 0px transparent;
+}
+
+#pu-selection-overlay {
+    position: absolute;
+    pointer-events: none;
+    z-index: 9999;
+    border: 2px solid var(--accent);
+    border-radius: 2px;
+}
+
+.pu-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    border-radius: 2px;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+    z-index: 10000;
+}
+
+/* ── Layer list ── */
+.pu-layer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: .8rem;
+}
+
+.pu-layer-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: border-color var(--transition);
+}
+
+.pu-layer-item:hover {
+    border-color: var(--border2);
+}
+
+.pu-layer-item.selected {
+    border-color: var(--accent);
+    background: rgba(79, 255, 176, .06);
+}
+
+.pu-layer-icon {
+    font-size: .75rem;
+    color: var(--muted);
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.pu-layer-label {
+    font-size: .7rem;
+    font-family: var(--font-mono);
+    color: var(--text);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pu-layer-del {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: .85rem;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: color var(--transition), background var(--transition);
+}
+
+.pu-layer-del:hover {
+    color: var(--danger);
+    background: rgba(255, 92, 92, .12);
+}
+
+.pu-layer-empty {
+    font-size: .68rem;
+    color: var(--muted);
+    text-align: center;
+    padding: 1rem .5rem;
+    font-style: italic;
+}
+
+.pu-layer-add {
+    display: flex;
+    gap: 6px;
+}
+
+.pu-layer-add .btn {
+    flex: 1;
+    font-size: .65rem;
+    padding: .45rem .5rem;
+    min-height: 32px;
+}
+
+/* ── Layer property panel ── */
+.pu-back-btn {
+    font-size: .65rem;
+    padding: .35rem .6rem;
+    min-height: 28px;
+    margin-bottom: .6rem;
+}
+
+.pu-layer-type-badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: .55rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    background: rgba(79, 255, 176, .12);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: .7rem;
+}
+
+.pu-text-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    padding: .4rem .6rem;
+    outline: none;
+    transition: border-color var(--transition);
+}
+
+.pu-text-input:focus {
+    border-color: var(--accent);
+}
+
+.pu-color-input {
+    width: 100%;
+    height: 32px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    padding: 2px;
+}
+
+.pu-layer-delete-btn {
+    margin-top: .8rem;
+    min-height: 32px;
+    font-size: .65rem;
+    color: var(--danger);
+    border-color: rgba(255, 92, 92, .25);
+}
+
+.pu-layer-delete-btn:hover {
+    background: rgba(255, 92, 92, .1);
+    border-color: var(--danger);
+}
