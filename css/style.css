@@ -2109,19 +2109,6 @@ button:disabled {
 }
 
 /* ── Viewport 3D perspective container ── */
-.viewport-canvas.power-user-active {
-    overflow: visible;
-    perspective: 2000px;
-    perspective-origin: 50% 50%;
-    transform-style: preserve-3d;
-}
-
-.canvas-inner.power-user-active {
-    transform-style: preserve-3d;
-}
-
 .canvas-inner.power-user-active > svg {
-    transition: transform 80ms ease-out;
-    transform-style: preserve-3d;
     will-change: transform, z-index;
 }

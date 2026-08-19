@@ -519,10 +519,10 @@ function buildSidebar() {
               </div>
             </div>
             <div class="field">
-              <label class="field-label">Z (Zoom)</label>
+              <label class="field-label">Z (Depth)</label>
               <div class="slider-combo">
-                <input type="range" id="pu-left-tz" min="10" max="300" step="1" value="100" />
-                <input type="number" id="pu-left-tz-num" min="10" max="300" value="100" />
+                <input type="range" id="pu-left-tz" min="-500" max="500" step="1" value="0" />
+                <input type="number" id="pu-left-tz-num" min="-500" max="500" value="0" />
               </div>
             </div>
           </div>
@@ -538,15 +538,15 @@ function buildSidebar() {
             <div class="field">
               <label class="field-label">X (Tilt)</label>
               <div class="slider-combo">
-                <input type="range" id="pu-left-rx" min="-90" max="90" step="1" value="0" />
-                <input type="number" id="pu-left-rx-num" min="-90" max="90" value="0" />
+                <input type="range" id="pu-left-rx" min="-180" max="180" step="1" value="0" />
+                <input type="number" id="pu-left-rx-num" min="-180" max="180" value="0" />
               </div>
             </div>
             <div class="field">
               <label class="field-label">Y (Tilt)</label>
               <div class="slider-combo">
-                <input type="range" id="pu-left-ry" min="-90" max="90" step="1" value="0" />
-                <input type="number" id="pu-left-ry-num" min="-90" max="90" value="0" />
+                <input type="range" id="pu-left-ry" min="-180" max="180" step="1" value="0" />
+                <input type="number" id="pu-left-ry-num" min="-180" max="180" value="0" />
               </div>
             </div>
           </div>
@@ -571,10 +571,10 @@ function buildSidebar() {
               </div>
             </div>
             <div class="field">
-              <label class="field-label">Z (Zoom)</label>
+              <label class="field-label">Z (Depth)</label>
               <div class="slider-combo">
-                <input type="range" id="pu-right-tz" min="10" max="300" step="1" value="100" />
-                <input type="number" id="pu-right-tz-num" min="10" max="300" value="100" />
+                <input type="range" id="pu-right-tz" min="-500" max="500" step="1" value="0" />
+                <input type="number" id="pu-right-tz-num" min="-500" max="500" value="0" />
               </div>
             </div>
           </div>
@@ -590,15 +590,15 @@ function buildSidebar() {
             <div class="field">
               <label class="field-label">X (Tilt)</label>
               <div class="slider-combo">
-                <input type="range" id="pu-right-rx" min="-90" max="90" step="1" value="0" />
-                <input type="number" id="pu-right-rx-num" min="-90" max="90" value="0" />
+                <input type="range" id="pu-right-rx" min="-180" max="180" step="1" value="0" />
+                <input type="number" id="pu-right-rx-num" min="-180" max="180" value="0" />
               </div>
             </div>
             <div class="field">
               <label class="field-label">Y (Tilt)</label>
               <div class="slider-combo">
-                <input type="range" id="pu-right-ry" min="-90" max="90" step="1" value="0" />
-                <input type="number" id="pu-right-ry-num" min="-90" max="90" value="0" />
+                <input type="range" id="pu-right-ry" min="-180" max="180" step="1" value="0" />
+                <input type="number" id="pu-right-ry-num" min="-180" max="180" value="0" />
               </div>
             </div>
           </div>
@@ -2978,7 +2978,8 @@ document.getElementById('scheme-reset-default').addEventListener('click', () => 
 let powerUserMode = false;
 let puActiveLayer = 'left';
 
-const PU_DEFAULTS = { tx: 0, ty: 0, tz: 100, rx: 0, ry: 0, rz: 0 };
+const PU_DEFAULTS = { tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0 };
+const PU_PERSPECTIVE = 1200;
 const puOffsets = {
     left:  { ...PU_DEFAULTS },
     right: { ...PU_DEFAULTS },
@@ -3052,10 +3053,9 @@ function applyPowerUserTransforms() {
 function applySingleTransform(svgEl, offsets, zIndex) {
     if (!svgEl) return;
     const { tx, ty, tz, rx, ry, rz } = offsets;
-    const scale = tz / 100;
     svgEl.style.transform =
+        `perspective(${PU_PERSPECTIVE}px) ` +
         `translateZ(${tz}px) ` +
-        `scale(${scale}) ` +
         `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) ` +
         `translateX(${tx}px) translateY(${ty}px)`;
     svgEl.style.zIndex = zIndex;
