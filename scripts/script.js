@@ -3015,22 +3015,13 @@ const PU_INPUT_MAP = {
     },
 };
 
-/* ── Rotation matrix helpers for mode conversion ── */
+/* ── Quaternion / rotation helpers for mode conversion ── */
+
 function degToRad(d) { return d * Math.PI / 180; }
+function radToDeg(r) { return r * 180 / Math.PI; }
+function round2(d) { return Math.round(d * 100) / 100; }
 
-function buildRotationMatrix(rx, ry, rz) {
-    const ax = degToRad(rx), ay = degToRad(ry), az = degToRad(rz);
-    const sx = Math.sin(ax), cx = Math.cos(ax);
-    const sy = Math.sin(ay), cy = Math.cos(ay);
-    const sz = Math.sin(az), cz = Math.cos(az);
-    return [
-        [cy*cz + sx*sy*sz,  cz*sx*sy - cy*sz,  cx*sy],
-        [cx*sz,             cx*cz,              -sx],
-        [-cz*sy + cy*sx*sz, sy*sz + cy*sx*cz,   cx*cy],
-    ];
-}
-
-function transpose(m) {
+function transposeMat(m) {
     return [
         [m[0][0], m[1][0], m[2][0]],
         [m[0][1], m[1][1], m[2][1]],
@@ -3046,35 +3037,92 @@ function mulMatVec(m, v) {
     ];
 }
 
+function composeLocalEuler(rx, ry, rz) {
+    let q = { w: 1, x: 0, y: 0, z: 0 };
+    q = multiplyQuaternions(axisAngleQuaternion('x', rx), q);
+    q = multiplyQuaternions(axisAngleQuaternion('y', ry), q);
+    q = multiplyQuaternions(axisAngleQuaternion('z', rz), q);
+    return q;
+}
+
+function composeWorldEuler(rx, ry, rz) {
+    let q = { w: 1, x: 0, y: 0, z: 0 };
+    q = multiplyQuaternions(axisAngleQuaternion('z', rz), q);
+    q = multiplyQuaternions(axisAngleQuaternion('y', ry), q);
+    q = multiplyQuaternions(axisAngleQuaternion('x', rx), q);
+    return q;
+}
+
+function extractLocalEuler(q) {
+    const R = quaternionToMatrix(q);
+    const sy = Math.max(-1, Math.min(1, R[0][2]));
+    const ry = radToDeg(Math.asin(sy));
+    const cy = Math.cos(degToRad(ry));
+    let rx, rz;
+    if (Math.abs(cy) > 1e-6) {
+        rx = radToDeg(Math.atan2(-R[1][2], R[2][2]));
+        rz = radToDeg(Math.atan2(-R[0][1], R[0][0]));
+    } else {
+        rx = radToDeg(Math.atan2(R[2][1], R[1][1]));
+        rz = 0;
+    }
+    return { rx: round2(rx), ry: round2(ry), rz: round2(rz) };
+}
+
+function extractWorldEuler(q) {
+    const R = quaternionToMatrix(q);
+    const sy = Math.max(-1, Math.min(1, -R[2][0]));
+    const ry = radToDeg(Math.asin(sy));
+    const cy = Math.cos(degToRad(ry));
+    let rx, rz;
+    if (Math.abs(cy) > 1e-6) {
+        rx = radToDeg(Math.atan2(R[2][1], R[2][2]));
+        rz = radToDeg(Math.atan2(R[1][0], R[0][0]));
+    } else {
+        rx = radToDeg(Math.atan2(-R[1][2], R[1][1]));
+        rz = 0;
+    }
+    return { rx: round2(rx), ry: round2(ry), rz: round2(rz) };
+}
+
 function convertOffsetsForMode(layer, newMode) {
     const o = puOffsets[layer];
-    const R = buildRotationMatrix(o.rx, o.ry, o.rz);
+    const oldMode = puOffsetMode[layer];
 
+    const q = oldMode === 'absolute'
+        ? composeLocalEuler(o.rx, o.ry, o.rz)
+        : composeWorldEuler(o.rx, o.ry, o.rz);
+
+    const newEuler = newMode === 'absolute'
+        ? extractLocalEuler(q)
+        : extractWorldEuler(q);
+    o.rx = newEuler.rx;
+    o.ry = newEuler.ry;
+    o.rz = newEuler.rz;
+
+    const R = quaternionToMatrix(q);
     if (newMode === 'relative') {
-        const localVec = [o.tx, o.ty, 0];
-        const worldVec = mulMatVec(R, localVec);
-        o.tx = Math.round(worldVec[0] * 100) / 100;
-        o.ty = Math.round(worldVec[1] * 100) / 100;
+        const worldVec = mulMatVec(R, [o.tx, o.ty, 0]);
+        o.tx = round2(worldVec[0]);
+        o.ty = round2(worldVec[1]);
     } else {
-        const worldVec = [o.tx, o.ty, 0];
-        const Rinv = transpose(R);
-        const localVec = mulMatVec(Rinv, worldVec);
-        o.tx = Math.round(localVec[0] * 100) / 100;
-        o.ty = Math.round(localVec[1] * 100) / 100;
+        const Rinv = transposeMat(R);
+        const localVec = mulMatVec(Rinv, [o.tx, o.ty, 0]);
+        o.tx = round2(localVec[0]);
+        o.ty = round2(localVec[1]);
     }
 }
 
-/* ── Get local-space offsets for the CSS transform ── */
 function getLocalOffsets(layer) {
     const o = puOffsets[layer];
+
     if (puOffsetMode[layer] === 'absolute') {
         return { tx: o.tx, ty: o.ty, tz: o.tz, rx: o.rx, ry: o.ry, rz: o.rz };
     }
-    const R = buildRotationMatrix(o.rx, o.ry, o.rz);
-    const Rinv = transpose(R);
-    const worldVec = [o.tx, o.ty, 0];
-    const localVec = mulMatVec(Rinv, worldVec);
-    return { tx: localVec[0], ty: localVec[1], tz: o.tz, rx: o.rx, ry: o.ry, rz: o.rz };
+
+    const q = composeWorldEuler(o.rx, o.ry, o.rz);
+    const euler = extractLocalEuler(q);
+    return { tx: o.tx, ty: o.ty, tz: o.tz, rx: euler.rx, ry: euler.ry, rz: euler.rz };
 }
 
 function togglePowerUserMode() {
@@ -3106,7 +3154,7 @@ function applyPowerUserTransforms() {
     if (!svgs.length) return;
 
     if (svgs.length === 1) {
-        applySingleTransform(svgs[0], getLocalOffsets('left'), 0);
+        applySingleTransform(svgs[0], getLocalOffsets('left'), 0, puOffsetMode.left);
         return;
     }
 
@@ -3117,18 +3165,26 @@ function applyPowerUserTransforms() {
     else if (rightZ > leftZ) { leftIdx = 0; rightIdx = 2; }
     else { leftIdx = 1; rightIdx = 0; }
 
-    applySingleTransform(svgs[0], getLocalOffsets('left'), leftIdx);
-    applySingleTransform(svgs[1], getLocalOffsets('right'), rightIdx);
+    applySingleTransform(svgs[0], getLocalOffsets('left'), leftIdx, puOffsetMode.left);
+    applySingleTransform(svgs[1], getLocalOffsets('right'), rightIdx, puOffsetMode.right);
 }
 
-function applySingleTransform(svgEl, localOffsets, zIndex) {
+function applySingleTransform(svgEl, localOffsets, zIndex, mode) {
     if (!svgEl) return;
     const { tx, ty, tz, rx, ry, rz } = localOffsets;
-    svgEl.style.transform =
-        `perspective(${PU_PERSPECTIVE}px) ` +
-        `translateZ(${tz}px) ` +
-        `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) ` +
-        `translateX(${tx}px) translateY(${ty}px)`;
+    if (mode === 'relative') {
+        svgEl.style.transform =
+            `perspective(${PU_PERSPECTIVE}px) ` +
+            `translateZ(${tz}px) ` +
+            `translateX(${tx}px) translateY(${ty}px) ` +
+            `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
+    } else {
+        svgEl.style.transform =
+            `perspective(${PU_PERSPECTIVE}px) ` +
+            `translateZ(${tz}px) ` +
+            `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) ` +
+            `translateX(${tx}px) translateY(${ty}px)`;
+    }
     svgEl.style.zIndex = zIndex;
 }
 
