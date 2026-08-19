@@ -3086,6 +3086,8 @@ function extractWorldEuler(q) {
 }
 
 function rotationMatrixToCSS(R) {
+    const p = PU_PERSPECTIVE;
+    const d = 1 / p;
     return `matrix3d(${R[0][0]},${R[1][0]},${R[2][0]},0,${R[0][1]},${R[1][1]},${R[2][1]},0,${R[0][2]},${R[1][2]},${R[2][2]},0,0,0,0,1)`;
 }
 
@@ -3156,9 +3158,7 @@ function applySingleTransform(svgEl, layer, zIndex) {
 
     let rotationCSS;
     if (mode === 'relative') {
-        const q = composeWorldEuler(o.rx, o.ry, o.rz);
-        const R = quaternionToMatrix(q);
-        rotationCSS = rotationMatrixToCSS(R);
+        rotationCSS = `rotateZ(${o.rz}deg) rotateY(${o.ry}deg) rotateX(${o.rx}deg)`;
     } else {
         rotationCSS = `rotateX(${o.rx}deg) rotateY(${o.ry}deg) rotateZ(${o.rz}deg)`;
     }
