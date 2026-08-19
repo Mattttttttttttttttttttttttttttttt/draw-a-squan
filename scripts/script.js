@@ -66,7 +66,8 @@ function buildSchemeGrid() {
 }
 
 function paintPickrButton(pickr, color) {
-    const btn = pickr.getRoot().button;
+    const root = pickr?.getRoot?.();
+    const btn = root?.button;
     if (!btn) return;
     const isTransparent = isTransparentColor(color);
     const resolved = isTransparent ? 'rgba(0,0,0,0)' : color;
@@ -1173,28 +1174,25 @@ function createPickr(el, initialColor, onChange) {
         onChange(resolved);
     });
     p.on('show', () => {
-        const btn = p.getRoot().button;
-        console.log('[pickr show]', 'btn:', btn, 'classes before:', btn?.className);
-        if (btn) {
-            btn.classList.add('pcr-open');
-            console.log('[pickr show]', 'classes after:', btn.className);
-        } else {
-            console.warn('[pickr show] no button found!');
-        }
+        puPickrActive = true;
+        const root = p.getRoot?.();
+        const btn = root?.button;
+        if (btn) btn.classList.add('pcr-open');
     });
     p.on('hide', () => {
         const c = p.getColor();
-        if (!c) { onChange('transparent'); return; }
-        const rgba = c.toRGBA();
-        const a = Math.round(rgba[3] * 100) / 100;
-        const resolved = a === 0 ? 'transparent' : `rgba(${Math.round(rgba[0])},${Math.round(rgba[1])},${Math.round(rgba[2])},${a})`;
-        onChange(resolved);
-        const btn = p.getRoot().button;
-        console.log('[pickr hide]', 'btn:', btn, 'classes before:', btn?.className);
-        if (btn) {
-            btn.classList.remove('pcr-open');
-            console.log('[pickr hide]', 'classes after:', btn.className);
+        if (!c) { onChange('transparent'); }
+        else {
+            const rgba = c.toRGBA();
+            const a = Math.round(rgba[3] * 100) / 100;
+            const resolved = a === 0 ? 'transparent' : `rgba(${Math.round(rgba[0])},${Math.round(rgba[1])},${Math.round(rgba[2])},${a})`;
+            onChange(resolved);
         }
+        const root = p.getRoot?.();
+        const btn = root?.button;
+        if (btn) btn.classList.remove('pcr-open');
+        puPickrActive = false;
+        requestAnimationFrame(() => renderPUProps());
     });
     try { p.setColor(safeInitialColor, true); } catch (e) {}
     repaintPickrButtonAfterInit(p, safeInitialColor);
@@ -3378,6 +3376,15 @@ document.getElementById('pu-reset-all').addEventListener('click', resetAllPUOffs
 
 const PU_BUILTIN_BG = '__bg__';
 const PU_BUILTIN_CUBE = '__cube__';
+let puPickrs = [];
+let puPickrIdCounter = 0;
+let puPickrActive = false;
+let puDragging = false;
+
+function destroyPUPickers() {
+    for (const p of puPickrs) { try { p.destroyAndRemove(); } catch (e) {} }
+    puPickrs = [];
+}
 
 function escHTML(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -3848,16 +3855,25 @@ function renderPUCards() {
 /* ── Left sidebar: Layer properties ── */
 
 function renderPUProps() {
+    if (puPickrActive || puDragging) return;
+    destroyPUPickers();
     const propsSection = document.getElementById('pu-layer-props-section');
+    const puSection = document.getElementById('power-user-section');
     if (!propsSection) return;
 
     const layer = getSelectedPULayer();
+
+    if (puSection) {
+        puSection.classList.toggle('visible', powerUserMode && (!layer || layer.type === 'cube'));
+    }
+
     if (!layer) {
         propsSection.innerHTML = '<div class="pu-empty-layers">Select a layer to edit its properties.</div>';
         return;
     }
 
     let html = '';
+    const pickrCounter = () => `pul-pickr-${++puPickrIdCounter}`;
 
     const layerTypeLabel = { bg: 'BACKGROUND', cube: 'CUBE IMAGE', text: 'TEXT', image: 'IMAGE' };
     html += `<div class="pu-section-title" style="font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.6rem">${layerTypeLabel[layer.type] || 'LAYER'}</div>`;
@@ -3867,7 +3883,7 @@ function renderPUProps() {
             <div class="power-user-sub-label">Background</div>
             <div class="field">
                 <label class="field-label">Color</label>
-                <input type="color" id="pul-bg-color" value="${layer.bgColor || '#1a1a2e'}" class="pu-color-input" />
+                <div class="scheme-pickr-wrap" id="${pickrCounter()}"></div>
             </div>
             ${puSliderField('pul-bg-opacity', 'Opacity', (layer.bgOpacity != null ? layer.bgOpacity : 1) * 100, 0, 100)}
             <div class="field">
@@ -3879,7 +3895,7 @@ function renderPUProps() {
             </div>
         </div>`;
     } else if (layer.type === 'cube') {
-        html += '<div class="power-user-sub-group"><div class="power-user-sub-label">Use the offset controls above to position the cube images.</div></div>';
+        html += '<div class="power-user-sub-group"><div class="power-user-sub-label" style="font-style:italic;color:var(--muted)">Use the offset controls above to adjust left/right image positioning.</div></div>';
     } else if (layer.type === 'text') {
         html += `<div class="power-user-sub-group">
             <div class="power-user-sub-label">Content</div>
@@ -3892,7 +3908,7 @@ function renderPUProps() {
             <div class="power-user-sub-label">Typography</div>
             <div class="field">
                 <label class="field-label">Color</label>
-                <input type="color" id="pul-color" value="${layer.color}" class="pu-color-input" />
+                <div class="scheme-pickr-wrap" id="${pickrCounter()}"></div>
             </div>
             ${puSliderField('pul-fontsize', 'Font Size', layer.fontSize, 8, 200)}
             <div class="field">
@@ -3924,7 +3940,7 @@ function renderPUProps() {
             <div class="pu-outline-row">
                 <div class="field">
                     <label class="field-label">Color</label>
-                    <input type="color" id="pul-outline-color" value="${layer.outlineColor || '#000000'}" class="pu-color-input" />
+                    <div class="scheme-pickr-wrap" id="${pickrCounter()}"></div>
                 </div>
                 <div class="field">
                     ${puSliderField('pul-outline-size', 'Size', layer.outlineSize || 0, 0, 20)}
@@ -3971,8 +3987,15 @@ function renderPUProps() {
 
     propsSection.innerHTML = html;
 
+    const pickrEls = propsSection.querySelectorAll('.scheme-pickr-wrap');
+    let pickrIdx = 0;
+
     if (layer.type === 'bg') {
-        document.getElementById('pul-bg-color')?.addEventListener('input', e => updatePULayer(layer.id, { bgColor: e.target.value }));
+        if (pickrEls[pickrIdx]) {
+            const p = createPickr(pickrEls[pickrIdx], layer.bgColor || '#1a1a2e', (color) => updatePULayer(layer.id, { bgColor: color }));
+            puPickrs.push(p);
+        }
+        pickrIdx++;
         hookPUFieldSlider('pul-bg-opacity', 'pul-bg-opacity-num', (layer.bgOpacity != null ? layer.bgOpacity : 1) * 100, 0, 100, 0, val => updatePULayer(layer.id, { bgOpacity: val / 100 }));
         const dropzone = document.getElementById('pul-bg-dropzone');
         const bgFile = document.getElementById('pul-bg-file');
@@ -3990,7 +4013,11 @@ function renderPUProps() {
 
     if (layer.type === 'text') {
         document.getElementById('pul-text')?.addEventListener('input', e => updatePULayer(layer.id, { text: e.target.value }));
-        document.getElementById('pul-color')?.addEventListener('input', e => updatePULayer(layer.id, { color: e.target.value }));
+        if (pickrEls[pickrIdx]) {
+            const p = createPickr(pickrEls[pickrIdx], layer.color, (color) => updatePULayer(layer.id, { color }));
+            puPickrs.push(p);
+        }
+        pickrIdx++;
         hookPUFieldSlider('pul-fontsize', 'pul-fontsize-num', layer.fontSize, 8, 200, 0, val => updatePULayer(layer.id, { fontSize: Math.round(val) }));
 
         const fontSelect = document.getElementById('pul-font');
@@ -4038,7 +4065,11 @@ function renderPUProps() {
         document.getElementById('pul-underline')?.addEventListener('click', () => updatePULayer(layer.id, { underline: !layer.underline }));
         document.getElementById('pul-strike')?.addEventListener('click', () => updatePULayer(layer.id, { strikethrough: !layer.strikethrough }));
 
-        document.getElementById('pul-outline-color')?.addEventListener('input', e => updatePULayer(layer.id, { outlineColor: e.target.value }));
+        if (pickrEls[pickrIdx]) {
+            const p = createPickr(pickrEls[pickrIdx], layer.outlineColor || '#000000', (color) => updatePULayer(layer.id, { outlineColor: color }));
+            puPickrs.push(p);
+        }
+        pickrIdx++;
         hookPUFieldSlider('pul-outline-size', 'pul-outline-size-num', layer.outlineSize || 0, 0, 20, 0, val => updatePULayer(layer.id, { outlineSize: Math.round(val) }));
         hookPUFieldSlider('pul-outline-fade', 'pul-outline-fade-num', layer.outlineFade || 0, 0, 30, 0, val => updatePULayer(layer.id, { outlineFade: Math.round(val) }));
     }
@@ -4114,10 +4145,12 @@ function renderPUProps() {
 
         const layerEl = e.target.closest('.pu-layer');
         if (layerEl) {
-            e.preventDefault();
-            selectPULayer(layerEl.dataset.layerId);
+            if (e.ctrlKey || e.metaKey) {
+                selectPULayer(layerEl.dataset.layerId);
+            }
             const layer = getSelectedPULayer();
             if (!layer) return;
+            e.preventDefault();
             drag = {
                 mode: 'move',
                 sx: e.clientX, sy: e.clientY,
@@ -4127,12 +4160,12 @@ function renderPUProps() {
         }
 
         if (e.target.closest('#pu-selection-overlay') || e.target.closest('#pu-layers-container')) return;
-        selectPULayer(null);
     });
 
     document.addEventListener('mousemove', e => {
         if (!drag) return;
         e.preventDefault();
+        puDragging = true;
         const dx = e.clientX - drag.sx;
         const dy = e.clientY - drag.sy;
         const P = PU_PERSPECTIVE;
@@ -4143,7 +4176,8 @@ function renderPUProps() {
             const zFactor = (P - drag.startLayer.z) / P;
             layer.x = drag.startLayer.x + dx * zFactor;
             layer.y = drag.startLayer.y + dy * zFactor;
-            renderPU();
+            renderPUCanvas();
+            requestAnimationFrame(updatePUSelectionOverlay);
         } else if (drag.mode === 'resize') {
             const layer = puLayers.find(l => l.id === selectedPULayerId);
             if (!layer) return;
@@ -4184,12 +4218,19 @@ function renderPUProps() {
             layer.x = sl.x + (newCx - cx) * zFactor;
             layer.y = sl.y + (newCy - cy) * zFactor;
 
-            renderPU();
+            renderPUCanvas();
+            requestAnimationFrame(updatePUSelectionOverlay);
         }
     });
 
     document.addEventListener('mouseup', () => {
-        if (drag) { drag = null; savePULayersToSettings(); }
+        if (drag) {
+            drag = null;
+            puDragging = false;
+            savePULayersToSettings();
+            renderPUCards();
+            renderPUProps();
+        }
     });
 })();
 
@@ -4233,7 +4274,8 @@ function loadPUFont(familyName, url) {
 
         if (handled) {
             e.preventDefault();
-            renderPU();
+            renderPUCanvas();
+            requestAnimationFrame(updatePUSelectionOverlay);
             savePULayersToSettings();
         }
     });
