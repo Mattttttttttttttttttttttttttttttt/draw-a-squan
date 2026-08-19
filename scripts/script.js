@@ -3085,6 +3085,10 @@ function extractWorldEuler(q) {
     return { rx: round2(rx), ry: round2(ry), rz: round2(rz) };
 }
 
+function rotationMatrixToCSS(R) {
+    return `matrix3d(${R[0][0]},${R[1][0]},${R[2][0]},0,${R[0][1]},${R[1][1]},${R[2][1]},0,${R[0][2]},${R[1][2]},${R[2][2]},0,0,0,0,1)`;
+}
+
 function convertOffsetsForMode(layer, newMode) {
     const o = puOffsets[layer];
     const oldMode = puOffsetMode[layer];
@@ -3099,30 +3103,6 @@ function convertOffsetsForMode(layer, newMode) {
     o.rx = newEuler.rx;
     o.ry = newEuler.ry;
     o.rz = newEuler.rz;
-
-    const R = quaternionToMatrix(q);
-    if (newMode === 'relative') {
-        const worldVec = mulMatVec(R, [o.tx, o.ty, 0]);
-        o.tx = round2(worldVec[0]);
-        o.ty = round2(worldVec[1]);
-    } else {
-        const Rinv = transposeMat(R);
-        const localVec = mulMatVec(Rinv, [o.tx, o.ty, 0]);
-        o.tx = round2(localVec[0]);
-        o.ty = round2(localVec[1]);
-    }
-}
-
-function getLocalOffsets(layer) {
-    const o = puOffsets[layer];
-
-    if (puOffsetMode[layer] === 'absolute') {
-        return { tx: o.tx, ty: o.ty, tz: o.tz, rx: o.rx, ry: o.ry, rz: o.rz };
-    }
-
-    const q = composeWorldEuler(o.rx, o.ry, o.rz);
-    const euler = extractLocalEuler(q);
-    return { tx: o.tx, ty: o.ty, tz: o.tz, rx: euler.rx, ry: euler.ry, rz: euler.rz };
 }
 
 function togglePowerUserMode() {
@@ -3154,7 +3134,7 @@ function applyPowerUserTransforms() {
     if (!svgs.length) return;
 
     if (svgs.length === 1) {
-        applySingleTransform(svgs[0], getLocalOffsets('left'), 0, puOffsetMode.left);
+        applySingleTransform(svgs[0], 'left', 0);
         return;
     }
 
@@ -3165,26 +3145,29 @@ function applyPowerUserTransforms() {
     else if (rightZ > leftZ) { leftIdx = 0; rightIdx = 2; }
     else { leftIdx = 1; rightIdx = 0; }
 
-    applySingleTransform(svgs[0], getLocalOffsets('left'), leftIdx, puOffsetMode.left);
-    applySingleTransform(svgs[1], getLocalOffsets('right'), rightIdx, puOffsetMode.right);
+    applySingleTransform(svgs[0], 'left', leftIdx);
+    applySingleTransform(svgs[1], 'right', rightIdx);
 }
 
-function applySingleTransform(svgEl, localOffsets, zIndex, mode) {
+function applySingleTransform(svgEl, layer, zIndex) {
     if (!svgEl) return;
-    const { tx, ty, tz, rx, ry, rz } = localOffsets;
+    const o = puOffsets[layer];
+    const mode = puOffsetMode[layer];
+
+    let rotationCSS;
     if (mode === 'relative') {
-        svgEl.style.transform =
-            `perspective(${PU_PERSPECTIVE}px) ` +
-            `translateZ(${tz}px) ` +
-            `translateX(${tx}px) translateY(${ty}px) ` +
-            `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
+        const q = composeWorldEuler(o.rx, o.ry, o.rz);
+        const R = quaternionToMatrix(q);
+        rotationCSS = rotationMatrixToCSS(R);
     } else {
-        svgEl.style.transform =
-            `perspective(${PU_PERSPECTIVE}px) ` +
-            `translateZ(${tz}px) ` +
-            `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) ` +
-            `translateX(${tx}px) translateY(${ty}px)`;
+        rotationCSS = `rotateX(${o.rx}deg) rotateY(${o.ry}deg) rotateZ(${o.rz}deg)`;
     }
+
+    svgEl.style.transform =
+        `perspective(${PU_PERSPECTIVE}px) ` +
+        `translateZ(${o.tz}px) ` +
+        `translateX(${o.tx}px) translateY(${o.ty}px) ` +
+        rotationCSS;
     svgEl.style.zIndex = zIndex;
 }
 
