@@ -3122,18 +3122,11 @@ function togglePowerUserMode() {
     const badge = document.querySelector('.logo .power-user-badge');
     const vpCanvas = document.getElementById('viewport-canvas');
     const inner = document.getElementById('canvas-inner');
-    const secDesigns = document.getElementById('section-designs');
-    const secDisplay = document.getElementById('section-display');
-    const secColor = document.getElementById('section-color-scheme');
 
     section.classList.toggle('visible', powerUserMode);
     if (propsSection) propsSection.classList.toggle('visible', powerUserMode);
     if (rightSidebar) rightSidebar.classList.toggle('hidden', !powerUserMode);
     if (badge) badge.style.display = powerUserMode ? '' : 'none';
-
-    if (secDesigns) secDesigns.style.display = powerUserMode ? 'none' : '';
-    if (secDisplay) secDisplay.style.display = powerUserMode ? 'none' : '';
-    if (secColor) secColor.style.display = powerUserMode ? 'none' : '';
 
     if (powerUserMode) {
         vpCanvas.classList.add('power-user-active');
@@ -3247,17 +3240,11 @@ function loadPUSettings() {
         const rightSidebar = document.getElementById('sidebar-right');
         const vpCanvas = document.getElementById('viewport-canvas');
         const inner = document.getElementById('canvas-inner');
-        const secDesigns = document.getElementById('section-designs');
-        const secDisplay = document.getElementById('section-display');
-        const secColor = document.getElementById('section-color-scheme');
         if (section) section.classList.add('visible');
         if (layersSection) layersSection.classList.add('visible');
         if (rightSidebar) rightSidebar.classList.remove('hidden');
         if (vpCanvas) vpCanvas.classList.add('power-user-active');
         if (inner) inner.classList.add('power-user-active');
-        if (secDesigns) secDesigns.style.display = 'none';
-        if (secDisplay) secDisplay.style.display = 'none';
-        if (secColor) secColor.style.display = 'none';
         const badge = document.querySelector('.logo .power-user-badge');
         if (badge) badge.style.display = '';
     }
@@ -3862,10 +3849,18 @@ function renderPUProps() {
     if (!propsSection) return;
 
     const layer = getSelectedPULayer();
+    const showNormalSections = !layer || layer.type === 'cube';
 
     if (puSection) {
-        puSection.classList.toggle('visible', powerUserMode && (!layer || layer.type === 'cube'));
+        puSection.classList.toggle('visible', powerUserMode && showNormalSections);
     }
+
+    const secDesigns = document.getElementById('section-designs');
+    const secDisplay = document.getElementById('section-display');
+    const secColor = document.getElementById('section-color-scheme');
+    if (secDesigns) secDesigns.style.display = (!powerUserMode || showNormalSections) ? '' : 'none';
+    if (secDisplay) secDisplay.style.display = (!powerUserMode || showNormalSections) ? '' : 'none';
+    if (secColor) secColor.style.display = (!powerUserMode || showNormalSections) ? '' : 'none';
 
     if (!layer) {
         propsSection.innerHTML = '<div class="pu-empty-layers">Select a layer to edit its properties.</div>';
