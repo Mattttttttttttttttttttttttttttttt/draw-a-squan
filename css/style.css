@@ -1547,10 +1547,13 @@ button:disabled {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: .45rem;
-    width: 100%;
+    gap: .6rem;
+    /* fixed width so contents never reflow during the collapse/expand animation */
+    width: 56px;
+    min-width: 56px;
+    flex-shrink: 0;
     height: 100%;
-    padding: .7rem .4rem;
+    padding: .9rem .5rem;
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: none;
@@ -1561,15 +1564,15 @@ button:disabled {
 }
 
 .rail-btn {
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     background: transparent;
     border: none;
-    border-radius: 9px;
+    border-radius: 12px;
     color: var(--muted);
     cursor: pointer;
     padding: 0;
@@ -1581,22 +1584,75 @@ button:disabled {
     color: var(--text);
 }
 
+.rail-btn.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+}
+
 .rail-btn svg {
+    width: 21px;
+    height: 21px;
     pointer-events: none;
 }
 
 .rail-design-btn img,
 #rail-design-icon {
-    width: 30px;
-    height: 30px;
+    width: 34px;
+    height: 34px;
     object-fit: contain;
     pointer-events: none;
     user-select: none;
 }
 
+/* classical / custom scheme toggle */
+.rail-mode-seg {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 3px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 13px;
+    flex-shrink: 0;
+}
+
+.rail-mode-btn {
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    padding: 0;
+    opacity: .55;
+    transition: background var(--transition), opacity var(--transition);
+}
+
+.rail-mode-btn img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+}
+
+.rail-mode-btn:hover {
+    opacity: .85;
+    background: var(--border);
+}
+
+.rail-mode-btn.active {
+    opacity: 1;
+    background: var(--accent-dim);
+    box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
 .rail-orient-btn {
     font-family: var(--font-mono);
-    font-size: 1.05rem;
+    font-size: 1.15rem;
     line-height: 1;
 }
 
@@ -1604,21 +1660,21 @@ button:disabled {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 5px;
+    gap: 6px;
     width: 100%;
-    padding: .55rem 0;
+    padding: .7rem 0;
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
 }
 
 .rail-swatch {
-    width: 20px;
-    height: 20px;
+    width: 23px;
+    height: 23px;
 }
 
 .rail-swatch .pickr .pcr-button {
-    width: 20px !important;
-    height: 20px !important;
+    width: 23px !important;
+    height: 23px !important;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18) !important;
 }
 
@@ -1627,20 +1683,20 @@ button:disabled {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     width: 100%;
     padding-bottom: .2rem;
 }
 
 .rail-cycle-btn {
-    width: 44px;
-    height: 24px;
+    width: 48px;
+    height: 26px;
     background: var(--surface2);
     border: 1px solid var(--border2);
-    border-radius: 6px;
+    border-radius: 7px;
     color: var(--muted);
     font-family: var(--font-mono);
-    font-size: .52rem;
+    font-size: .56rem;
     font-weight: 700;
     letter-spacing: .06em;
     text-transform: uppercase;
@@ -2696,4 +2752,84 @@ button:disabled {
 
 .about-body strong {
     color: #fff;
+}
+
+/* ─── Rail vertical slider popup ─────────────────────── */
+#rail-vslider {
+    position: fixed;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%) translateX(14px);
+    z-index: 400;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 11px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 18px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease, transform .18s ease;
+    outline: none;
+}
+
+#rail-vslider.open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(-50%) translateX(0);
+}
+
+.rvs-label {
+    font-family: var(--font-mono);
+    font-size: .56rem;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.rvs-track {
+    position: relative;
+    width: 6px;
+    height: 190px;
+    background: var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+    touch-action: none;
+}
+
+.rvs-fill {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+    pointer-events: none;
+}
+
+.rvs-thumb {
+    position: absolute;
+    left: 50%;
+    bottom: var(--p, 50%);
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    transform: translate(-50%, 50%);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .55);
+    pointer-events: none;
+}
+
+.rvs-value {
+    font-family: var(--font-mono);
+    font-size: .74rem;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 36px;
+    text-align: center;
 }

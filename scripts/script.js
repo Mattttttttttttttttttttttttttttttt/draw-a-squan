@@ -449,6 +449,10 @@ function handleDaltonRotationKeyboardStep(event, currentValue, min, max, apply) 
 function buildSidebar() {
     const sidebar = document.getElementById('sidebar');
     const PANEL_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg>';
+    const ICON_SIZE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>';
+    const ICON_PAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2.5" stroke-dasharray="2.6 2.6"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg>';
+    const ICON_GAP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>';
+    const ICON_SLICE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 12V3.2"/><path d="M12 12l6.4 6.2"/></svg>';
     sidebar.innerHTML = `
       <button class="rail-btn sidebar-collapse-btn" id="sidebar-collapse-btn" title="Collapse sidebar">${PANEL_SVG}</button>
 
@@ -700,7 +704,23 @@ function buildSidebar() {
         <button class="rail-btn rail-design-btn" id="rail-design-btn" title="Switch design">
           <img id="rail-design-icon" src="./img/design-sac2.svg" alt="" draggable="false">
         </button>
+
+        <div class="rail-mode-seg">
+          <button class="rail-mode-btn" id="rail-scheme-classical" title="Classical colors">
+            <img src="./img/scheme-classical.svg" alt="" draggable="false">
+          </button>
+          <button class="rail-mode-btn" id="rail-scheme-custom" title="Custom colors">
+            <img src="./img/scheme-custom.svg" alt="" draggable="false">
+          </button>
+        </div>
+
         <button class="rail-btn rail-orient-btn" id="rail-orient-btn" title="Toggle orientation">\u21D4</button>
+
+        <button class="rail-btn rail-prop-btn" id="rail-size-btn" title="Image size">${ICON_SIZE}</button>
+        <button class="rail-btn rail-prop-btn" id="rail-pad-btn" title="Padding size">${ICON_PAD}</button>
+        <button class="rail-btn rail-prop-btn" id="rail-gap-btn" title="Layer distance">${ICON_GAP}</button>
+        <button class="rail-btn rail-prop-btn" id="rail-slice-btn" title="Slice indicator">${ICON_SLICE}</button>
+
         <div class="rail-swatches" id="rail-swatches"></div>
         <div class="rail-export">
           <button class="rail-cycle-btn" id="rail-layer-btn" title="Export layer">Both</button>
@@ -750,6 +770,8 @@ function setSchemeMode(isCustom, { redraw = true, persist = true } = {}) {
     classicalPanel.style.display = isCustom ? 'none' : '';
     customPanel.style.display    = isCustom ? '' : 'none';
     toolbar.style.display        = isCustom ? '' : 'none';
+    document.getElementById('rail-scheme-classical')?.classList.toggle('active', !isCustom);
+    document.getElementById('rail-scheme-custom')?.classList.toggle('active', isCustom);
 
     if (isCustom && !isCustomMode) {
         // Switching TO custom: save classical state, restore custom state
@@ -1316,6 +1338,26 @@ function updateRailUI() {
     if (layerBtn) layerBtn.textContent = exportLayer.charAt(0).toUpperCase() + exportLayer.slice(1);
     const fmtBtn = document.getElementById('rail-fmt-btn');
     if (fmtBtn) fmtBtn.textContent = exportFmt.toUpperCase();
+
+    // slice indicator state
+    const sliceBtn = document.getElementById('rail-slice-btn');
+    if (sliceBtn) {
+        const hideSlice = document.getElementById('hide-slice').checked;
+        sliceBtn.classList.toggle('active', hideSlice);
+        sliceBtn.title = hideSlice ? 'Show slice indicator' : 'Hide slice indicator';
+    }
+
+    // gap & slice don't apply to the 3D design
+    const is3D = isDalton3DStyle();
+    const gapBtn = document.getElementById('rail-gap-btn');
+    if (gapBtn) gapBtn.style.display = is3D ? 'none' : '';
+    if (sliceBtn) sliceBtn.style.display = is3D ? 'none' : '';
+    if (is3D && vslOpenKind === 'gap') closeRailVSlider();
+
+    // scheme mode seg
+    const classicalActive = classicalBtn.classList.contains('active');
+    document.getElementById('rail-scheme-classical')?.classList.toggle('active', classicalActive);
+    document.getElementById('rail-scheme-custom')?.classList.toggle('active', !classicalActive);
 }
 
 function updateRailOrientIcon() {
@@ -1362,6 +1404,140 @@ function cycleExportTab(group) {
 
 document.getElementById('rail-layer-btn').addEventListener('click', () => cycleExportTab('layer'));
 document.getElementById('rail-fmt-btn').addEventListener('click', () => cycleExportTab('fmt'));
+
+/* ─── Rail: scheme mode toggle ────────────────────── */
+document.getElementById('rail-scheme-classical').addEventListener('click', () => setSchemeMode(false));
+document.getElementById('rail-scheme-custom').addEventListener('click', () => setSchemeMode(true));
+
+/* ─── Rail: vertical slider popup (Android volume-bar style) ─── */
+const RAIL_VSLIDER_CONFIGS = {
+    size: { label: 'Size', min: 100, max: 750, step: 5, input: 'size-input', slider: 'size-slider' },
+    pad: { label: 'Padding', min: -20, max: 100, step: 1, input: 'pad-input', slider: 'pad-slider' },
+    gap: { label: 'Layer Dist', min: 0, max: 200, step: 1, input: 'gap-input', slider: 'gap-slider' },
+};
+
+const railVSlider = document.createElement('div');
+railVSlider.id = 'rail-vslider';
+railVSlider.tabIndex = -1;
+railVSlider.innerHTML = `
+    <div class="rvs-label"></div>
+    <div class="rvs-track" id="rvs-track">
+      <div class="rvs-fill" id="rvs-fill"></div>
+      <div class="rvs-thumb" id="rvs-thumb"></div>
+    </div>
+    <div class="rvs-value" id="rvs-value"></div>`;
+document.body.appendChild(railVSlider);
+const rvsTrack = document.getElementById('rvs-track');
+
+let vslOpenKind = null;
+let vslValue = 0;
+let vslDragging = false;
+
+function vslUpdateUI() {
+    const cfg = RAIL_VSLIDER_CONFIGS[vslOpenKind];
+    if (!cfg) return;
+    railVSlider.querySelector('.rvs-label').textContent = cfg.label;
+    document.getElementById('rvs-value').textContent = vslValue;
+    const pct = (vslValue - cfg.min) / (cfg.max - cfg.min) * 100;
+    document.getElementById('rvs-fill').style.height = pct + '%';
+    document.getElementById('rvs-thumb').style.setProperty('--p', pct + '%');
+}
+
+function vslApply(rawValue) {
+    const cfg = RAIL_VSLIDER_CONFIGS[vslOpenKind];
+    if (!cfg) return;
+    const stepped = Math.round(rawValue / cfg.step) * cfg.step;
+    vslValue = Math.min(cfg.max, Math.max(cfg.min, stepped));
+    const num = document.getElementById(cfg.input);
+    const sl = document.getElementById(cfg.slider);
+    if (num) {
+        num.value = vslValue;
+        num.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (sl) sl.value = vslValue;
+    vslUpdateUI();
+}
+
+function openRailVSlider(kind, btn) {
+    if (vslOpenKind === kind) { closeRailVSlider(); return; }
+    closeRailVSlider();
+    vslOpenKind = kind;
+    const cfg = RAIL_VSLIDER_CONFIGS[kind];
+    vslValue = parseInt(document.getElementById(cfg.input).value, 10) || cfg.min;
+    vslUpdateUI();
+    railVSlider.classList.add('open');
+    btn?.classList.add('active');
+    railVSlider.focus({ preventScroll: true });
+}
+
+function closeRailVSlider() {
+    if (!vslOpenKind) return;
+    vslOpenKind = null;
+    vslDragging = false;
+    railVSlider.classList.remove('open');
+    document.querySelectorAll('.rail-prop-btn.active').forEach(b => b.classList.remove('active'));
+}
+
+document.getElementById('rail-size-btn').addEventListener('click', function () { openRailVSlider('size', this); });
+document.getElementById('rail-pad-btn').addEventListener('click', function () { openRailVSlider('pad', this); });
+document.getElementById('rail-gap-btn').addEventListener('click', function () { openRailVSlider('gap', this); });
+
+document.getElementById('rail-slice-btn').addEventListener('click', () => {
+    const cb = document.getElementById('hide-slice');
+    cb.checked = !cb.checked;
+    cb.dispatchEvent(new Event('change'));
+    saveSettings();
+    updateRailUI();
+});
+
+function vslTrackToValue(clientY) {
+    const cfg = RAIL_VSLIDER_CONFIGS[vslOpenKind];
+    const rect = rvsTrack.getBoundingClientRect();
+    const ratio = 1 - (clientY - rect.top) / rect.height;
+    return cfg.min + ratio * (cfg.max - cfg.min);
+}
+
+rvsTrack.addEventListener('pointerdown', e => {
+    if (!vslOpenKind) return;
+    vslDragging = true;
+    rvsTrack.setPointerCapture(e.pointerId);
+    vslApply(vslTrackToValue(e.clientY));
+});
+rvsTrack.addEventListener('pointermove', e => {
+    if (vslDragging && vslOpenKind) vslApply(vslTrackToValue(e.clientY));
+});
+rvsTrack.addEventListener('pointerup', () => { vslDragging = false; });
+rvsTrack.addEventListener('pointercancel', () => { vslDragging = false; });
+
+railVSlider.addEventListener('wheel', e => {
+    if (!vslOpenKind) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const cfg = RAIL_VSLIDER_CONFIGS[vslOpenKind];
+    vslApply(vslValue + (e.deltaY < 0 ? cfg.step : -cfg.step));
+}, { passive: false });
+
+railVSlider.addEventListener('keydown', e => {
+    if (!vslOpenKind) return;
+    const cfg = RAIL_VSLIDER_CONFIGS[vslOpenKind];
+    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+        e.preventDefault(); e.stopPropagation();
+        vslApply(vslValue + cfg.step);
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+        e.preventDefault(); e.stopPropagation();
+        vslApply(vslValue - cfg.step);
+    } else if (e.key === 'Escape') {
+        closeRailVSlider();
+    }
+});
+
+// dismiss when clicking/tapping anywhere else
+document.addEventListener('pointerdown', e => {
+    if (!vslOpenKind) return;
+    if (railVSlider.contains(e.target)) return;
+    if (e.target.closest?.('#rail-size-btn, #rail-pad-btn, #rail-gap-btn')) return;
+    closeRailVSlider();
+});
 
 /* ─── Topbar ⋮ menu ───────────────────────────────── */
 const topbarMoreBtn = document.getElementById('topbar-more-btn');
