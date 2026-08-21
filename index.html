@@ -13,13 +13,6 @@
 
 <body>
 
-  <!-- ═══ HEADER ═══ -->
-  <header>
-    <button class="hamburger-btn" id="hamburger-btn" title="Toggle sidebar">
-      <img src="./img/menu.svg">
-    </button>
-    <div class="logo"><span>DRAW-A-SQUAN <span class="power-user-badge" style="display:none;">POWER</span></span> <span class="logo-by">by Matt &amp; Abid</span></div>
-  </header>
   <!-- ═══ CUSTOM TOOLBAR BAR ═══ -->
   <div class="custom-toolbar" id="custom-toolbar" style="display:none;">
     <script>
@@ -109,11 +102,34 @@
     </div>
   </div>
 
+  <!-- ═══ TOPBAR ═══ -->
+  <header>
+    <div class="logo" id="logo">
+      <span class="logo-title">DRAW-A-SQUAN</span>
+      <span class="logo-by">by Matt &amp; Abid</span>
+    </div>
+    <div class="topbar-more-wrap">
+      <button class="topbar-more-btn" id="topbar-more-btn" title="More options">
+        <svg viewBox="0 0 16 16" fill="none">
+          <circle cx="8" cy="3.2" r="1.35" fill="currentColor" />
+          <circle cx="8" cy="8" r="1.35" fill="currentColor" />
+          <circle cx="8" cy="12.8" r="1.35" fill="currentColor" />
+        </svg>
+      </button>
+      <div class="topbar-more-menu" id="topbar-more-menu">
+        <button class="topbar-menu-item" id="menu-about-btn">About</button>
+        <button class="topbar-menu-item" id="menu-howto-btn">How to Use</button>
+        <div class="topbar-menu-divider"></div>
+        <button class="topbar-menu-item" id="menu-enhanced-btn">Switch to Enhanced Mode</button>
+      </div>
+    </div>
+  </header>
+
   <!-- ═══ APP SHELL ═══ -->
   <div class="app">
 
     <!-- ══ SIDEBAR (built dynamically in JS) ══ -->
-    <aside class="sidebar hidden" id="sidebar"></aside>
+    <aside class="sidebar" id="sidebar"></aside>
 
     <!-- ══ VIEWPORT ══ -->
     <main class="viewport">
@@ -251,6 +267,45 @@
       Copy to Clipboard
     </button>
   </div>
+  <!-- ═══ ABOUT MODAL ═══ -->
+  <div class="modal-overlay" id="about-modal-overlay">
+    <div class="modal-box modal-box--info" id="about-modal">
+      <div class="modal-header">
+        <span class="modal-title">About</span>
+        <button class="modal-close-btn" id="about-modal-close">✕</button>
+      </div>
+      <div class="modal-tab-panel about-body">
+        <p><strong>DRAW-A-SQUAN</strong> is a Square-1 image generator. Draw your scrambles, algs and custom states as
+          clean images, tweak every visual detail, and export them as SVG, PNG, JPEG or BMP — one at a time or in
+          bulk.</p>
+        <p>Three designs are included: <strong>SAC2's Design</strong>, <strong>Abid's Design</strong> and
+          <strong>Dalton's Design (3D)</strong>. Cycle between them with the design button in the sidebar.</p>
+        <p class="modal-hint">Made by Matt &amp; Abid · Free &amp; open source</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ HOW-TO MODAL ═══ -->
+  <div class="modal-overlay" id="howto-modal-overlay">
+    <div class="modal-box modal-box--info" id="howto-modal">
+      <div class="modal-header">
+        <span class="modal-title">How to Use</span>
+        <button class="modal-close-btn" id="howto-modal-close">✕</button>
+      </div>
+      <div class="modal-tab-panel about-body">
+        <p><strong>Input.</strong> Type a scramble, an algorithm or hex in the top bar. The mode button switches between
+          Scramble / Alg / Hex — left-click cycles forward, right-click cycles backward.</p>
+        <p><strong>Sidebar.</strong> Click the sidebar toggle to collapse it into a slim rail. From the rail you can
+          still switch designs, flip the orientation and recolor pieces. Expand it for all settings.</p>
+        <p><strong>Export.</strong> Use the download / copy buttons under the canvas, press Ctrl+S / Ctrl+C outside the
+          input, or right-click the canvas. Pick the layer (Both / Top / Bottom) and format first. For many images at
+          once, use BULK.</p>
+        <p><strong>Enhanced Mode.</strong> Open the ⋮ menu in the top bar and choose "Switch to Enhanced Mode" (or press
+          Alt+Shift+P) to unlock per-layer offsets, piece properties and more.</p>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast"></div>
   <div class="floating-export-btn" id="floating-export-btn" style="display:none;">
     <button class="feb-action" id="feb-action-btn" title="Export">

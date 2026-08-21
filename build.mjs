@@ -204,7 +204,7 @@ async function buildCSS() {
 }
 
 function copyAssets() {
-  const imgs = ['menu.svg', 'download.svg', 'copy.svg', 'fill.svg', 'bulk-input.svg'];
+  const imgs = ['menu.svg', 'download.svg', 'copy.svg', 'fill.svg', 'bulk-input.svg', 'design-sac2.svg', 'design-abid.svg', 'design-dalton.png'];
   for (const img of imgs) {
     cp(`img/${img}`, `img/${img}`);
   }

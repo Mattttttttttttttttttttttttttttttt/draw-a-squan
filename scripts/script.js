@@ -12,6 +12,7 @@ import { parseScramble } from './parseScramble.js';
 
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
 var schemePickrs = {};
+var railPickrs = {};
 var fillPickr = null;
 let styleControlInstances = [];
 let dalton3DRenderer = null;
@@ -56,13 +57,48 @@ function buildSchemeGrid() {
         const initial = scheme[slot.id] === 'transparent' ? 'rgba(0,0,0,0)' : scheme[slot.id];
         const p = createPickr(`#pickr-wrap-${slot.id}`, initial, (color) => {
             sq1vis.setColorScheme({ [slot.id]: color });
-            paintPickrButton(p, color);
+            repaintAllSchemeButtons();
             draw();
             saveSettings();
         });
         repaintPickrButtonAfterInit(p, initial);
         schemePickrs[slot.id] = p;
     });
+
+    buildRailSwatches();
+}
+
+function buildRailSwatches() {
+    if (typeof Pickr === 'undefined') return;
+    for (const [id, p] of Object.entries(railPickrs)) { try { p.destroyAndRemove(); } catch(e){} delete railPickrs[id]; }
+    const wrap = document.getElementById('rail-swatches');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const slots = sq1vis.getColorSlots();
+    const scheme = sq1vis.getColorScheme();
+    slots.forEach(slot => {
+        const cell = document.createElement('div');
+        cell.className = 'rail-swatch';
+        cell.title = slot.label;
+        cell.innerHTML = '<div class="rail-swatch-pickr"></div>';
+        wrap.appendChild(cell);
+
+        const initial = scheme[slot.id] === 'transparent' ? 'rgba(0,0,0,0)' : scheme[slot.id];
+        const p = createPickr(cell.querySelector('.rail-swatch-pickr'), initial, (color) => {
+            sq1vis.setColorScheme({ [slot.id]: color });
+            repaintAllSchemeButtons();
+            draw();
+            saveSettings();
+        });
+        repaintPickrButtonAfterInit(p, initial);
+        railPickrs[slot.id] = p;
+    });
+}
+
+function repaintAllSchemeButtons() {
+    const scheme = sq1vis.getColorScheme();
+    for (const [slotId, p] of Object.entries(schemePickrs)) paintPickrButton(p, scheme[slotId]);
+    for (const [slotId, p] of Object.entries(railPickrs)) paintPickrButton(p, scheme[slotId]);
 }
 
 function paintPickrButton(pickr, color) {
@@ -148,6 +184,7 @@ function buildStyleDropdown() {
         updateStyleToggles();
         buildSchemeGrid();
         draw();
+        updateRailUI();
         if (isPadInDangerZone()) { showPadWarn(); dismissPadWarnLater(); }
     });
 }
@@ -411,7 +448,11 @@ function handleDaltonRotationKeyboardStep(event, currentValue, min, max, apply) 
     // ── Build sidebar DOM dynamically (prevents flash of wrong content) ──
 function buildSidebar() {
     const sidebar = document.getElementById('sidebar');
+    const PANEL_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg>';
     sidebar.innerHTML = `
+      <button class="rail-btn sidebar-collapse-btn" id="sidebar-collapse-btn" title="Collapse sidebar">${PANEL_SVG}</button>
+
+      <div class="sidebar-full" id="sidebar-full">
       <div class="section" id="section-designs">
         <div class="section-title">Designs</div>
         <div class="field">
@@ -498,7 +539,7 @@ function buildSidebar() {
       </div>
 
       <div class="power-user-section" id="power-user-section">
-        <div class="section-title">Offsets (Power User)</div>
+        <div class="section-title">Offsets (Enhanced)</div>
 
         <div class="field">
           <label class="field-label">Offset Mode</label>
@@ -652,16 +693,30 @@ function buildSidebar() {
           <button class="btn btn-export" id="do-copy">Copy to Clipboard</button>
         </div>
       </div>
+      </div>
+
+      <div class="sidebar-rail" id="sidebar-rail">
+        <button class="rail-btn" id="rail-expand-btn" title="Expand sidebar">${PANEL_SVG}</button>
+        <button class="rail-btn rail-design-btn" id="rail-design-btn" title="Switch design">
+          <img id="rail-design-icon" src="./img/design-sac2.svg" alt="" draggable="false">
+        </button>
+        <button class="rail-btn rail-orient-btn" id="rail-orient-btn" title="Toggle orientation">\u21D4</button>
+        <div class="rail-swatches" id="rail-swatches"></div>
+        <div class="rail-export">
+          <button class="rail-cycle-btn" id="rail-layer-btn" title="Export layer">Both</button>
+          <button class="rail-cycle-btn" id="rail-fmt-btn" title="Export format">PNG</button>
+        </div>
+      </div>
     `;
 
-    // Prevent sidebar flash — if sidebar should be open, remove hidden immediately without transition
+    // Prevent sidebar flash — apply collapsed state immediately without transition
     try {
         const s = JSON.parse(localStorage.getItem('sq1vis_settings'));
-        const isMobile = window.innerWidth <= 768;
-        const shouldHide = s && s.sidebarHidden != null ? s.sidebarHidden : isMobile;
-        if (!shouldHide) {
+        const isMobileNow = window.innerWidth <= 768;
+        const shouldCollapse = s && s.sidebarHidden != null ? s.sidebarHidden : isMobileNow;
+        if (shouldCollapse) {
             sidebar.classList.add('no-transition');
-            sidebar.classList.remove('hidden');
+            sidebar.classList.add('collapsed');
             requestAnimationFrame(function () {
                 requestAnimationFrame(function () {
                     sidebar.classList.remove('no-transition');
@@ -1211,7 +1266,6 @@ function updateCanvasCursor() {
     }
 }
 /* ─── Sidebar toggle ──────────────────────────────── */
-const hamburgerBtn = document.getElementById('hamburger-btn');
 const floatingBtn = document.getElementById('floating-export-btn');
 const febActionBtn = document.getElementById('feb-action-btn');
 const febActionIcon = document.getElementById('feb-action-icon');
@@ -1222,29 +1276,128 @@ const isMobile = () => window.innerWidth <= 768;
 
 function setSidebarOpen(open) {
     if (open) {
-        sidebar.classList.remove('hidden');
-        if (isMobile()) floatingBtn.style.display = 'none';
-        else floatingBtn.style.display = 'none';
+        sidebar.classList.remove('collapsed');
+        floatingBtn.style.display = 'none';
     } else {
-        sidebar.classList.add('hidden');
+        sidebar.classList.add('collapsed');
         floatingBtn.style.display = 'flex';
     }
 }
 
-hamburgerBtn.addEventListener('click', () => {
-    setSidebarOpen(sidebar.classList.contains('hidden'));
-});
+document.getElementById('sidebar-collapse-btn').addEventListener('click', () => setSidebarOpen(false));
+document.getElementById('rail-expand-btn').addEventListener('click', () => setSidebarOpen(true));
 
-// Close sidebar when clicking outside on mobile
+// Collapse sidebar when clicking outside on mobile
 document.addEventListener('click', e => {
     if (!isMobile()) return;
-    if (!sidebar.classList.contains('hidden') &&
-        !sidebar.contains(e.target) &&
-        e.target !== hamburgerBtn &&
-        !hamburgerBtn.contains(e.target)) {
+    if (!sidebar.classList.contains('collapsed') &&
+        !sidebar.contains(e.target)) {
         setSidebarOpen(false);
     }
 });
+
+/* ─── Rail controls (collapsed sidebar) ───────────── */
+const RAIL_DESIGN_ICONS = [
+    { name: "SAC2's Design", icon: './img/design-sac2.svg' },
+    { name: "Abid's Design", icon: './img/design-abid.svg' },
+    { name: "Dalton's Design (3D)", icon: './img/design-dalton.png' },
+];
+
+function updateRailUI() {
+    const idx = sq1vis.getActiveStyleIndex();
+    const meta = RAIL_DESIGN_ICONS[idx];
+    const designIcon = document.getElementById('rail-design-icon');
+    if (designIcon && meta && designIcon.getAttribute('src') !== meta.icon) {
+        designIcon.src = meta.icon;
+        document.getElementById('rail-design-btn').setAttribute('title', meta.name);
+    }
+    updateRailOrientIcon();
+    const layerBtn = document.getElementById('rail-layer-btn');
+    if (layerBtn) layerBtn.textContent = exportLayer.charAt(0).toUpperCase() + exportLayer.slice(1);
+    const fmtBtn = document.getElementById('rail-fmt-btn');
+    if (fmtBtn) fmtBtn.textContent = exportFmt.toUpperCase();
+}
+
+function updateRailOrientIcon() {
+    const btn = document.getElementById('rail-orient-btn');
+    if (!btn) return;
+    const checked = document.querySelector('input[name=orientation]:checked');
+    const vertical = checked && checked.value === 'vertical';
+    btn.textContent = vertical ? '\u21D5' : '\u21D4';
+    btn.setAttribute('title', vertical ? 'Switch to horizontal orientation' : 'Switch to vertical orientation');
+}
+
+document.getElementById('rail-design-btn').addEventListener('click', () => {
+    const next = (sq1vis.getActiveStyleIndex() + 1) % sq1vis.getStyles().length;
+    const previousIs3D = isDalton3DStyle();
+    sq1vis.setActiveStyle(next);
+    if (!previousIs3D && isDalton3DStyle() && document.getElementById('size-input').value === '400') {
+        setDisplaySize(560);
+    }
+    document.getElementById('svg-style-select').value = next;
+    updateStyleToggles();
+    buildSchemeGrid();
+    draw();
+    updateRailUI();
+    saveSettings();
+    if (isPadInDangerZone()) { showPadWarn(); dismissPadWarnLater(); }
+});
+
+document.getElementById('rail-orient-btn').addEventListener('click', () => {
+    const checked = document.querySelector('input[name=orientation]:checked');
+    const vertical = checked && checked.value === 'vertical';
+    const target = document.querySelector(`input[name=orientation][value="${vertical ? 'horizontal' : 'vertical'}"]`);
+    if (!target || target.checked) return;
+    target.checked = true;
+    target.dispatchEvent(new Event('change'));
+});
+
+function cycleExportTab(group) {
+    const tabs = Array.from(document.querySelectorAll(`.export-tab[data-group="${group}"]`))
+        .filter(t => t.style.display !== 'none');
+    if (!tabs.length) return;
+    const currentIdx = tabs.findIndex(t => t.classList.contains('active'));
+    tabs[(currentIdx + 1) % tabs.length].click();
+}
+
+document.getElementById('rail-layer-btn').addEventListener('click', () => cycleExportTab('layer'));
+document.getElementById('rail-fmt-btn').addEventListener('click', () => cycleExportTab('fmt'));
+
+/* ─── Topbar ⋮ menu ───────────────────────────────── */
+const topbarMoreBtn = document.getElementById('topbar-more-btn');
+const topbarMoreMenu = document.getElementById('topbar-more-menu');
+
+topbarMoreBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    topbarMoreMenu.classList.toggle('open');
+});
+
+document.addEventListener('click', e => {
+    if (!topbarMoreMenu.contains(e.target)) topbarMoreMenu.classList.remove('open');
+});
+
+function openInfoModal(overlayId) {
+    topbarMoreMenu.classList.remove('open');
+    document.getElementById(overlayId).classList.add('open');
+}
+
+document.getElementById('menu-about-btn').addEventListener('click', () => openInfoModal('about-modal-overlay'));
+document.getElementById('menu-howto-btn').addEventListener('click', () => openInfoModal('howto-modal-overlay'));
+document.getElementById('menu-enhanced-btn').addEventListener('click', () => {
+    topbarMoreMenu.classList.remove('open');
+    togglePowerUserMode();
+});
+
+[['about-modal-overlay', 'about-modal-close'], ['howto-modal-overlay', 'howto-modal-close']].forEach(([overlayId, closeId]) => {
+    const overlay = document.getElementById(overlayId);
+    document.getElementById(closeId).addEventListener('click', () => overlay.classList.remove('open'));
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+});
+
+function updateEnhancedMenuLabel() {
+    const btn = document.getElementById('menu-enhanced-btn');
+    if (btn) btn.textContent = powerUserMode ? 'Switch to Standard Mode' : 'Switch to Enhanced Mode';
+}
 
 /* ─── Local Storage persistence ───────────────────── */
 const LS_KEY = 'sq1vis_settings';
@@ -1299,7 +1452,7 @@ function saveSettings() {
         // Floating button mode
         febMode,
         // Sidebar state
-        sidebarHidden: sidebar.classList.contains('hidden'),
+        sidebarHidden: sidebar.classList.contains('collapsed'),
         // Mute
         muteActive,
         // Color scheme panel mode (classical/custom)
@@ -1708,7 +1861,7 @@ padInput.addEventListener('blur', () => {
 
 /* ─── Orientation ─────────────────────────────────── */
 document.querySelectorAll('input[name=orientation]').forEach(r =>
-    r.addEventListener('change', draw));
+    r.addEventListener('change', () => { draw(); updateRailOrientIcon(); }));
 
 /* ─── Hide-slice Hide-side color toggle ───────────────────────────── */
 document.getElementById('hide-slice').addEventListener('change', draw);
@@ -1871,6 +2024,7 @@ document.querySelectorAll('.export-tab').forEach(btn => {
         btn.classList.add('active');
         if (grp === 'layer') exportLayer = btn.dataset.val;
         if (grp === 'fmt') {exportFmt = btn.dataset.val;  updateCopyVisibility();}
+        updateRailUI();
     });
 });
 
@@ -2970,7 +3124,8 @@ function hookSaveListeners() {
     document.getElementById('canvas-inner').addEventListener('click', saveSettings);
     document.getElementById('scheme-mode-classical').addEventListener('click', saveSettings);
     document.getElementById('scheme-mode-custom').addEventListener('click', saveSettings);
-    hamburgerBtn.addEventListener('click', saveSettings);
+    document.getElementById('sidebar-collapse-btn').addEventListener('click', saveSettings);
+    document.getElementById('rail-expand-btn').addEventListener('click', saveSettings);
     febActionBtn.addEventListener('click', () => setTimeout(saveSettings, 300));
     document.querySelectorAll('.feb-option').forEach(o => o.addEventListener('click', saveSettings));
     febActionBtn.addEventListener('dblclick', () => setTimeout(saveSettings, 300));
@@ -2989,7 +3144,7 @@ document.getElementById('scheme-reset-default').addEventListener('click', () => 
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   ═══ POWER USER MODE ═══
+    ═══ ENHANCED MODE ═══
    ═══════════════════════════════════════════════════════════════ */
 
 let powerUserMode = false;
@@ -3119,14 +3274,15 @@ function togglePowerUserMode() {
     const section = document.getElementById('power-user-section');
     const propsSection = document.getElementById('pu-layer-props-section');
     const rightSidebar = document.getElementById('sidebar-right');
-    const badge = document.querySelector('.logo .power-user-badge');
+    const logo = document.getElementById('logo');
     const vpCanvas = document.getElementById('viewport-canvas');
     const inner = document.getElementById('canvas-inner');
 
     section.classList.toggle('visible', powerUserMode);
     if (propsSection) propsSection.classList.toggle('visible', powerUserMode);
     if (rightSidebar) rightSidebar.classList.toggle('hidden', !powerUserMode);
-    if (badge) badge.style.display = powerUserMode ? '' : 'none';
+    if (logo) logo.classList.toggle('enhanced', powerUserMode);
+    updateEnhancedMenuLabel();
 
     if (powerUserMode) {
         vpCanvas.classList.add('power-user-active');
@@ -3245,9 +3401,10 @@ function loadPUSettings() {
         if (rightSidebar) rightSidebar.classList.remove('hidden');
         if (vpCanvas) vpCanvas.classList.add('power-user-active');
         if (inner) inner.classList.add('power-user-active');
-        const badge = document.querySelector('.logo .power-user-badge');
-        if (badge) badge.style.display = '';
+        const logo = document.getElementById('logo');
+        if (logo) logo.classList.add('enhanced');
     }
+    updateEnhancedMenuLabel();
 
     if (s.puOffsetMode) {
         puOffsetMode = { left: s.puOffsetMode.left || 'relative', right: s.puOffsetMode.right || 'relative' };
@@ -4386,5 +4543,6 @@ if (powerUserMode) {
 if (puHasImageLayers) updateDalton3DUI();
 
 hookSaveListeners();
+updateRailUI();
 appInitialized = true;
 draw();

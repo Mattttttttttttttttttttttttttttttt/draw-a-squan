@@ -1,0 +1,200 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="68.64" height="68.64" viewBox="-1.32 -1.32 68.64 68.64" style="overflow:visible;" class="squan">
+            <defs>
+                <mask id="mask-abid-slice-top-puhmv3wlv7m">
+                    <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                    <g transform="translate(33,33) scale(1.64) translate(-33,-33)"><g transform="translate(33,33) rotate(0.00)"><polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="black"/></g><g transform="translate(33,33) rotate(-45.00)"><polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="black"/></g><g transform="translate(33,33) rotate(-90.00)"><polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="black"/></g><g transform="translate(33,33) rotate(-135.00)"><polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="black"/></g><g transform="translate(33,33) rotate(-180.00)"><polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="black"/></g><g transform="translate(33,33) rotate(-225.00)"><polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="black"/></g><g transform="translate(33,33) rotate(-270.00)"><polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="black"/></g><g transform="translate(33,33) rotate(-315.00)"><polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="black"/></g></g>
+                </mask>
+            </defs>
+        <g mask="url(#mask-abid-slice-top-puhmv3wlv7m)"><line x1="42.02" y1="-0.66" x2="23.98" y2="66.66" stroke="rgba(94,94,94,1)" stroke-width="1.06"/></g><g transform="translate(33,33) scale(1.64) translate(-33,-33)"><g transform="translate(33,33) rotate(0.00)">
+                    <defs>
+                        <mask id="mask-abid-edge-outer-0-1z5urampah3">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="0,0 -3.64,-13.57 3.64,-13.57" fill="black"/>
+                            <line x1="-3.64" y1="-13.57" x2="3.64" y2="-13.57" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                        <mask id="mask-abid-edge-inner-0-1z5urampah3">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <line x1="-3.64" y1="-13.57" x2="3.64" y2="-13.57" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                    </defs>
+                    <polygon class="sticker" id="0 outer" points="-3.64,-13.57 -4.78,-17.85 4.78,-17.85 3.64,-13.57" fill="rgba(255,140,0,1)" mask="url(#mask-abid-edge-outer-0-1z5urampah3)"/>
+                    <polygon class="sticker" id="0 inner" points="0,0 -3.64,-13.57 3.64,-13.57" fill="rgba(71,71,71,1)" mask="url(#mask-abid-edge-inner-0-1z5urampah3)"/>
+                    <line x1="-3.64" y1="-13.57" x2="3.64" y2="-13.57" stroke="rgba(0,0,0,1)" stroke-width="0.89" stroke-linecap="round"/>
+                    <polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="none" stroke="rgba(0,0,0,1)" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                </g><g transform="translate(33,33) rotate(-45.00)">
+                    <defs>
+                        <mask id="mask-abid-corner-left-1-6sbr8vhta3v">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="0,0 -7.02,-12.16 0,-19.18 0,-25.24 -9.24,-16" fill="black"/>
+                            <polygon points="0,0 7.02,-12.16 0,-19.18 -7.02,-12.16" fill="black"/>
+                            <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="black" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                            <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                        <mask id="mask-abid-corner-right-1-6sbr8vhta3v">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="0,0 7.02,-12.16 0,-19.18 -7.02,-12.16" fill="black"/>
+                            <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="black" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                            <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                        <mask id="mask-abid-corner-top-1-6sbr8vhta3v">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="black" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                            <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                    </defs>
+                    <polygon class="sticker" id="1 left"  points="0,0 9.24,-16 0,-25.24 0,-19.18 7.02,-12.16" fill="rgba(255,140,0,1)" mask="url(#mask-abid-corner-left-1-6sbr8vhta3v)"/>
+                    <polygon class="sticker" id="1 right" points="0,0 -7.02,-12.16 0,-19.18 0,-25.24 -9.24,-16" fill="rgba(0,128,255,1)" mask="url(#mask-abid-corner-right-1-6sbr8vhta3v)"/>
+                    <polygon class="sticker" id="1 top"   points="0,0 7.02,-12.16 0,-19.18 -7.02,-12.16" fill="rgba(71,71,71,1)" mask="url(#mask-abid-corner-top-1-6sbr8vhta3v)"/>
+                    <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="rgba(0,0,0,1)" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                    <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="rgba(0,0,0,1)" stroke-width="0.89" stroke-linecap="round"/>
+                    <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="rgba(0,0,0,1)" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                </g><g transform="translate(33,33) rotate(-90.00)">
+                    <defs>
+                        <mask id="mask-abid-edge-outer-2-q51ogkyh38c">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="0,0 -3.64,-13.57 3.64,-13.57" fill="black"/>
+                            <line x1="-3.64" y1="-13.57" x2="3.64" y2="-13.57" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                        <mask id="mask-abid-edge-inner-2-q51ogkyh38c">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <line x1="-3.64" y1="-13.57" x2="3.64" y2="-13.57" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                    </defs>
+                    <polygon class="sticker" id="2 outer" points="-3.64,-13.57 -4.78,-17.85 4.78,-17.85 3.64,-13.57" fill="rgba(0,128,255,1)" mask="url(#mask-abid-edge-outer-2-q51ogkyh38c)"/>
+                    <polygon class="sticker" id="2 inner" points="0,0 -3.64,-13.57 3.64,-13.57" fill="rgba(71,71,71,1)" mask="url(#mask-abid-edge-inner-2-q51ogkyh38c)"/>
+                    <line x1="-3.64" y1="-13.57" x2="3.64" y2="-13.57" stroke="rgba(0,0,0,1)" stroke-width="0.89" stroke-linecap="round"/>
+                    <polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="none" stroke="rgba(0,0,0,1)" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                </g><g transform="translate(33,33) rotate(-135.00)">
+                    <defs>
+                        <mask id="mask-abid-corner-left-3-dswvc3du4tq">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="0,0 -7.02,-12.16 0,-19.18 0,-25.24 -9.24,-16" fill="black"/>
+                            <polygon points="0,0 7.02,-12.16 0,-19.18 -7.02,-12.16" fill="black"/>
+                            <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="black" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                            <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                        <mask id="mask-abid-corner-right-3-dswvc3du4tq">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="0,0 7.02,-12.16 0,-19.18 -7.02,-12.16" fill="black"/>
+                            <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="black" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                            <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                        <mask id="mask-abid-corner-top-3-dswvc3du4tq">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="black" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                            <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                    </defs>
+                    <polygon class="sticker" id="3 left"  points="0,0 9.24,-16 0,-25.24 0,-19.18 7.02,-12.16" fill="rgba(0,128,255,1)" mask="url(#mask-abid-corner-left-3-dswvc3du4tq)"/>
+                    <polygon class="sticker" id="3 right" points="0,0 -7.02,-12.16 0,-19.18 0,-25.24 -9.24,-16" fill="rgba(204,0,0,1)" mask="url(#mask-abid-corner-right-3-dswvc3du4tq)"/>
+                    <polygon class="sticker" id="3 top"   points="0,0 7.02,-12.16 0,-19.18 -7.02,-12.16" fill="rgba(71,71,71,1)" mask="url(#mask-abid-corner-top-3-dswvc3du4tq)"/>
+                    <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="rgba(0,0,0,1)" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                    <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="rgba(0,0,0,1)" stroke-width="0.89" stroke-linecap="round"/>
+                    <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="rgba(0,0,0,1)" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                </g><g transform="translate(33,33) rotate(-180.00)">
+                    <defs>
+                        <mask id="mask-abid-edge-outer-4-5y19negedab">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="0,0 -3.64,-13.57 3.64,-13.57" fill="black"/>
+                            <line x1="-3.64" y1="-13.57" x2="3.64" y2="-13.57" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                        <mask id="mask-abid-edge-inner-4-5y19negedab">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <line x1="-3.64" y1="-13.57" x2="3.64" y2="-13.57" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                    </defs>
+                    <polygon class="sticker" id="4 outer" points="-3.64,-13.57 -4.78,-17.85 4.78,-17.85 3.64,-13.57" fill="rgba(204,0,0,1)" mask="url(#mask-abid-edge-outer-4-5y19negedab)"/>
+                    <polygon class="sticker" id="4 inner" points="0,0 -3.64,-13.57 3.64,-13.57" fill="rgba(71,71,71,1)" mask="url(#mask-abid-edge-inner-4-5y19negedab)"/>
+                    <line x1="-3.64" y1="-13.57" x2="3.64" y2="-13.57" stroke="rgba(0,0,0,1)" stroke-width="0.89" stroke-linecap="round"/>
+                    <polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="none" stroke="rgba(0,0,0,1)" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                </g><g transform="translate(33,33) rotate(-225.00)">
+                    <defs>
+                        <mask id="mask-abid-corner-left-5-kqhmqifk71n">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="0,0 -7.02,-12.16 0,-19.18 0,-25.24 -9.24,-16" fill="black"/>
+                            <polygon points="0,0 7.02,-12.16 0,-19.18 -7.02,-12.16" fill="black"/>
+                            <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="black" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                            <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                        <mask id="mask-abid-corner-right-5-kqhmqifk71n">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="0,0 7.02,-12.16 0,-19.18 -7.02,-12.16" fill="black"/>
+                            <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="black" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                            <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                        <mask id="mask-abid-corner-top-5-kqhmqifk71n">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="black" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                            <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                    </defs>
+                    <polygon class="sticker" id="5 left"  points="0,0 9.24,-16 0,-25.24 0,-19.18 7.02,-12.16" fill="rgba(204,0,0,1)" mask="url(#mask-abid-corner-left-5-kqhmqifk71n)"/>
+                    <polygon class="sticker" id="5 right" points="0,0 -7.02,-12.16 0,-19.18 0,-25.24 -9.24,-16" fill="rgba(0,170,0,0.98)" mask="url(#mask-abid-corner-right-5-kqhmqifk71n)"/>
+                    <polygon class="sticker" id="5 top"   points="0,0 7.02,-12.16 0,-19.18 -7.02,-12.16" fill="rgba(71,71,71,1)" mask="url(#mask-abid-corner-top-5-kqhmqifk71n)"/>
+                    <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="rgba(0,0,0,1)" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                    <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="rgba(0,0,0,1)" stroke-width="0.89" stroke-linecap="round"/>
+                    <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="rgba(0,0,0,1)" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                </g><g transform="translate(33,33) rotate(-270.00)">
+                    <defs>
+                        <mask id="mask-abid-edge-outer-6-rfx1d2562wo">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="0,0 -3.64,-13.57 3.64,-13.57" fill="black"/>
+                            <line x1="-3.64" y1="-13.57" x2="3.64" y2="-13.57" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                        <mask id="mask-abid-edge-inner-6-rfx1d2562wo">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <line x1="-3.64" y1="-13.57" x2="3.64" y2="-13.57" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                    </defs>
+                    <polygon class="sticker" id="6 outer" points="-3.64,-13.57 -4.78,-17.85 4.78,-17.85 3.64,-13.57" fill="rgba(0,170,0,0.98)" mask="url(#mask-abid-edge-outer-6-rfx1d2562wo)"/>
+                    <polygon class="sticker" id="6 inner" points="0,0 -3.64,-13.57 3.64,-13.57" fill="rgba(71,71,71,1)" mask="url(#mask-abid-edge-inner-6-rfx1d2562wo)"/>
+                    <line x1="-3.64" y1="-13.57" x2="3.64" y2="-13.57" stroke="rgba(0,0,0,1)" stroke-width="0.89" stroke-linecap="round"/>
+                    <polygon points="0,0 -4.78,-17.85 4.78,-17.85" fill="none" stroke="rgba(0,0,0,1)" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                </g><g transform="translate(33,33) rotate(-315.00)">
+                    <defs>
+                        <mask id="mask-abid-corner-left-7-p6pwr75zsp">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="0,0 -7.02,-12.16 0,-19.18 0,-25.24 -9.24,-16" fill="black"/>
+                            <polygon points="0,0 7.02,-12.16 0,-19.18 -7.02,-12.16" fill="black"/>
+                            <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="black" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                            <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                        <mask id="mask-abid-corner-right-7-p6pwr75zsp">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polygon points="0,0 7.02,-12.16 0,-19.18 -7.02,-12.16" fill="black"/>
+                            <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="black" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                            <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                        <mask id="mask-abid-corner-top-7-p6pwr75zsp">
+                            <rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>
+                            <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="black" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                            <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="black" stroke-width="0.89" stroke-linecap="round"/>
+                            <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="black" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                        </mask>
+                    </defs>
+                    <polygon class="sticker" id="7 left"  points="0,0 9.24,-16 0,-25.24 0,-19.18 7.02,-12.16" fill="rgba(0,170,0,0.98)" mask="url(#mask-abid-corner-left-7-p6pwr75zsp)"/>
+                    <polygon class="sticker" id="7 right" points="0,0 -7.02,-12.16 0,-19.18 0,-25.24 -9.24,-16" fill="rgba(255,140,0,1)" mask="url(#mask-abid-corner-right-7-p6pwr75zsp)"/>
+                    <polygon class="sticker" id="7 top"   points="0,0 7.02,-12.16 0,-19.18 -7.02,-12.16" fill="rgba(71,71,71,1)" mask="url(#mask-abid-corner-top-7-p6pwr75zsp)"/>
+                    <polyline points="7.02,-12.16 0,-19.18 -7.02,-12.16" fill="none" stroke="rgba(0,0,0,1)" stroke-width="0.89"  stroke-linejoin="round" stroke-linecap="round"/>
+                    <line x1="0" y1="-25.24" x2="0" y2="-19.18" stroke="rgba(0,0,0,1)" stroke-width="0.89" stroke-linecap="round"/>
+                    <polygon points="0,0 9.24,-16 0,-25.24 -9.24,-16" fill="none" stroke="rgba(0,0,0,1)" stroke-width="1.06"  stroke-linejoin="round" stroke-linecap="round"/>
+                </g></g></svg>
