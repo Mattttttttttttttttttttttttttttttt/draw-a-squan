@@ -671,9 +671,7 @@ function buildSidebar() {
         <div id="pu-layer-props-panel"></div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Export</div>
-
+      <div class="section" id="section-export-layer">
         <div class="export-tab-group" id="export-layer-group">
           <div class="export-tab-label">Layers</div>
           <div class="export-tab-row">
@@ -682,6 +680,10 @@ function buildSidebar() {
             <button class="export-tab" data-group="layer" data-val="bottom">Bottom</button>
           </div>
         </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Export</div>
 
         <div class="export-tab-group" id="export-format-group">
           <div class="export-tab-label">Format</div>
@@ -1204,14 +1206,13 @@ async function renderDalton3D(moves, muted = false) {
 function updateDalton3DUI() {
     const is3D = isDalton3DStyle();
     const hasImgLayers = puHasImageLayers;
-    const hideSvgFmt = is3D || hasImgLayers;
+    const hideSvgFmt = is3D || hasImgLayers || powerUserMode;
     const bulkBtn = document.getElementById('bulk-export-btn');
     if (bulkBtn) {
         bulkBtn.disabled = is3D;
         bulkBtn.title = is3D ? 'Bulk export is not available for the 3D canvas design.' : 'Bulk Export';
     }
-    const layerGroup = document.getElementById('export-layer-group');
-    if (layerGroup) layerGroup.style.display = is3D ? 'none' : '';
+    updateExportLayerVisibility();
     const svgFormat = document.querySelector('.export-tab[data-group="fmt"][data-val="svg"]');
     if (svgFormat) svgFormat.style.display = hideSvgFmt ? 'none' : '';
     const ctxSvg = document.querySelector('#ctx-format-select option[value="svg"]');
@@ -2203,7 +2204,7 @@ document.querySelectorAll('.export-tab').forEach(btn => {
         const grp = btn.dataset.group;
         document.querySelectorAll(`.export-tab[data-group="${grp}"]`).forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        if (grp === 'layer') exportLayer = btn.dataset.val;
+        if (grp === 'layer') { exportLayer = btn.dataset.val; if (powerUserMode) renderPU(); }
         if (grp === 'fmt') {exportFmt = btn.dataset.val;  updateCopyVisibility();}
         updateRailUI();
     });
@@ -2355,8 +2356,212 @@ function loadSvgImage(svgStr) {
     });
 }
 
+/* ─── Enhanced-mode export ──────────────────────────────
+   Rasterizes exactly what the enhanced-mode canvas shows: background frame,
+   cube images (with their transforms), and user layers — composed into an
+   SVG foreignObject and painted onto a bitmap. */
+
+const XHTML_NS = 'http://www.w3.org/1999/xhtml';
+const puFontDataURLCache = new Map();
+
+function copyComputedStyle(orig, dest) {
+    const cs = window.getComputedStyle(orig);
+    for (const prop of cs) {
+        try { dest.style.setProperty(prop, cs.getPropertyValue(prop)); } catch (e) {}
+    }
+}
+
+async function urlToDataURL(url) {
+    if (puFontDataURLCache.has(url)) return puFontDataURLCache.get(url);
+    const abs = new URL(url, document.baseURI).href;
+    const res = await fetch(abs);
+    if (!res.ok) throw new Error(`Font fetch failed: ${res.status}`);
+    const blob = await res.blob();
+    const dataURL = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Font read failed'));
+        reader.readAsDataURL(blob);
+    });
+    puFontDataURLCache.set(url, dataURL);
+    return dataURL;
+}
+
+async function collectEmbeddedFontCSS() {
+    let css = '';
+    for (const sheet of Array.from(document.styleSheets)) {
+        let rules;
+        try { rules = sheet.cssRules; } catch (e) { continue; }
+        for (const rule of Array.from(rules || [])) {
+            if (!(rule instanceof CSSFontFaceRule)) continue;
+            let text = rule.cssText || '';
+            const urlMatches = [...text.matchAll(/url\((['"]?)([^'")]+)\1\)/g)];
+            for (const m of urlMatches) {
+                try {
+                    const dataURL = await urlToDataURL(m[2]);
+                    text = text.replace(m[0], `url("${dataURL}")`);
+                } catch (e) { /* skip fonts that can't be fetched */ }
+            }
+            css += text + '\n';
+        }
+    }
+    return css;
+}
+
+// Mirrors the original subtree onto the detached clone: copies every computed
+// style property (detached nodes have no styles of their own) and swaps
+// <canvas> elements (p5/WebGL etc.) for equivalent <img> snapshots.
+function syncCloneWithOriginal(orig, clone) {
+    if (!orig || !clone || orig.nodeType !== Node.ELEMENT_NODE) return;
+    if (orig.tagName === 'CANVAS') {
+        try {
+            let sourceCanvas = orig;
+            if (dalton3DRenderer && dalton3DRenderer.getCanvas() === orig) {
+                sourceCanvas = dalton3DRenderer.getExportCanvas() || orig;
+            }
+            const img = document.createElementNS(XHTML_NS, 'img');
+            img.src = sourceCanvas.toDataURL('image/png');
+            img.setAttribute('width', String(orig.width));
+            img.setAttribute('height', String(orig.height));
+            clone.replaceWith(img);
+            clone = img;
+        } catch (e) { console.warn('Enhanced export: canvas capture failed', e); }
+    }
+    copyComputedStyle(orig, clone);
+    const origKids = orig.children;
+    const cloneKids = clone.children;
+    const n = Math.min(origKids.length, cloneKids.length);
+    for (let i = 0; i < n; i++) syncCloneWithOriginal(origKids[i], cloneKids[i]);
+}
+
+async function buildEnhancedCompositionSVG() {
+    const inner = document.getElementById('canvas-inner');
+    if (!inner) throw new Error('Canvas not ready');
+    const geo = getPUCanvasGeometry(inner);
+
+    // Stage is the final image; world mirrors #canvas-inner's coordinate
+    // space, offset so the canvas frame maps to 0,0 … geo.width × geo.height.
+    const stage = document.createElementNS(XHTML_NS, 'div');
+    stage.style.cssText = `width:${geo.width}px;height:${geo.height}px;position:relative;overflow:hidden;background:transparent;`;
+    const world = document.createElementNS(XHTML_NS, 'div');
+    stage.appendChild(world);
+
+    const sources = [];
+    const bgDiv = inner.querySelector('#pu-bg-div');
+    const bgLayer = puLayers.find(l => l.id === PU_BUILTIN_BG);
+    if (bgDiv && bgLayer && bgLayer.visible) sources.push(bgDiv);
+
+    if (isDalton3DStyle()) {
+        const wrap = inner.querySelector('.dalton-3d-wrap');
+        if (wrap) sources.push(wrap);
+    } else {
+        const firstSvg = inner.querySelector('svg.squan');
+        if (firstSvg && firstSvg.parentElement !== inner) sources.push(firstSvg.parentElement);
+        else sources.push(...inner.querySelectorAll('svg.squan'));
+    }
+
+    const container = inner.querySelector('#pu-layers-container');
+    if (container) sources.push(container);
+
+    copyComputedStyle(inner, world);
+    Object.assign(world.style, {
+        position: 'absolute',
+        left: `${-geo.left}px`,
+        top: `${-geo.top}px`,
+        right: 'auto',
+        bottom: 'auto',
+        margin: '0',
+        width: `${inner.clientWidth}px`,
+        height: `${inner.clientHeight}px`,
+    });
+
+    const clones = sources.map(src => {
+        const c = src.cloneNode(true);
+        world.appendChild(c);
+        return c;
+    });
+    sources.forEach((src, i) => syncCloneWithOriginal(src, clones[i]));
+
+    const fontCSS = await collectEmbeddedFontCSS();
+    if (fontCSS) {
+        const styleEl = document.createElementNS(XHTML_NS, 'style');
+        styleEl.textContent = fontCSS;
+        stage.insertBefore(styleEl, stage.firstChild);
+    }
+
+    const bodyXML = new XMLSerializer().serializeToString(stage);
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${geo.width}" height="${geo.height}" viewBox="0 0 ${geo.width} ${geo.height}"><foreignObject x="0" y="0" width="${geo.width}" height="${geo.height}">${bodyXML}</foreignObject></svg>`;
+}
+
+function rasterizeComposition(svgStr, fmt) {
+    // NOTE: must use a data: URL — Chromium taints canvases that draw
+    // foreignObject SVG images loaded from blob: URLs.
+    const imageSvgStr = sanitizeSvgForImageDecode(svgStr);
+    const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(imageSvgStr)}`;
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            setTimeout(() => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth || img.width || 800;
+                    canvas.height = img.naturalHeight || img.height || 400;
+                    const ctx = canvas.getContext('2d');
+                    if (fmt === 'jpeg' || fmt === 'bmp') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas);
+                } catch (err) { reject(err); }
+            }, 120);
+        };
+        img.onerror = () => reject(new Error('composition image failed to load'));
+        img.src = dataUrl;
+    });
+}
+
+async function doEnhancedExport(method) {
+    try {
+        if (exportFmt === 'svg') {
+            flashBtn("SVG export isn't available in Enhanced Mode");
+            return;
+        }
+        const svgStr = await buildEnhancedCompositionSVG();
+        const fname = `sq1-${exportLayer}`;
+        if (method === 'clipboard') {
+            if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+                flashBtn('Clipboard images are not supported here');
+                return;
+            }
+            const pngBlobPromise = rasterizeComposition(svgStr, 'png').then(canvas => canvasToBlob(canvas, 'image/png'));
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlobPromise })]);
+            flashBtn('Copied to clipboard!');
+            return;
+        }
+
+        const canvas = await rasterizeComposition(svgStr, exportFmt);
+
+        if (exportFmt === 'bmp') {
+            triggerDownload(createBMP32(canvas), `${fname}.bmp`);
+            return;
+        }
+
+        const mime = exportFmt === 'jpeg' ? 'image/jpeg' : 'image/png';
+        const ext = exportFmt === 'jpeg' ? 'jpg' : 'png';
+        const source = exportFmt === 'jpeg' ? canvasWithBackground(canvas) : canvas;
+        const blob = await canvasToBlob(source, mime);
+        triggerDownload(blob, `${fname}.${ext}`);
+    } catch (err) {
+        flashBtn(method === 'clipboard' ? 'Failed to copy to clipboard' : 'Export failed');
+        console.error(err);
+    }
+}
+
 async function doExport(methodOverride) {
     const method = methodOverride || 'download';
+
+    if (powerUserMode) {
+        await doEnhancedExport(method);
+        return;
+    }
 
     if (isDalton3DStyle()) {
         await doDalton3DExport(method);
@@ -3476,10 +3681,18 @@ function togglePowerUserMode() {
         vpCanvas.classList.add('power-user-active');
         inner.classList.add('power-user-active');
         ensureBuiltinLayers();
+        if (exportFmt === 'svg') {
+            const pngTab = document.querySelector('.export-tab[data-group="fmt"][data-val="png"]');
+            if (pngTab) pngTab.click();
+        }
     } else {
         vpCanvas.classList.remove('power-user-active');
         inner.classList.remove('power-user-active');
+        resetEnhancedCanvasState(inner);
+        restorePadRowToDisplay();
     }
+
+    updateDalton3DUI();
 
     applyPowerUserTransforms();
     if (powerUserMode) {
@@ -3491,9 +3704,33 @@ function togglePowerUserMode() {
     }
 }
 
+function resetEnhancedCanvasState(inner) {
+    if (!inner) return;
+    inner.querySelectorAll('svg').forEach(svg => {
+        svg.style.transform = '';
+        svg.style.zIndex = '';
+        svg.style.display = '';
+    });
+    const wrap = inner.querySelector('.dalton-3d-wrap');
+    if (wrap) wrap.style.display = '';
+}
+
 function applyPowerUserTransforms() {
     const inner = document.getElementById('canvas-inner');
     if (!inner) return;
+
+    // Enhanced-mode changes must never leak into normal mode.
+    if (!powerUserMode) {
+        inner.querySelectorAll('svg').forEach(svg => {
+            svg.style.transform = '';
+            svg.style.zIndex = '';
+            svg.style.display = '';
+        });
+        const wrap = inner.querySelector('.dalton-3d-wrap');
+        if (wrap) wrap.style.display = '';
+        if (puLayers.length) renderPUCanvas();
+        return;
+    }
 
     const svgs = inner.querySelectorAll('svg');
 
@@ -3697,9 +3934,7 @@ document.getElementById('pu-reset-all').addEventListener('click', resetAllPUOffs
     const origDraw = draw;
     draw = function () {
         origDraw();
-        if (powerUserMode) {
-            requestAnimationFrame(() => applyPowerUserTransforms());
-        }
+        requestAnimationFrame(() => applyPowerUserTransforms());
     };
 })();
 
@@ -3775,6 +4010,70 @@ function ensureBuiltinLayers() {
 
 function isBuiltinLayer(id) {
     return id === PU_BUILTIN_BG || id === PU_BUILTIN_CUBE;
+}
+
+/* ── Pad row adoption ──
+   The padding slider is a native control with listeners bound once at startup.
+   renderPUProps() rebuilds its panel via innerHTML on every selection change,
+   which would destroy the node. So in enhanced mode we move it into a slot in
+   the background layer's panel; when leaving enhanced mode we restore it to
+   its original spot in the Display section. */
+let padRowParking = null;
+
+function parkPadRow() {
+    const pr = document.getElementById('pad-row');
+    if (!pr) return;
+    if (!padRowParking) {
+        padRowParking = document.createElement('div');
+        padRowParking.style.display = 'none';
+        document.body.appendChild(padRowParking);
+    }
+    if (pr.parentElement !== padRowParking) padRowParking.appendChild(pr);
+}
+
+function restorePadRowToDisplay() {
+    const pr = document.getElementById('pad-row');
+    if (!pr) return;
+    const gapRow = document.getElementById('layer-distance-row');
+    if (gapRow && gapRow.parentElement && pr.parentElement !== gapRow.parentElement) {
+        gapRow.parentElement.insertBefore(pr, gapRow);
+    }
+    pr.style.display = '';
+}
+
+function adoptPadRowInto(slot) {
+    const pr = document.getElementById('pad-row');
+    if (!pr || !slot) return;
+    slot.appendChild(pr);
+    pr.style.display = '';
+}
+
+/* ── Canvas size settings (stored on the background layer) ── */
+
+function getPUCanvasSettings() {
+    const bg = puLayers.find(l => l.id === PU_BUILTIN_BG);
+    return {
+        mode: bg?.canvasSizeMode === 'custom' ? 'custom' : 'auto',
+        width: Math.min(8192, Math.max(16, Math.round(Number(bg?.canvasWidth) || 600))),
+        height: Math.min(8192, Math.max(16, Math.round(Number(bg?.canvasHeight) || 400))),
+    };
+}
+
+/* ── Export-layer selector visibility ──
+   Normal mode: hidden for the Dalton 3D design (single canvas, no layers).
+   Enhanced mode: only shown while the cube image layer is focused. */
+
+function updateExportLayerVisibility() {
+    const sec = document.getElementById('section-export-layer');
+    if (!sec) return;
+    let show;
+    if (!powerUserMode) {
+        show = !isDalton3DStyle();
+    } else {
+        const sel = getSelectedPULayer();
+        show = !!sel && sel.type === 'cube';
+    }
+    sec.style.display = show ? '' : 'none';
 }
 
 /* ── CRUD ── */
@@ -3869,6 +4168,7 @@ function togglePULayerVisibility(id) {
 /* ── Master render ── */
 
 function renderPU() {
+    updateExportLayerVisibility();
     renderPUCards();
     renderPUCanvas();
     renderPUProps();
@@ -3876,6 +4176,79 @@ function renderPU() {
 }
 
 /* ── Canvas rendering ── */
+
+function getPUCubeRect(inner) {
+    // Bounding box of everything cube-related that is currently visible,
+    // relative to #canvas-inner's content box. Returns null if nothing shows.
+    let rect = null;
+    const base = inner.getBoundingClientRect();
+    const consider = el => {
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+        const box = { left: r.left - base.left, top: r.top - base.top, right: r.right - base.left, bottom: r.bottom - base.top };
+        if (!rect) rect = box;
+        else {
+            rect.left = Math.min(rect.left, box.left);
+            rect.top = Math.min(rect.top, box.top);
+            rect.right = Math.max(rect.right, box.right);
+            rect.bottom = Math.max(rect.bottom, box.bottom);
+        }
+    };
+    if (isDalton3DStyle()) {
+        const canvas = inner.querySelector('.dalton-3d-wrap canvas');
+        if (canvas && canvas.style.display !== 'none') consider(canvas);
+    } else {
+        inner.querySelectorAll('svg.squan').forEach(svg => {
+            if (svg.style.display !== 'none') consider(svg);
+        });
+    }
+    return rect;
+}
+
+function getPUCanvasGeometry(inner) {
+    const settings = getPUCanvasSettings();
+    const cube = getPUCubeRect(inner);
+
+    let cx, cy;
+    if (cube) {
+        cx = (cube.left + cube.right) / 2;
+        cy = (cube.top + cube.bottom) / 2;
+    } else {
+        cx = inner.clientWidth / 2;
+        cy = inner.clientHeight / 2;
+    }
+
+    if (settings.mode === 'custom') {
+        return {
+            left: Math.round(cx - settings.width / 2),
+            top: Math.round(cy - settings.height / 2),
+            width: settings.width,
+            height: settings.height,
+        };
+    }
+
+    // Automatic: hug the visible cube content plus the padding slider.
+    let w, h;
+    if (cube) {
+        w = cube.right - cube.left;
+        h = cube.bottom - cube.top;
+    } else {
+        w = Math.min(inner.clientWidth, inner.clientHeight) * 0.7;
+        h = w;
+    }
+    let refW = w;
+    if (!isDalton3DStyle()) {
+        const refEl = Array.from(inner.querySelectorAll('svg.squan')).find(s => s.style.display !== 'none');
+        if (refEl) refW = parseFloat(refEl.getAttribute('width')) || w;
+    }
+    const padPx = Math.round(refW * getEffectivePadPct() / 100);
+    return {
+        left: Math.round(cx - w / 2) - padPx,
+        top: Math.round(cy - h / 2) - padPx,
+        width: Math.max(16, Math.round(w) + padPx * 2),
+        height: Math.max(16, Math.round(h) + padPx * 2),
+    };
+}
 
 function renderPUCanvas() {
     const inner = document.getElementById('canvas-inner');
@@ -3887,6 +4260,9 @@ function renderPUCanvas() {
     if (!powerUserMode) {
         if (container) container.innerHTML = '';
         if (bgDiv) bgDiv.style.display = 'none';
+        inner.querySelectorAll('svg').forEach(svg => {
+            svg.style.display = '';
+        });
         return;
     }
 
@@ -3905,12 +4281,35 @@ function renderPUCanvas() {
         inner.insertBefore(bgDiv, inner.firstChild);
     }
 
+    // Enhanced mode only: show just the selected export layer of the cube.
+    const cubeLayer = puLayers.find(l => l.id === PU_BUILTIN_CUBE);
+    const cubeVisible = !cubeLayer || cubeLayer.visible;
+    if (isDalton3DStyle()) {
+        const wrap = inner.querySelector('.dalton-3d-wrap');
+        if (wrap) wrap.style.display = cubeVisible ? '' : 'none';
+    } else {
+        const svgs = inner.querySelectorAll('svg.squan');
+        svgs.forEach(svg => { svg.style.display = ''; });
+        if (svgs.length === 2) {
+            svgs[0].style.display = cubeVisible && exportLayer !== 'bottom' ? '' : 'none';
+            svgs[1].style.display = cubeVisible && exportLayer !== 'top' ? '' : 'none';
+        } else {
+            svgs.forEach(svg => { svg.style.display = cubeVisible ? '' : 'none'; });
+        }
+    }
+
+    // Background frame tracks the configured canvas size.
+    const geo = getPUCanvasGeometry(inner);
     const bgLayer = puLayers.find(l => l.id === PU_BUILTIN_BG);
     if (bgLayer && bgLayer.visible) {
         bgDiv.style.display = '';
         bgDiv.style.position = 'absolute';
-        bgDiv.style.inset = '0';
+        bgDiv.style.inset = 'auto';
         bgDiv.style.zIndex = '0';
+        bgDiv.style.left = geo.left + 'px';
+        bgDiv.style.top = geo.top + 'px';
+        bgDiv.style.width = geo.width + 'px';
+        bgDiv.style.height = geo.height + 'px';
         if (bgLayer.bgImageData) {
             bgDiv.style.backgroundImage = `url(${bgLayer.bgImageData})`;
             bgDiv.style.backgroundSize = 'cover';
@@ -3922,13 +4321,6 @@ function renderPUCanvas() {
         bgDiv.style.opacity = bgLayer.bgOpacity != null ? bgLayer.bgOpacity : 1;
     } else if (bgDiv) {
         bgDiv.style.display = 'none';
-    }
-
-    const cubeLayer = puLayers.find(l => l.id === PU_BUILTIN_CUBE);
-    if (cubeLayer && !cubeLayer.visible) {
-        inner.querySelectorAll('svg').forEach(svg => { svg.style.display = 'none'; });
-    } else {
-        inner.querySelectorAll('svg').forEach(svg => { svg.style.display = ''; });
     }
 
     for (const layer of puLayers) {
@@ -4210,6 +4602,7 @@ function renderPUProps() {
     if (secColor) secColor.style.display = (!powerUserMode || showNormalSections) ? '' : 'none';
 
     if (!layer) {
+        parkPadRow();
         propsSection.innerHTML = '<div class="pu-empty-layers">Select a layer to edit its properties.</div>';
         return;
     }
@@ -4221,6 +4614,30 @@ function renderPUProps() {
     html += `<div class="pu-section-title" style="font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.6rem">${layerTypeLabel[layer.type] || 'LAYER'}</div>`;
 
     if (layer.type === 'bg') {
+        const canvasSettings = getPUCanvasSettings();
+        html += `<div class="power-user-sub-group">
+            <div class="power-user-sub-label">Canvas Size</div>
+            <div class="field">
+                <label class="field-label">Mode</label>
+                <div class="scheme-mode-seg pu-mode-seg" id="pul-canvas-size-mode">
+                    <button type="button" class="scheme-mode-btn${canvasSettings.mode === 'auto' ? ' active' : ''}" data-pu-canvas-mode="auto">Automatic</button>
+                    <button type="button" class="scheme-mode-btn${canvasSettings.mode === 'custom' ? ' active' : ''}" data-pu-canvas-mode="custom">Custom</button>
+                </div>
+            </div>
+            <div id="pul-canvas-auto-panel"${canvasSettings.mode === 'auto' ? '' : ' style="display:none"'}>
+                <div id="pul-pad-slot"></div>
+            </div>
+            <div id="pul-canvas-custom-panel"${canvasSettings.mode === 'custom' ? '' : ' style="display:none"'}>
+                <div class="field">
+                    <label class="field-label">Width (px)</label>
+                    <input type="number" id="pul-canvas-w" class="pu-text-input" min="16" max="8192" value="${canvasSettings.width}" />
+                </div>
+                <div class="field">
+                    <label class="field-label">Height (px)</label>
+                    <input type="number" id="pul-canvas-h" class="pu-text-input" min="16" max="8192" value="${canvasSettings.height}" />
+                </div>
+            </div>
+        </div>`;
         html += `<div class="power-user-sub-group">
             <div class="power-user-sub-label">Background</div>
             <div class="field">
@@ -4327,12 +4744,33 @@ function renderPUProps() {
         html += '<button class="btn btn-secondary pu-layer-delete-btn" id="pu-delete-layer">Delete Layer</button>';
     }
 
+    parkPadRow();
     propsSection.innerHTML = html;
 
     const pickrEls = propsSection.querySelectorAll('.scheme-pickr-wrap');
     let pickrIdx = 0;
 
     if (layer.type === 'bg') {
+        if (powerUserMode) {
+            adoptPadRowInto(document.getElementById('pul-pad-slot'));
+            propsSection.querySelectorAll('[data-pu-canvas-mode]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const mode = btn.dataset.puCanvasMode;
+                    if (mode === getPUCanvasSettings().mode) return;
+                    updatePULayer(layer.id, { canvasSizeMode: mode });
+                });
+            });
+            [['pul-canvas-w', 'canvasWidth'], ['pul-canvas-h', 'canvasHeight']].forEach(([inputId, key]) => {
+                const inp = document.getElementById(inputId);
+                if (!inp) return;
+                inp.addEventListener('input', () => {
+                    // Update data + canvas directly so typing doesn't lose focus.
+                    layer[key] = Math.min(8192, Math.max(16, Math.round(parseFloat(inp.value)) || 16));
+                    renderPUCanvas();
+                    savePULayersToSettings();
+                });
+            });
+        }
         if (pickrEls[pickrIdx]) {
             const p = createPickr(pickrEls[pickrIdx], layer.bgColor || '#1a1a2e', (color) => updatePULayer(layer.id, { bgColor: color }));
             puPickrs.push(p);
@@ -4726,11 +5164,15 @@ function savePULayersToSettings() {
 loadPUSettings();
 ensureBuiltinLayers();
 if (powerUserMode) {
+    if (exportFmt === 'svg') {
+        const pngTab = document.querySelector('.export-tab[data-group="fmt"][data-val="png"]');
+        if (pngTab) pngTab.click();
+    }
     renderPU();
 } else {
     renderPUCanvas();
 }
-if (puHasImageLayers) updateDalton3DUI();
+updateDalton3DUI();
 
 hookSaveListeners();
 updateRailUI();
