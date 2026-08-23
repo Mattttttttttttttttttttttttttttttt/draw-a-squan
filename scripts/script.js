@@ -29,6 +29,7 @@ const DALTON_3D_CONTROL_AXES = {
 };
 
 let isCustomMode = false;
+let powerUserMode = false;
 let puLayers = [];
 let selectedPULayerId = null;
 let puLayerIdCounter = 0;
@@ -733,7 +734,8 @@ function buildSidebar() {
     try {
         const s = JSON.parse(localStorage.getItem('sq1vis_settings'));
         const isMobileNow = window.innerWidth <= 768;
-        const shouldCollapse = s && s.sidebarHidden != null ? s.sidebarHidden : isMobileNow;
+        const shouldCollapse = !(s && s.powerUserMode) &&
+            (s && s.sidebarHidden != null ? s.sidebarHidden : isMobileNow);
         if (shouldCollapse) {
             sidebar.classList.add('no-transition');
             sidebar.classList.add('collapsed');
@@ -1297,6 +1299,7 @@ const febDropdown = document.getElementById('feb-dropdown');
 const isMobile = () => window.innerWidth <= 768;
 
 function setSidebarOpen(open) {
+    if (!open && powerUserMode) return;
     if (open) {
         sidebar.classList.remove('collapsed');
         floatingBtn.style.display = 'none';
@@ -1312,6 +1315,7 @@ document.getElementById('rail-expand-btn').addEventListener('click', () => setSi
 // Collapse sidebar when clicking outside on mobile
 document.addEventListener('click', e => {
     if (!isMobile()) return;
+    if (powerUserMode) return;
     if (!sidebar.classList.contains('collapsed') &&
         !sidebar.contains(e.target)) {
         setSidebarOpen(false);
@@ -1509,7 +1513,8 @@ rvsTrack.addEventListener('pointermove', e => {
 rvsTrack.addEventListener('pointerup', () => { vslDragging = false; });
 rvsTrack.addEventListener('pointercancel', () => { vslDragging = false; });
 
-railVSlider.addEventListener('wheel', e => {
+// while a vertical slider is open, the mouse wheel changes its value from anywhere
+document.addEventListener('wheel', e => {
     if (!vslOpenKind) return;
     e.preventDefault();
     e.stopPropagation();
@@ -3323,7 +3328,6 @@ document.getElementById('scheme-reset-default').addEventListener('click', () => 
     ═══ ENHANCED MODE ═══
    ═══════════════════════════════════════════════════════════════ */
 
-let powerUserMode = false;
 let puActiveLayer = 'left';
 let puOffsetMode = { left: 'relative', right: 'relative' };
 
@@ -3446,6 +3450,10 @@ function convertOffsetsForMode(layer, newMode) {
 }
 
 function togglePowerUserMode() {
+    if (!powerUserMode && isMobile()) {
+        flashBtn('Enhanced Mode needs a larger screen');
+        return;
+    }
     powerUserMode = !powerUserMode;
     const section = document.getElementById('power-user-section');
     const propsSection = document.getElementById('pu-layer-props-section');
@@ -3459,6 +3467,10 @@ function togglePowerUserMode() {
     if (rightSidebar) rightSidebar.classList.toggle('hidden', !powerUserMode);
     if (logo) logo.classList.toggle('enhanced', powerUserMode);
     updateEnhancedMenuLabel();
+
+    // enhanced mode keeps the left sidebar expanded and non-collapsible
+    sidebar.classList.toggle('pu-locked', powerUserMode);
+    if (powerUserMode) setSidebarOpen(true);
 
     if (powerUserMode) {
         vpCanvas.classList.add('power-user-active');
@@ -3565,7 +3577,7 @@ function loadPUSettings() {
     try { s = JSON.parse(localStorage.getItem(LS_KEY)); } catch (e) {}
     if (!s) return;
 
-    if (s.powerUserMode) {
+    if (s.powerUserMode && !isMobile()) {
         powerUserMode = true;
         const section = document.getElementById('power-user-section');
         const layersSection = document.getElementById('pu-layer-props-section');
@@ -3579,6 +3591,8 @@ function loadPUSettings() {
         if (inner) inner.classList.add('power-user-active');
         const logo = document.getElementById('logo');
         if (logo) logo.classList.add('enhanced');
+        sidebar.classList.add('pu-locked');
+        setSidebarOpen(true);
     }
     updateEnhancedMenuLabel();
 

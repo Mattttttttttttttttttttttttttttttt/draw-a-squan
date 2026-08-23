@@ -1853,6 +1853,11 @@ button:disabled {
     align-self: flex-start;
 }
 
+/* Enhanced mode keeps the left sidebar expanded */
+.sidebar.pu-locked .sidebar-collapse-btn {
+    display: none;
+}
+
 /* ── Mobile / responsive ────────────────────────── */
 @media (max-width: 768px) {
     .app {
@@ -2731,6 +2736,13 @@ button:disabled {
     height: 1px;
     background: var(--border2);
     margin: .3rem .4rem;
+}
+
+/* Enhanced Mode is desktop-only */
+@media (max-width: 768px) {
+    #menu-enhanced-btn {
+        display: none;
+    }
 }
 
 /* ─── About / How-to modals ──────────────────────────── */
