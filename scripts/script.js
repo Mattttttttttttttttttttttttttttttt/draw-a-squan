@@ -5011,11 +5011,11 @@ function renderPUCards() {
     html += '<div class="pu-layer-list">';
     for (let i = puLayers.length - 1; i >= 0; i--) {
         const l = puLayers[i];
-        let icon, label, typeLabel;
-        if (l.type === 'bg') { icon = bgIcon; label = 'Background'; typeLabel = 'BG'; }
+        let icon, label, typeLabel, thumbExtra = '';
+        if (l.type === 'bg') { icon = bgIcon; label = 'Background'; typeLabel = 'BG'; thumbExtra = ' checker'; }
         else if (l.type === 'cube') {
             icon = cubeIcon; label = 'Cube Image';
-            typeLabel = isBuiltinLayer(l.id) ? '3D' : 'CUBE';
+            typeLabel = 'CUBE';
         }
         else if (l.type === 'text') { icon = textIcon; label = (l.text || 'Text').substring(0, 24); typeLabel = 'TEXT'; }
         else { icon = imgIcon; label = 'Image'; typeLabel = 'IMG'; }
@@ -5031,13 +5031,16 @@ function renderPUCards() {
         } else if (l.type === 'image' && l.imageData) {
             thumbContent = `<img src="${l.imageData}" />`;
         } else if (l.type === 'cube') {
-            thumbContent = cubeIcon;
+            /* Show the active style's design icon, like the collapsed
+               sidebar rail does in normal mode. */
+            const designIcon = RAIL_DESIGN_ICONS[sq1vis.getActiveStyleIndex()]?.icon;
+            thumbContent = designIcon ? `<img src="${designIcon}" alt="" draggable="false">` : cubeIcon;
         } else {
             thumbContent = `<span style="font-size:.6rem;color:var(--text)">${escHTML((l.text || 'T').charAt(0))}</span>`;
         }
 
         html += `<div class="pu-layer-card${selectedClass}${hiddenClass}" data-pul-id="${l.id}">
-            <div class="pu-layer-card-thumb">${thumbContent}</div>
+            <div class="pu-layer-card-thumb${thumbExtra}">${thumbContent}</div>
             <div class="pu-layer-card-info">
                 <div class="pu-layer-card-title">${escHTML(label)}</div>
                 <div class="pu-layer-card-type">${typeLabel}</div>
@@ -5151,9 +5154,6 @@ function renderPUProps() {
 
     let html = '';
     const pickrCounter = () => `pul-pickr-${++puPickrIdCounter}`;
-
-    const layerTypeLabel = { bg: 'BACKGROUND', cube: 'CUBE IMAGE', text: 'TEXT', image: 'IMAGE' };
-    html += `<div class="pu-section-title" style="font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.6rem">${layerTypeLabel[layer.type] || 'LAYER'}</div>`;
 
     if (layer.type === 'bg') {
         const canvasSettings = getPUCanvasSettings();

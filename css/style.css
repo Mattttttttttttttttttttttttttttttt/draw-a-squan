@@ -2599,6 +2599,17 @@ body.pu-enhanced .pu-statusbar {
     color: var(--muted);
 }
 
+/* Transparency checkerboard: sits under the layer's own color/image so it
+   only bleeds through when the color has alpha < 1. */
+.pu-layer-card-thumb.checker {
+    background-color: #161616;
+    background-image:
+        linear-gradient(45deg, #2e2e2e 25%, transparent 25%, transparent 75%, #2e2e2e 75%),
+        linear-gradient(45deg, #2e2e2e 25%, transparent 25%, transparent 75%, #2e2e2e 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 5px 5px;
+}
+
 .pu-layer-card-thumb img {
     width: 100%;
     height: 100%;
@@ -3122,6 +3133,7 @@ body.pu-enhanced .pu-statusbar {
 
 .b3-wrap:hover .b3-step,
 .b3-wrap.b3-stepping .b3-step,
+.b3-wrap.dragging .b3-step,
 .b3-field:focus-within .b3-step {
     opacity: 1;
     pointer-events: auto;
