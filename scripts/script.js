@@ -9,6 +9,9 @@ import {
     DALTON_3D_ORIENTATION_VERSION,
 } from './dalton3dRenderer.js';
 import { parseScramble } from './parseScramble.js';
+import { initBlenderNumberInputs } from './blenderNumberInput.js';
+
+initBlenderNumberInputs();
 
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
 var schemePickrs = {};
