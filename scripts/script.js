@@ -4133,9 +4133,11 @@ function updateEnhancedTopBar() {
     if (bulk) bulk.style.display = powerUserMode ? 'none' : '';
     if (bar) bar.classList.toggle('bulk-hidden', !!powerUserMode);
     if (!bar) return;
-    if (!powerUserMode) { bar.style.display = ''; return; }
+    if (!powerUserMode) { bar.style.display = ''; bar.style.visibility = ''; return; }
     const sel = getSelectedPULayer();
-    bar.style.display = (sel && sel.type === 'cube') ? '' : 'none';
+    const showBar = !!(sel && sel.type === 'cube');
+    bar.style.display = '';
+    bar.style.visibility = showBar ? '' : 'hidden';
 }
 
 function ensureCubeSelected() {
@@ -4530,6 +4532,20 @@ function togglePULayerVisibility(id) {
 
 /* ── Master render ── */
 
+/* Reposition the background frame whenever the canvas stage itself
+   resizes (sidebar settling, window resize) — its pixel anchor must
+   always match the current layout. */
+let puInnerResizeObs = null;
+function watchInnerResize() {
+    const inner = document.getElementById('canvas-inner');
+    if (!inner || puInnerResizeObs || typeof ResizeObserver === 'undefined') return;
+    puInnerResizeObs = new ResizeObserver(() => {
+        if (!powerUserMode) return;
+        requestAnimationFrame(() => { if (powerUserMode) renderPUCanvas(); });
+    });
+    puInnerResizeObs.observe(inner);
+}
+
 function renderPU() {
     ensureCubeSelected();
     updateExportLayerVisibility();
@@ -4545,52 +4561,41 @@ function renderPU() {
 
 let puLastCubeRect = null;
 
-function getPUCubeRect(inner) {
-    // Bounding box of everything cube-related that is currently visible,
-    // relative to #canvas-inner's content box. Returns null if nothing shows.
-    let rect = null;
+function getPUCanvasGeometry(inner) {
+    const settings = getPUCanvasSettings();
+
+    /* The frame hugs the PRIMARY cube (secondary layers never contribute).
+       While the cube is visible its extent is measured right here, in the
+       same layout pass — so frame and artwork can never drift apart. When
+       the cube is hidden the last measured extent is reused verbatim, so
+       the frame retains its exact position and size, as if the cube were
+       still there. */
+    let cube = null;
     const base = inner.getBoundingClientRect();
     const consider = el => {
         const r = el.getBoundingClientRect();
         if (r.width < 2 || r.height < 2) return;
         const box = { left: r.left - base.left, top: r.top - base.top, right: r.right - base.left, bottom: r.bottom - base.top };
-        if (!rect) rect = box;
+        if (!cube) cube = box;
         else {
-            rect.left = Math.min(rect.left, box.left);
-            rect.top = Math.min(rect.top, box.top);
-            rect.right = Math.max(rect.right, box.right);
-            rect.bottom = Math.max(rect.bottom, box.bottom);
+            cube.left = Math.min(cube.left, box.left);
+            cube.top = Math.min(cube.top, box.top);
+            cube.right = Math.max(cube.right, box.right);
+            cube.bottom = Math.max(cube.bottom, box.bottom);
         }
     };
+    const container = document.getElementById('pu-layers-container');
+    let primaries = [];
     if (isDalton3DStyle()) {
         const canvas = inner.querySelector('.dalton-3d-wrap canvas');
         if (canvas && canvas.style.display !== 'none') consider(canvas);
     } else {
-        inner.querySelectorAll('svg.squan').forEach(svg => {
-            if (svg.style.display !== 'none') consider(svg);
-        });
+        primaries = Array.from(inner.querySelectorAll('svg.squan'))
+            .filter(svg => !container || !container.contains(svg));
+        primaries.filter(svg => svg.style.display !== 'none').forEach(consider);
     }
-    /* Remember the last real extent so hiding the primary cube doesn't
-       collapse the automatic background frame — it must retain the
-       dimensions (and position) as if the cube were still there. */
-    if (rect) puLastCubeRect = rect;
-    return rect || puLastCubeRect;
-}
-
-let puLastGeo = null;
-let puLastGeoMode = null;
-
-function getPUCanvasGeometry(inner) {
-    const settings = getPUCanvasSettings();
-
-    /* While the primary cube is hidden, the background frame must stay
-       exactly where it was — as if the cube were still visible — in both
-       automatic and custom mode. */
-    const primCubeLayer = puLayers.find(l => l.id === PU_BUILTIN_CUBE);
-    const primHidden = !!primCubeLayer && !primCubeLayer.visible;
-    if (primHidden && puLastGeo && puLastGeoMode === settings.mode) return puLastGeo;
-
-    const cube = getPUCubeRect(inner);
+    if (cube) puLastCubeRect = cube;
+    else cube = puLastCubeRect;
 
     let cx, cy;
     if (cube) {
@@ -4601,40 +4606,35 @@ function getPUCanvasGeometry(inner) {
         cy = inner.clientHeight / 2;
     }
 
-    let result;
     if (settings.mode === 'custom') {
-        result = {
+        return {
             left: Math.round(cx - settings.width / 2),
             top: Math.round(cy - settings.height / 2),
             width: settings.width,
             height: settings.height,
         };
-    } else {
-        // Automatic: hug the visible cube content plus the padding slider.
-        let w, h;
-        if (cube) {
-            w = cube.right - cube.left;
-            h = cube.bottom - cube.top;
-        } else {
-            w = Math.min(inner.clientWidth, inner.clientHeight) * 0.7;
-            h = w;
-        }
-        let refW = w;
-        if (!isDalton3DStyle()) {
-            const refEl = Array.from(inner.querySelectorAll('svg.squan')).find(s => s.style.display !== 'none');
-            if (refEl) refW = parseFloat(refEl.getAttribute('width')) || w;
-        }
-        const padPx = Math.round(refW * getEffectivePadPct() / 100);
-        result = {
-            left: Math.round(cx - w / 2) - padPx,
-            top: Math.round(cy - h / 2) - padPx,
-            width: Math.max(16, Math.round(w) + padPx * 2),
-            height: Math.max(16, Math.round(h) + padPx * 2),
-        };
     }
-    puLastGeoMode = settings.mode;
-    puLastGeo = result;
-    return result;
+
+    // Automatic: hug the cube's extent plus the padding slider.
+    let w, h;
+    if (cube) {
+        w = cube.right - cube.left;
+        h = cube.bottom - cube.top;
+    } else {
+        w = Math.min(inner.clientWidth, inner.clientHeight) * 0.7;
+        h = w;
+    }
+    let refW = w;
+    if (!isDalton3DStyle() && primaries[0]) {
+        refW = parseFloat(primaries[0].getAttribute('width')) || w;
+    }
+    const padPx = Math.round(refW * getEffectivePadPct() / 100);
+    return {
+        left: Math.round(cx - w / 2) - padPx,
+        top: Math.round(cy - h / 2) - padPx,
+        width: Math.max(16, Math.round(w) + padPx * 2),
+        height: Math.max(16, Math.round(h) + padPx * 2),
+    };
 }
 
 function renderPUCanvas() {
@@ -5601,6 +5601,7 @@ function savePULayersToSettings() {
 
 
 loadPUSettings();
+watchInnerResize();
 ensureBuiltinLayers();
 if (powerUserMode) {
     if (exportFmt === 'svg') {

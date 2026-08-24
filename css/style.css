@@ -2394,6 +2394,15 @@ button:disabled {
     will-change: transform, z-index;
 }
 
+/* Enhanced mode: keep the canvas stage at a constant size. #canvas-inner
+   normally shrink-wraps its content (margin:auto), so hiding the cube
+   layer collapses it and drags the anchored background frame along. */
+.viewport-canvas.power-user-active .canvas-inner {
+    flex: 1;
+    align-self: stretch;
+    margin: 0;
+}
+
 /* ─── PU Layers ────────────────────────────────────── */
 #pu-layers-container {
     position: absolute;
