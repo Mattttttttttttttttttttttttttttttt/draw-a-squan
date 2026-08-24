@@ -4,32 +4,21 @@ const CLICK_THRESHOLD_PX = 4;
 const STEPPER_WIDTH = 18;
 const DECIMALS = 6;
 
-function getCursorVariant() {
-    if (/Win/i.test(navigator.userAgent)) return 'windows';
-    return 'linux';
-}
+/* Stepper press-and-hold auto-repeat */
+const HOLD_DELAY_MS = 400;
+const REPEAT_START_MS = 90;
+const REPEAT_MIN_MS = 28;
+const REPEAT_ACCEL = 0.92;
 
-let fakeCursorEl = null;
+/* How long the green +/− feedback lingers after the last change */
+const FEEDBACK_CLEAR_MS = 450;
 
-function ensureFakeCursor() {
-    if (fakeCursorEl) return fakeCursorEl;
-    fakeCursorEl = document.createElement('div');
-    fakeCursorEl.className = 'b3-fake-cursor';
-    fakeCursorEl.dataset.os = getCursorVariant();
-    const linux = document.createElement('img');
-    linux.className = 'b3-cur-linux';
-    linux.src = 'img/cursor-ew-linux.svg';
-    linux.alt = '';
-    linux.draggable = false;
-    const windows = document.createElement('img');
-    windows.className = 'b3-cur-windows';
-    windows.src = 'img/cursor-ew-windows.svg';
-    windows.alt = '';
-    windows.draggable = false;
-    fakeCursorEl.append(linux, windows);
-    document.body.appendChild(fakeCursorEl);
-    return fakeCursorEl;
-}
+/* input → tracked document/input-level listeners (for clean downgrade) */
+const docBindings = new WeakMap();
+
+/* Blender-style inputs are an Enhanced-mode feature. Normal mode keeps the
+   plain native number inputs; script.js flips this flag on mode switches. */
+let enabled = false;
 
 function formatValue(number) {
     return String(Number(Number(number).toFixed(DECIMALS)));
@@ -57,6 +46,14 @@ function upgradeNumberInput(originalInput) {
     const input = originalInput;
     if (input.dataset.b3Upgraded) return;
     input.dataset.b3Upgraded = '1';
+
+    /* Listeners that outlive the wrapper (on <document> and on the input
+       itself) are tracked so a downgrade can remove them cleanly. */
+    const bindings = [];
+    const on = (target, type, fn, opts) => {
+        target.addEventListener(type, fn, opts);
+        bindings.push({ target, type, fn, opts });
+    };
 
     const cs = getComputedStyle(input);
     let width = cs.width;
@@ -94,6 +91,7 @@ function upgradeNumberInput(originalInput) {
     dragArea.className = 'b3-drag';
 
     input.classList.add('b3-input');
+    input.style.textAlign = 'center';
     input.style.paddingLeft = STEPPER_WIDTH + 4 + 'px';
     input.style.paddingRight = STEPPER_WIDTH + 4 + 'px';
     if (!input.style.width) input.style.width = '100%';
@@ -107,9 +105,27 @@ function upgradeNumberInput(originalInput) {
         input.dispatchEvent(new Event('change', { bubbles: true }));
     };
 
+    /* Green +/- seam: whenever the value moves, light up the stepper that
+       matches the direction of travel, then let it fade after a pause. */
+    let feedbackTimer = null;
+    const setDirFeedback = dir => {
+        wrap.classList.toggle('b3-inc', dir > 0);
+        wrap.classList.toggle('b3-dec', dir < 0);
+    };
+
     const applyValue = (v, { fireChange } = {}) => {
+        const cur = currentValue();
         const next = clampValue(input, Number(v));
         if (Number.isNaN(next)) return false;
+        if (next !== cur) {
+            setDirFeedback(next > cur ? 1 : -1);
+            clearTimeout(feedbackTimer);
+            feedbackTimer = setTimeout(() => setDirFeedback(0), FEEDBACK_CLEAR_MS);
+        } else {
+            /* Clamped into a no-op (e.g. held at min/max) — don't hammer
+               input listeners with repeated identical values. */
+            return false;
+        }
         input.value = formatValue(next);
         input.dispatchEvent(new Event('input', { bubbles: true }));
         if (fireChange) emitChange();
@@ -125,25 +141,55 @@ function upgradeNumberInput(originalInput) {
         applyValue(currentValue() + dir * stepOf(input), { fireChange: true });
     };
 
-    minus.addEventListener('click', e => {
-        e.preventDefault();
-        nudge(-1);
+    /* One click = one step; keep pressing past HOLD_DELAY_MS and it
+       switches to automatic repeat that accelerates the longer it held. */
+    let repeatTimer = null;
+
+    const stopRepeat = () => {
+        clearTimeout(repeatTimer);
+        repeatTimer = null;
+        wrap.classList.remove('b3-stepping');
+    };
+
+    const startRepeat = (btn, dir) => {
+        stopRepeat();
+        nudge(dir);
+        wrap.classList.add('b3-stepping');
+        let interval = REPEAT_START_MS;
+        const tick = () => {
+            nudge(dir);
+            interval = Math.max(REPEAT_MIN_MS, interval * REPEAT_ACCEL);
+            repeatTimer = setTimeout(tick, interval);
+        };
+        repeatTimer = setTimeout(tick, HOLD_DELAY_MS);
+    };
+
+    const bindStepper = (btn, dir) => {
+        btn.addEventListener('pointerdown', e => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            /* Capture so the release is always reported, even if the
+               pointer wanders off the button or out of the window. */
+            try { btn.setPointerCapture(e.pointerId); } catch (err) {}
+            startRepeat(btn, dir);
+        });
+        btn.addEventListener('pointerup', () => stopRepeat());
+        btn.addEventListener('pointercancel', () => stopRepeat());
+        btn.addEventListener('lostpointercapture', () => stopRepeat());
+    };
+    bindStepper(minus, -1);
+    bindStepper(plus, 1);
+
+    on(document, 'pointerup', e => {
+        if (e.button !== 0) return;
+        stopRepeat();
     });
-    plus.addEventListener('click', e => {
-        e.preventDefault();
-        nudge(1);
-    });
-    const swallow = e => e.preventDefault();
-    minus.addEventListener('mousedown', swallow);
-    plus.addEventListener('mousedown', swallow);
 
     wrap.addEventListener('wheel', e => {
         e.preventDefault();
         const amount = stepOf(input) * (e.shiftKey ? PRECISION_MULTIPLIER : 1);
         applyValue(currentValue() + (e.deltaY < 0 ? amount : -amount), { fireChange: true });
     }, { passive: false });
-
-    const fakeCursor = ensureFakeCursor();
 
     let dragging = false;
     let dragStartValue = 0;
@@ -180,7 +226,7 @@ function upgradeNumberInput(originalInput) {
         }
     };
 
-    input.addEventListener('keydown', e => {
+    on(input, 'keydown', e => {
         if (!field.classList.contains('b3-editing')) return;
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -195,7 +241,7 @@ function upgradeNumberInput(originalInput) {
         }
     });
 
-    input.addEventListener('blur', () => {
+    on(input, 'blur', () => {
         exitEditMode(true);
     });
 
@@ -204,7 +250,6 @@ function upgradeNumberInput(originalInput) {
         dragging = false;
         lockPending = false;
         setDraggingUI(false);
-        fakeCursor.classList.remove('active');
         if (document.pointerLockElement === dragArea) document.exitPointerLock();
         if (movedPx <= CLICK_THRESHOLD_PX) {
             enterEditMode();
@@ -226,20 +271,14 @@ function upgradeNumberInput(originalInput) {
         dragStartSensitivity = stepOf(input) * DRAG_SENSITIVITY;
         setDraggingUI(true);
 
-        fakeCursor.style.left = e.clientX + 'px';
-        fakeCursor.style.top = e.clientY + 'px';
-        fakeCursor.classList.add('active');
-
         try {
             const result = dragArea.requestPointerLock();
             if (result && typeof result.catch === 'function') await result;
-        } catch (err) {
-            fakeCursor.classList.remove('active');
-        }
+        } catch (err) { /* cursor stays hidden via CSS while dragging */ }
         lockPending = false;
     });
 
-    document.addEventListener('mousemove', e => {
+    on(document, 'mousemove', e => {
         if (!dragging) return;
         const dx = e.movementX || 0;
         const dy = e.movementY || 0;
@@ -249,25 +288,56 @@ function upgradeNumberInput(originalInput) {
         applyValue(dragStartValue + accumulatedPx * dragStartSensitivity * precision);
     });
 
-    document.addEventListener('mouseup', e => {
+    on(document, 'mouseup', e => {
         if (e.button !== 0) return;
         stopDrag();
     });
 
-    document.addEventListener('pointerlockchange', () => {
+    on(document, 'pointerlockchange', () => {
         if (document.pointerLockElement !== dragArea) {
             if (dragging && !lockPending) {
                 dragging = false;
                 setDraggingUI(false);
-                fakeCursor.classList.remove('active');
                 if (movedPx <= CLICK_THRESHOLD_PX) enterEditMode();
                 else emitChange();
             }
         }
     });
+
+    docBindings.set(input, bindings);
+}
+
+function downgradeNumberInput(input) {
+    const bindings = docBindings.get(input);
+    if (!bindings) return;
+    const wrap = input.closest('.b3-wrap');
+
+    /* Abort any live interaction state before tearing down. */
+    if (wrap) {
+        wrap.classList.remove('b3-stepping', 'dragging', 'b3-inc', 'b3-dec');
+        if (
+            document.pointerLockElement &&
+            wrap.contains(document.pointerLockElement)
+        ) {
+            document.exitPointerLock();
+        }
+    }
+    document.body.classList.remove('b3-dragging');
+
+    for (const b of bindings) b.target.removeEventListener(b.type, b.fn, b.opts);
+    docBindings.delete(input);
+
+    input.classList.remove('b3-input');
+    input.style.removeProperty('text-align');
+    input.style.removeProperty('padding-left');
+    input.style.removeProperty('padding-right');
+    if (input.style.width === '100%') input.style.removeProperty('width');
+    delete input.dataset.b3Upgraded;
+    if (wrap) wrap.replaceWith(input);
 }
 
 function sweep(root) {
+    if (!enabled) return;
     (root || document).querySelectorAll('input[type="number"]:not([data-b3-upgraded])').forEach(upgradeNumberInput);
 }
 
@@ -276,8 +346,8 @@ let installed = false;
 export function initBlenderNumberInputs() {
     if (installed) return;
     installed = true;
-    sweep(document);
     const observer = new MutationObserver(mutations => {
+        if (!enabled) return;
         for (const m of mutations) {
             m.addedNodes.forEach(node => {
                 if (node.nodeType !== 1) return;
@@ -290,4 +360,17 @@ export function initBlenderNumberInputs() {
         }
     });
     observer.observe(document.body, { childList: true, subtree: true });
+}
+
+/* Enhanced mode ON: upgrade every number input. OFF: restore them to plain
+   native number inputs. */
+export function setBlenderNumberInputsEnabled(on) {
+    on = !!on;
+    if (on === enabled) return;
+    enabled = on;
+    if (on) {
+        sweep(document);
+    } else {
+        document.querySelectorAll('input[data-b3-upgraded]').forEach(downgradeNumberInput);
+    }
 }

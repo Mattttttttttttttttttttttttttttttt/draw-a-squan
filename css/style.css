@@ -2426,14 +2426,16 @@ button:disabled {
     z-index: 9999;
     border: 2px solid var(--accent);
     border-radius: 2px;
+    /* Stay visually constant under work-area zoom (--pu-zinv = 1/zoom) */
+    border-width: calc(2px * var(--pu-zinv, 1));
 }
 
 .pu-handle {
     position: absolute;
-    width: 10px;
-    height: 10px;
+    width: calc(10px * var(--pu-zinv, 1));
+    height: calc(10px * var(--pu-zinv, 1));
     background: var(--accent);
-    border: 2px solid var(--bg);
+    border: calc(2px * var(--pu-zinv, 1)) solid var(--bg);
     border-radius: 2px;
     transform: translate(-50%, -50%);
     pointer-events: auto;
@@ -2445,6 +2447,109 @@ button:disabled {
     border-left: 1px solid var(--border);
     border-right: none;
     width: 260px;
+}
+
+/* ── Bottom status bar (Enhanced mode only, Microsoft-Word style) ── */
+.pu-statusbar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-shrink: 0;
+    height: 30px;
+    padding: 0 12px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    user-select: none;
+}
+
+body.pu-enhanced .pu-statusbar {
+    display: flex;
+}
+
+.pu-status-info {
+    font-family: var(--font-mono);
+    font-size: .62rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pu-status-zoom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.pu-zoom-btn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--muted);
+    font-size: .8rem;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+        color var(--transition),
+        border-color var(--transition);
+}
+
+.pu-zoom-btn:hover {
+    color: var(--text);
+    border-color: var(--accent);
+}
+
+.pu-zoom-value {
+    min-width: 38px;
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: .62rem;
+    color: var(--text);
+    cursor: default;
+}
+
+.pu-status-zoom input[type=range] {
+    width: 140px;
+    padding: 0;
+    height: 4px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--border2);
+    border: none;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+
+.pu-status-zoom input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: transform var(--transition);
+}
+
+.pu-status-zoom input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+}
+
+.pu-status-zoom input[type=range]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
 }
 
 .pu-layer-list {
@@ -3005,9 +3110,26 @@ button:disabled {
     cursor: pointer;
     user-select: none;
 
+    /* Blender-style: steppers only exist while the mouse is over the field */
+    opacity: 0;
+    pointer-events: none;
+
     transition:
         background 0.08s,
-        color 0.08s;
+        color 0.08s,
+        opacity 0.12s;
+}
+
+.b3-wrap:hover .b3-step,
+.b3-wrap.b3-stepping .b3-step,
+.b3-field:focus-within .b3-step {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.b3-editing .b3-step {
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 
 .b3-step:hover {
@@ -3017,6 +3139,17 @@ button:disabled {
 
 .b3-step:active {
     background: rgba(255, 255, 255, 0.16);
+}
+
+/* Direction seam: light up the side that is currently moving the value */
+.b3-wrap.b3-inc .b3-plus,
+.b3-wrap.b3-dec .b3-minus {
+    color: var(--accent);
+}
+
+.b3-wrap.b3-inc .b3-plus:hover,
+.b3-wrap.b3-dec .b3-minus:hover {
+    color: var(--accent);
 }
 
 .b3-step.b3-minus {
@@ -3052,49 +3185,6 @@ button:disabled {
 
 body.b3-dragging,
 body.b3-dragging * {
-    cursor: ew-resize !important;
+    cursor: none !important;
     user-select: none !important;
-}
-
-.b3-fake-cursor {
-    position: fixed;
-    left: 0;
-    top: 0;
-
-    width: 32px;
-    height: 32px;
-
-    pointer-events: none;
-    z-index: 2147483000;
-
-    display: none;
-
-    transform: translate(-16px, -16px);
-
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
-}
-
-.b3-fake-cursor.active {
-    display: block;
-}
-
-.b3-fake-cursor img {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-
-    transform: translate(-50%, -50%);
-
-    height: 26px;
-    width: auto;
-
-    display: none;
-}
-
-.b3-fake-cursor[data-os="linux"] .b3-cur-linux {
-    display: block;
-}
-
-.b3-fake-cursor[data-os="windows"] .b3-cur-windows {
-    display: block;
 }

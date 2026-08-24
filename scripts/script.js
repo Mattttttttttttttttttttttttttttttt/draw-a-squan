@@ -9,7 +9,7 @@ import {
     DALTON_3D_ORIENTATION_VERSION,
 } from './dalton3dRenderer.js';
 import { parseScramble } from './parseScramble.js';
-import { initBlenderNumberInputs } from './blenderNumberInput.js';
+import { initBlenderNumberInputs, setBlenderNumberInputsEnabled } from './blenderNumberInput.js';
 
 initBlenderNumberInputs();
 
@@ -37,6 +37,13 @@ let puLayers = [];
 let selectedPULayerId = null;
 let puLayerIdCounter = 0;
 let puHasImageLayers = false;
+
+/* Enhanced-mode work-area zoom: pure view magnification around the canvas
+   center. Layer coordinates, the frame and exports all stay in unscaled
+   (layout) space — only #canvas-inner carries the visual scale. */
+const PU_ZOOM_MIN = 0.5;
+const PU_ZOOM_MAX = 4;
+let puZoom = 1;
 let classicalSnapshot = null;
 let customSnapshot = null;
 let customMuteActive = false;
@@ -1900,18 +1907,23 @@ function applyPadPreview() {
     const r1 = svgs[1].getBoundingClientRect();
     const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
 
+    /* Under work-area zoom the stage (and its own rect) is scaled, so an
+       offset from the visual top-left is zoom × the layout offset that the
+       overlay svg positions with — divide it back out. */
+    const pz = puActiveZoom();
+
     // Compute padded bounds for each square (relative to canvasInner)
     const s0 = {
-        l: r0.left - canvasRect.left - offset,
-        t: r0.top - canvasRect.top - offset,
-        r: r0.right - canvasRect.left + offset,
-        b: r0.bottom - canvasRect.top + offset,
+        l: (r0.left - canvasRect.left) / pz - offset,
+        t: (r0.top - canvasRect.top) / pz - offset,
+        r: (r0.right - canvasRect.left) / pz + offset,
+        b: (r0.bottom - canvasRect.top) / pz + offset,
     };
     const s1 = {
-        l: r1.left - canvasRect.left - offset,
-        t: r1.top - canvasRect.top - offset,
-        r: r1.right - canvasRect.left + offset,
-        b: r1.bottom - canvasRect.top + offset,
+        l: (r1.left - canvasRect.left) / pz - offset,
+        t: (r1.top - canvasRect.top) / pz - offset,
+        r: (r1.right - canvasRect.left) / pz + offset,
+        b: (r1.bottom - canvasRect.top) / pz + offset,
     };
 
     // Single SVG overlay — one <path> so dash pattern is seamless
@@ -2443,6 +2455,9 @@ async function buildEnhancedCompositionSVG() {
         margin: '0',
         width: `${inner.clientWidth}px`,
         height: `${inner.clientHeight}px`,
+        /* The work-area zoom is view-only and must never reach exports. */
+        transform: 'none',
+        transformOrigin: 'center',
     });
 
     const clones = sources.map(src => {
@@ -3651,6 +3666,11 @@ function togglePowerUserMode() {
     sidebar.classList.toggle('pu-locked', powerUserMode);
     if (powerUserMode) setSidebarOpen(true);
 
+    /* Blender-style number inputs are enhanced-only; normal mode gets the
+       plain native inputs back. */
+    setBlenderNumberInputsEnabled(powerUserMode);
+    document.body.classList.toggle('pu-enhanced', powerUserMode);
+
     if (powerUserMode) {
         vpCanvas.classList.add('power-user-active');
         inner.classList.add('power-user-active');
@@ -3680,6 +3700,7 @@ function togglePowerUserMode() {
 
     applyPowerUserTransforms();
     if (powerUserMode) {
+        applyPUZoom();
         requestAnimationFrame(() => renderPU());
     }
     if (!powerUserMode) {
@@ -3690,6 +3711,9 @@ function togglePowerUserMode() {
 
 function resetEnhancedCanvasState(inner) {
     if (!inner) return;
+    inner.style.transform = '';
+    inner.style.transformOrigin = '';
+    inner.style.removeProperty('--pu-zinv');
     inner.querySelectorAll('svg').forEach(svg => {
         svg.style.transform = '';
         svg.style.zIndex = '';
@@ -3697,6 +3721,69 @@ function resetEnhancedCanvasState(inner) {
     });
     const wrap = inner.querySelector('.dalton-3d-wrap');
     if (wrap) wrap.style.display = '';
+}
+
+/* ── Work-area zoom (Enhanced mode only) ── */
+
+function applyPUZoom() {
+    const inner = document.getElementById('canvas-inner');
+    if (inner) {
+        if (powerUserMode && puZoom !== 1) {
+            inner.style.transformOrigin = 'center center';
+            inner.style.transform = `scale(${puZoom})`;
+            inner.style.setProperty('--pu-zinv', String(1 / puZoom));
+        } else {
+            inner.style.transform = '';
+            inner.style.removeProperty('--pu-zinv');
+        }
+    }
+
+    /* Keep the status-bar zoom controls in sync with programmatic changes
+       (restore from settings, +/- buttons, double-click reset, ...). */
+    const pct = Math.round(puZoom * 100);
+    const slider = document.getElementById('pu-zoom-slider');
+    const readout = document.getElementById('pu-zoom-value');
+    if (slider) slider.value = String(pct);
+    if (readout) readout.textContent = pct + '%';
+
+    requestAnimationFrame(updatePUSelectionOverlay);
+}
+
+/* ── Bottom status bar (Enhanced mode only) ── */
+
+function puLayerStatusLabel(l) {
+    if (!l) return null;
+    if (l.type === 'bg') return 'Background';
+    if (l.type === 'cube') return 'Cube Image';
+    if (l.type === 'text') return (l.text || 'Text').substring(0, 24);
+    return 'Image';
+}
+
+function updatePUStatusBarInfo() {
+    const info = document.getElementById('pu-status-info');
+    if (!info) return;
+    const label = puLayerStatusLabel(getSelectedPULayer());
+    info.textContent = label ? `Layer: ${label}` : '';
+}
+
+function wirePUStatusBar() {
+    const slider = document.getElementById('pu-zoom-slider');
+    slider?.addEventListener('input', () => {
+        setPUZoom(parseInt(slider.value, 10) / 100);
+    });
+    slider?.addEventListener('dblclick', () => setPUZoom(1));
+    document.getElementById('pu-zoom-out')?.addEventListener('click', () => setPUZoom(puZoom - 0.1));
+    document.getElementById('pu-zoom-in')?.addEventListener('click', () => setPUZoom(puZoom + 0.1));
+}
+
+function setPUZoom(z) {
+    puZoom = Math.min(PU_ZOOM_MAX, Math.max(PU_ZOOM_MIN, Number(z) || 1));
+    applyPUZoom();
+    savePUSettings();
+}
+
+function puActiveZoom() {
+    return powerUserMode ? puZoom : 1;
 }
 
 function applyCubeSideTransform(svgEl, o, mode, zIndex) {
@@ -3830,6 +3917,7 @@ function savePUSettings() {
         s.puLayers = puLayers;
         s.puLayerIdCounter = puLayerIdCounter;
         s.puHasImageLayers = puHasImageLayers;
+        s.puZoom = puZoom;
         s.puCustomFonts = window.__puCustomFonts || {};
         localStorage.setItem(LS_KEY, JSON.stringify(s));
     } catch (e) {}
@@ -3856,8 +3944,15 @@ function loadPUSettings() {
         if (logo) logo.classList.add('enhanced');
         sidebar.classList.add('pu-locked');
         setSidebarOpen(true);
+        setBlenderNumberInputsEnabled(true);
+        document.body.classList.add('pu-enhanced');
     }
     updateEnhancedMenuLabel();
+
+    if (typeof s.puZoom === 'number') {
+        puZoom = Math.min(PU_ZOOM_MAX, Math.max(PU_ZOOM_MIN, s.puZoom));
+    }
+    applyPUZoom();
 
     if (s.puOffsetMode) {
         puOffsetMode = { left: s.puOffsetMode.left || 'relative', right: s.puOffsetMode.right || 'relative' };
@@ -4575,10 +4670,19 @@ function getPUCanvasGeometry(inner) {
        still there. */
     let cube = null;
     const base = inner.getBoundingClientRect();
+    /* Under work-area zoom the whole stage (and inner's own rect) is scaled
+       about its center, so an offset measured from the visual top-left is
+       exactly zoom × the unscaled layout offset — divide it back out. */
+    const z = puActiveZoom();
     const consider = el => {
         const r = el.getBoundingClientRect();
         if (r.width < 2 || r.height < 2) return;
-        const box = { left: r.left - base.left, top: r.top - base.top, right: r.right - base.left, bottom: r.bottom - base.top };
+        const box = {
+            left: (r.left - base.left) / z,
+            top: (r.top - base.top) / z,
+            right: (r.right - base.left) / z,
+            bottom: (r.bottom - base.top) / z,
+        };
         if (!cube) cube = box;
         else {
             cube.left = Math.min(cube.left, box.left);
@@ -4841,15 +4945,18 @@ function updatePUSelectionOverlay() {
     }
     const showHandles = !!selLayer;
 
+    /* The stage may be zoomed; offsets from the visual top-left corner are
+       zoom × the layout offsets the overlay positions with — divide out. */
+    const z = puActiveZoom();
     const canvasRect = inner.getBoundingClientRect();
     const lr = layerEl.getBoundingClientRect();
 
     overlay.style.display = '';
     overlay.style.position = 'absolute';
-    overlay.style.left = (lr.left - canvasRect.left) + 'px';
-    overlay.style.top = (lr.top - canvasRect.top) + 'px';
-    overlay.style.width = lr.width + 'px';
-    overlay.style.height = lr.height + 'px';
+    overlay.style.left = ((lr.left - canvasRect.left) / z) + 'px';
+    overlay.style.top = ((lr.top - canvasRect.top) / z) + 'px';
+    overlay.style.width = (lr.width / z) + 'px';
+    overlay.style.height = (lr.height / z) + 'px';
 
     if (!showHandles) return;
 
@@ -4960,6 +5067,8 @@ function renderPUCards() {
     html += '<input type="file" id="pu-image-input" accept="image/png,image/jpeg,image/webp" style="display:none" />';
 
     rightSidebar.innerHTML = html;
+
+    updatePUStatusBarInfo();
 
     rightSidebar.querySelectorAll('.pu-layer-card').forEach(el => {
         el.addEventListener('click', e => {
@@ -5343,12 +5452,22 @@ function renderPUProps() {
             const layer = getSelectedPULayer();
             if (!layerEl || !layer) return;
             const lr = layerEl.getBoundingClientRect();
+            /* Work-area zoom: keep drag math in unscaled layout space so a
+               1px mouse move always means 1 layer unit, whatever the zoom.
+               Offsets from the visual rect corner are zoom × layout. */
+            const z = puActiveZoom();
+            const rect = inner.getBoundingClientRect();
             drag = {
                 mode: 'resize',
                 handle: handle.dataset.handle,
                 sx: e.clientX, sy: e.clientY,
                 startLayer: { ...layer },
-                startRect: { x: lr.left, y: lr.top, w: lr.width, h: lr.height },
+                startRect: {
+                    x: (lr.left - rect.left) / z,
+                    y: (lr.top - rect.top) / z,
+                    w: lr.width / z,
+                    h: lr.height / z,
+                },
             };
             return;
         }
@@ -5379,8 +5498,9 @@ function renderPUProps() {
         if (!drag) return;
         e.preventDefault();
         puDragging = true;
-        const dx = e.clientX - drag.sx;
-        const dy = e.clientY - drag.sy;
+        const z = puActiveZoom();
+        const dx = (e.clientX - drag.sx) / z;
+        const dy = (e.clientY - drag.sy) / z;
         const P = PU_PERSPECTIVE;
 
         if (drag.mode === 'move') {
@@ -5604,6 +5724,7 @@ function savePULayersToSettings() {
 
 
 loadPUSettings();
+wirePUStatusBar();
 watchInnerResize();
 ensureBuiltinLayers();
 if (powerUserMode) {
