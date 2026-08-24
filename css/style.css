@@ -385,9 +385,9 @@ select {
     box-shadow: 0 5px 12px rgba(0, 0, 0, .32);
 }
 
-/* hide number input spinners */
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
+/* hide number input spinners (normal mode only — enhanced mode keeps them) */
+#sidebar:not(.pu-locked) input[type=number]::-webkit-inner-spin-button,
+#sidebar:not(.pu-locked) input[type=number]::-webkit-outer-spin-button {
     -webkit-appearance: none;
 }
 
@@ -1856,6 +1856,86 @@ button:disabled {
 /* Enhanced mode keeps the left sidebar expanded */
 .sidebar.pu-locked .sidebar-collapse-btn {
     display: none;
+}
+
+/* Enhanced mode: numbers only — every range slider is hidden so the sidebar
+   stays compact and power users get exact numeric control. */
+.sidebar.pu-locked input[type="range"] {
+    display: none !important;
+}
+
+/* Enhanced mode saves vertical space: label and input share one row. */
+.sidebar.pu-locked .field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .6rem;
+}
+
+.sidebar.pu-locked .field > label.field-label {
+    margin-bottom: 0;
+    flex: none;
+}
+
+.sidebar.pu-locked .field > *:not(label.field-label) {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.sidebar.pu-locked .slider-combo input[type="number"] {
+    flex: none;
+    width: 84px;
+}
+
+.sidebar.pu-locked .slider-combo {
+    justify-content: flex-end;
+}
+
+.sidebar.pu-locked .field > .scheme-pickr-wrap {
+    flex: none;
+}
+
+/* Fields whose content needs full width (dropzones, button stacks, toggles). */
+.sidebar.pu-locked .field:has(.pu-bg-dropzone),
+.sidebar.pu-locked .field:has(.pu-style-toggles),
+.sidebar.pu-locked .field:has(.btn) {
+    display: block;
+}
+
+.sidebar.pu-locked .field:has(.pu-bg-dropzone) > label.field-label,
+.sidebar.pu-locked .field:has(.pu-style-toggles) > label.field-label,
+.sidebar.pu-locked .field:has(.btn) > label.field-label {
+    margin-bottom: .45rem;
+}
+
+/* ── Offset section compact grids (X Y Z over three number inputs) ── */
+.pu-offset-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: .3rem .4rem;
+    margin-bottom: .8rem;
+    align-items: center;
+}
+
+.pu-offset-grid .pu-offset-head {
+    font-size: .6rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: var(--muted);
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.pu-offset-grid input[type=number] {
+    width: 100%;
+    text-align: center;
+    padding: .35rem .2rem;
+    font-size: .72rem;
+}
+
+.pu-mode-label {
+    margin-top: .5rem;
 }
 
 /* ── Mobile / responsive ────────────────────────── */

@@ -200,8 +200,7 @@ function updateStyleToggles() {
     const is3D = isDalton3DStyle();
     document.getElementById('display-reset-default').classList.toggle('dalton-reset-control', is3D);
     document.getElementById('size-field-label').textContent = is3D ? 'Size' : 'Image Size';
-    document.getElementById('layer-distance-row').style.display = is3D ? 'none' : '';
-    document.getElementById('orientation-row').style.display = is3D ? 'none' : '';
+    updateLayerScopedControls();
 
     const padSlider = document.getElementById('pad-slider');
     const padInput = document.getElementById('pad-input');
@@ -468,6 +467,15 @@ function buildSidebar() {
       <div class="section" id="section-display">
         <div class="section-title">Display</div>
 
+        <div class="export-tab-group" id="export-layer-group">
+          <div class="export-tab-label">Layers</div>
+          <div class="export-tab-row">
+            <button class="export-tab active" data-group="layer" data-val="both">Both</button>
+            <button class="export-tab" data-group="layer" data-val="top">Top</button>
+            <button class="export-tab" data-group="layer" data-val="bottom">Bottom</button>
+          </div>
+        </div>
+
         <div class="field" id="size-row">
           <label class="field-label" id="size-field-label">Image Size</label>
           <div class="slider-combo">
@@ -544,123 +552,51 @@ function buildSidebar() {
       </div>
 
       <div class="power-user-section" id="power-user-section">
-        <div class="section-title">Offsets (Enhanced)</div>
+        <div class="section-title" style="color:var(--accent)">Offset</div>
 
-        <div class="field">
-          <label class="field-label">Offset Mode</label>
-          <div class="scheme-mode-seg pu-mode-seg" id="pu-mode-seg">
-            <button type="button" class="scheme-mode-btn active" data-pu-mode="relative" title="Translation in screen space — positive Y is always down">Relative</button>
-            <button type="button" class="scheme-mode-btn" data-pu-mode="absolute" title="Translation in element's local space — direction rotates with the image">Absolute</button>
+        <div class="power-user-sub-group">
+          <div class="power-user-sub-label">Affected layer:</div>
+          <div class="power-user-layer-tabs" id="pu-layer-tabs">
+            <button class="power-user-layer-tab active" data-pu-layer="left" id="pu-tab-left">Left Image</button>
+            <button class="power-user-layer-tab" data-pu-layer="right" id="pu-tab-right">Right Image</button>
           </div>
-        </div>
-
-        <div class="power-user-layer-tabs" id="pu-layer-tabs">
-          <button class="power-user-layer-tab active" data-pu-layer="left">Left Image</button>
-          <button class="power-user-layer-tab" data-pu-layer="right">Right Image</button>
         </div>
 
         <!-- LEFT image offsets -->
-        <div id="pu-offsets-left">
-          <div class="power-user-sub-group">
-            <div class="power-user-sub-label">Position</div>
-            <div class="field">
-              <label class="field-label">X Offset</label>
-              <div class="slider-combo">
-                <input type="range" id="pu-left-tx" min="-200" max="200" step="1" value="0" />
-                <input type="number" id="pu-left-tx-num" min="-200" max="200" value="0" />
-              </div>
-            </div>
-            <div class="field">
-              <label class="field-label">Y Offset</label>
-              <div class="slider-combo">
-                <input type="range" id="pu-left-ty" min="-200" max="200" step="1" value="0" />
-                <input type="number" id="pu-left-ty-num" min="-200" max="200" value="0" />
-              </div>
-            </div>
-            <div class="field">
-              <label class="field-label">Z (Depth)</label>
-              <div class="slider-combo">
-                <input type="range" id="pu-left-tz" min="-500" max="500" step="1" value="0" />
-                <input type="number" id="pu-left-tz-num" min="-500" max="500" value="0" />
-              </div>
-            </div>
-          </div>
-          <div class="power-user-sub-group">
-            <div class="power-user-sub-label">Rotation</div>
-            <div class="field">
-              <label class="field-label">Z (Rotate)</label>
-              <div class="slider-combo">
-                <input type="range" id="pu-left-rz" min="-180" max="180" step="1" value="0" />
-                <input type="number" id="pu-left-rz-num" min="-180" max="180" value="0" />
-              </div>
-            </div>
-            <div class="field">
-              <label class="field-label">X (Tilt)</label>
-              <div class="slider-combo">
-                <input type="range" id="pu-left-rx" min="-180" max="180" step="1" value="0" />
-                <input type="number" id="pu-left-rx-num" min="-180" max="180" value="0" />
-              </div>
-            </div>
-            <div class="field">
-              <label class="field-label">Y (Tilt)</label>
-              <div class="slider-combo">
-                <input type="range" id="pu-left-ry" min="-180" max="180" step="1" value="0" />
-                <input type="number" id="pu-left-ry-num" min="-180" max="180" value="0" />
-              </div>
-            </div>
-          </div>
+        <div id="pu-offsets-left" class="pu-offset-grid">
+          <span class="pu-offset-head">X</span><span class="pu-offset-head">Y</span><span class="pu-offset-head">Z</span>
+          <input type="number" id="pu-left-tx-num" min="-200" max="200" step="1" value="0" />
+          <input type="number" id="pu-left-ty-num" min="-200" max="200" step="1" value="0" />
+          <input type="number" id="pu-left-tz-num" min="-500" max="500" step="1" value="0" />
         </div>
 
         <!-- RIGHT image offsets -->
-        <div id="pu-offsets-right" style="display:none;">
-          <div class="power-user-sub-group">
-            <div class="power-user-sub-label">Position</div>
-            <div class="field">
-              <label class="field-label">X Offset</label>
-              <div class="slider-combo">
-                <input type="range" id="pu-right-tx" min="-200" max="200" step="1" value="0" />
-                <input type="number" id="pu-right-tx-num" min="-200" max="200" value="0" />
-              </div>
-            </div>
-            <div class="field">
-              <label class="field-label">Y Offset</label>
-              <div class="slider-combo">
-                <input type="range" id="pu-right-ty" min="-200" max="200" step="1" value="0" />
-                <input type="number" id="pu-right-ty-num" min="-200" max="200" value="0" />
-              </div>
-            </div>
-            <div class="field">
-              <label class="field-label">Z (Depth)</label>
-              <div class="slider-combo">
-                <input type="range" id="pu-right-tz" min="-500" max="500" step="1" value="0" />
-                <input type="number" id="pu-right-tz-num" min="-500" max="500" value="0" />
-              </div>
-            </div>
+        <div id="pu-offsets-right" class="pu-offset-grid" style="display:none;">
+          <span class="pu-offset-head">X</span><span class="pu-offset-head">Y</span><span class="pu-offset-head">Z</span>
+          <input type="number" id="pu-right-tx-num" min="-200" max="200" step="1" value="0" />
+          <input type="number" id="pu-right-ty-num" min="-200" max="200" step="1" value="0" />
+          <input type="number" id="pu-right-tz-num" min="-500" max="500" step="1" value="0" />
+        </div>
+
+        <div class="power-user-sub-group">
+          <div class="power-user-sub-label">Rotation offset</div>
+          <div class="power-user-sub-label pu-mode-label">Offset mode:</div>
+          <div class="scheme-mode-seg">
+            <button type="button" class="scheme-mode-btn active" data-pu-mode="relative" title="Rotations applied in screen space">Relative</button>
+            <button type="button" class="scheme-mode-btn" data-pu-mode="absolute" title="Rotation axes rotate with the image">Absolute</button>
           </div>
-          <div class="power-user-sub-group">
-            <div class="power-user-sub-label">Rotation</div>
-            <div class="field">
-              <label class="field-label">Z (Rotate)</label>
-              <div class="slider-combo">
-                <input type="range" id="pu-right-rz" min="-180" max="180" step="1" value="0" />
-                <input type="number" id="pu-right-rz-num" min="-180" max="180" value="0" />
-              </div>
-            </div>
-            <div class="field">
-              <label class="field-label">X (Tilt)</label>
-              <div class="slider-combo">
-                <input type="range" id="pu-right-rx" min="-180" max="180" step="1" value="0" />
-                <input type="number" id="pu-right-rx-num" min="-180" max="180" value="0" />
-              </div>
-            </div>
-            <div class="field">
-              <label class="field-label">Y (Tilt)</label>
-              <div class="slider-combo">
-                <input type="range" id="pu-right-ry" min="-180" max="180" step="1" value="0" />
-                <input type="number" id="pu-right-ry-num" min="-180" max="180" value="0" />
-              </div>
-            </div>
-          </div>
+        </div>
+        <div id="pu-rot-left" class="pu-offset-grid">
+          <span class="pu-offset-head">X</span><span class="pu-offset-head">Y</span><span class="pu-offset-head">Z</span>
+          <input type="number" id="pu-left-rx-num" min="-180" max="180" step="1" value="0" />
+          <input type="number" id="pu-left-ry-num" min="-180" max="180" step="1" value="0" />
+          <input type="number" id="pu-left-rz-num" min="-180" max="180" step="1" value="0" />
+        </div>
+        <div id="pu-rot-right" class="pu-offset-grid" style="display:none;">
+          <span class="pu-offset-head">X</span><span class="pu-offset-head">Y</span><span class="pu-offset-head">Z</span>
+          <input type="number" id="pu-right-rx-num" min="-180" max="180" step="1" value="0" />
+          <input type="number" id="pu-right-ry-num" min="-180" max="180" step="1" value="0" />
+          <input type="number" id="pu-right-rz-num" min="-180" max="180" step="1" value="0" />
         </div>
 
         <button class="btn btn-secondary power-user-reset-btn" id="pu-reset-all">Reset All Offsets</button>
@@ -669,17 +605,6 @@ function buildSidebar() {
       <div class="power-user-section" id="pu-layer-props-section">
         <div class="section-title">Layer Properties</div>
         <div id="pu-layer-props-panel"></div>
-      </div>
-
-      <div class="section" id="section-export-layer">
-        <div class="export-tab-group" id="export-layer-group">
-          <div class="export-tab-label">Layers</div>
-          <div class="export-tab-row">
-            <button class="export-tab active" data-group="layer" data-val="both">Both</button>
-            <button class="export-tab" data-group="layer" data-val="top">Top</button>
-            <button class="export-tab" data-group="layer" data-val="bottom">Bottom</button>
-          </div>
-        </div>
       </div>
 
       <div class="section">
@@ -900,9 +825,9 @@ let muteActive = false;
 // are not visible until there is a real position to apply them to. Seed a
 // solved position when the user starts filling in custom mode.
 function prepareCustomFillInteraction() {
-    if (!isCustomMode || document.getElementById('scramble-input').value.trim()) return;
+    if (!isCustomMode || globalScrambleValue().trim()) return;
 
-    document.getElementById('scramble-input').value = '0';
+    setGlobalScrambleValue('0');
     muteActive = true;
     muteBtn.classList.add('active');
 }
@@ -1113,7 +1038,7 @@ function validateSquare1Hex(hex) {
 }
 
 function currentInputToHex({ placeholder = false } = {}) {
-    const input = document.getElementById('scramble-input').value.trim();
+    const input = globalScrambleValue().trim();
     if (!input && placeholder) return PLACEHOLDER_HEX;
     if (!input) return '';
 
@@ -1133,7 +1058,7 @@ function currentInputToHex({ placeholder = false } = {}) {
 }
 
 function currentInputToDaltonMoves() {
-    const input = document.getElementById('scramble-input').value.trim();
+    const input = globalScrambleValue().trim();
     if (!input) return [];
 
     const mode = MODES[currentModeIndex].value;
@@ -2139,6 +2064,13 @@ document.getElementById('scramble-input').addEventListener('blur', () => {
 });
 
 document.getElementById('scramble-input').addEventListener('input', (e) => {
+    if (powerUserMode) {
+        const sel = getSelectedPULayer();
+        if (sel && sel.type === 'cube' && !isBuiltinLayer(sel.id)) {
+            scheduleSecondaryScramble(sel, e.target.value);
+            return;
+        }
+    }
     const currentInput = e.target.value;
     setTimeout(() => {
         if (currentInput === document.getElementById('scramble-input').value) draw();
@@ -2150,8 +2082,38 @@ function draw() {
         showLoadingPlaceholder();
         return;
     }
+    try {
+        if (puStyleTargetLayer) {
+            /* Primary scene renders from the memoized global shape so scoped
+               edits to the selected secondary cube never touch it. */
+            withSvgShape(puStyleMemo, () => drawCore());
+            scheduleSecondaryStyleRefresh();
+        } else {
+            drawCore();
+        }
+    } finally {
+        /* Reapply layer transforms whenever SVGs were replaced. Some input
+           handlers hold a direct reference to draw(), so this must live here
+           rather than in a wrapper assigned later. */
+        requestAnimationFrame(() => {
+            try { applyPowerUserTransforms(); } catch (e) {}
+        });
+    }
+}
 
-    const input = document.getElementById('scramble-input').value;
+let secondaryStyleTimer = null;
+function scheduleSecondaryStyleRefresh() {
+    clearTimeout(secondaryStyleTimer);
+    secondaryStyleTimer = setTimeout(() => {
+        if (!puStyleTargetLayer) return;
+        generateSecondaryCubeMarkup(puStyleTargetLayer);
+        renderPUCanvas();
+        savePULayersToSettings();
+    }, 120);
+}
+
+function drawCore() {
+    const input = globalScrambleValue();
     const size = parseInt(document.getElementById('size-input').value, 10);
     const gap = parseInt(document.getElementById('gap-input').value, 10);
     const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
@@ -2204,7 +2166,12 @@ document.querySelectorAll('.export-tab').forEach(btn => {
         const grp = btn.dataset.group;
         document.querySelectorAll(`.export-tab[data-group="${grp}"]`).forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        if (grp === 'layer') { exportLayer = btn.dataset.val; if (powerUserMode) renderPU(); }
+        if (grp === 'layer') {
+            exportLayer = btn.dataset.val;
+            updateLayerScopedControls();
+            if (powerUserMode) renderPU();
+            if (powerUserMode && puStyleTargetLayer) scheduleSecondaryStyleRefresh();
+        }
         if (grp === 'fmt') {exportFmt = btn.dataset.val;  updateCopyVisibility();}
         updateRailUI();
     });
@@ -2229,7 +2196,7 @@ function getExportSVGString(layer) {
     const isVertical = document.querySelector('input[name=orientation]:checked').value === 'vertical';
     const showSlice = !document.getElementById('hide-slice').checked;
     const showSides = !document.getElementById("hide-sides").checked;
-    const input = document.getElementById('scramble-input').value.trim();
+    const input = globalScrambleValue().trim();
     const mode = MODES[currentModeIndex].value;
 
     let muted, hex, renderVis;
@@ -2686,7 +2653,7 @@ function canvasToBlob(canvas, mime, quality) {
 async function doDalton3DExport(method) {
     try {
         if (!dalton3DRenderer?.getCanvas()) {
-            await renderDalton3D(currentInputToDaltonMoves(), !document.getElementById('scramble-input').value.trim());
+            await renderDalton3D(currentInputToDaltonMoves(), !globalScrambleValue().trim());
         }
         const source = dalton3DRenderer?.getExportCanvas();
         if (!source) throw new Error('3D canvas is not ready.');
@@ -3499,7 +3466,10 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
 function hookSaveListeners() {
     const ids = ['size-input', 'size-slider', 'gap-input', 'gap-slider', 'hide-slice', 'hide-sides'];
     ids.forEach(id => document.getElementById(id)?.addEventListener('input', saveSettings));
-    document.querySelectorAll('input[name=orientation]').forEach(r => r.addEventListener('change', saveSettings));
+    document.querySelectorAll('input[name=orientation]').forEach(r => r.addEventListener('change', () => {
+        saveSettings();
+        updateLayerScopedControls();
+    }));
     document.getElementById('svg-style-select').addEventListener('change', saveSettings);
     document.getElementById('display-reset-default').addEventListener('click', saveSettings);
     document.getElementById('fill-reset-btn').addEventListener('click', saveSettings);
@@ -3547,20 +3517,20 @@ const PU_KEYS = ['tx', 'ty', 'tz', 'rx', 'ry', 'rz'];
 
 const PU_INPUT_MAP = {
     left: {
-        tx:  { slider: 'pu-left-tx',  num: 'pu-left-tx-num' },
-        ty:  { slider: 'pu-left-ty',  num: 'pu-left-ty-num' },
-        tz:  { slider: 'pu-left-tz',  num: 'pu-left-tz-num' },
-        rx:  { slider: 'pu-left-rx',  num: 'pu-left-rx-num' },
-        ry:  { slider: 'pu-left-ry',  num: 'pu-left-ry-num' },
-        rz:  { slider: 'pu-left-rz',  num: 'pu-left-rz-num' },
+        tx:  { num: 'pu-left-tx-num' },
+        ty:  { num: 'pu-left-ty-num' },
+        tz:  { num: 'pu-left-tz-num' },
+        rx:  { num: 'pu-left-rx-num' },
+        ry:  { num: 'pu-left-ry-num' },
+        rz:  { num: 'pu-left-rz-num' },
     },
     right: {
-        tx:  { slider: 'pu-right-tx',  num: 'pu-right-tx-num' },
-        ty:  { slider: 'pu-right-ty',  num: 'pu-right-ty-num' },
-        tz:  { slider: 'pu-right-tz',  num: 'pu-right-tz-num' },
-        rx:  { slider: 'pu-right-rx',  num: 'pu-right-rx-num' },
-        ry:  { slider: 'pu-right-ry',  num: 'pu-right-ry-num' },
-        rz:  { slider: 'pu-right-rz',  num: 'pu-right-rz-num' },
+        tx:  { num: 'pu-right-tx-num' },
+        ty:  { num: 'pu-right-ty-num' },
+        tz:  { num: 'pu-right-tz-num' },
+        rx:  { num: 'pu-right-rx-num' },
+        ry:  { num: 'pu-right-ry-num' },
+        rz:  { num: 'pu-right-rz-num' },
     },
 };
 
@@ -3638,9 +3608,10 @@ function rotationMatrixToCSS(R) {
     return `matrix3d(${R[0][0]},${R[1][0]},${R[2][0]},0,${R[0][1]},${R[1][1]},${R[2][1]},0,${R[0][2]},${R[1][2]},${R[2][2]},0,0,0,0,1)`;
 }
 
-function convertOffsetsForMode(layer, newMode) {
-    const o = puOffsets[layer];
-    const oldMode = puOffsetMode[layer];
+function convertOffsetsForMode(layer, newMode, ctx) {
+    ctx = ctx || puOffsetCtx();
+    const o = ctx.offs[layer];
+    const oldMode = ctx.mode[layer];
 
     const q = oldMode === 'absolute'
         ? composeLocalEuler(o.rx, o.ry, o.rz)
@@ -3681,17 +3652,27 @@ function togglePowerUserMode() {
         vpCanvas.classList.add('power-user-active');
         inner.classList.add('power-user-active');
         ensureBuiltinLayers();
+        primaryScrambleMemo = document.getElementById('scramble-input').value;
+        topbarShowsGlobal = true;
+        ensureCubeSelected();
         if (exportFmt === 'svg') {
             const pngTab = document.querySelector('.export-tab[data-group="fmt"][data-val="png"]');
             if (pngTab) pngTab.click();
         }
     } else {
+        if (puStyleTargetLayer) leaveSecondaryStyleScope(true);
+        if (!topbarShowsGlobal) {
+            document.getElementById('scramble-input').value = primaryScrambleMemo;
+            topbarShowsGlobal = true;
+        }
         vpCanvas.classList.remove('power-user-active');
         inner.classList.remove('power-user-active');
         resetEnhancedCanvasState(inner);
         restorePadRowToDisplay();
     }
 
+    updateEnhancedTopBar();
+    updateLayerScopedControls();
     updateDalton3DUI();
 
     applyPowerUserTransforms();
@@ -3713,6 +3694,61 @@ function resetEnhancedCanvasState(inner) {
     });
     const wrap = inner.querySelector('.dalton-3d-wrap');
     if (wrap) wrap.style.display = '';
+}
+
+function applyCubeSideTransform(svgEl, o, mode, zIndex) {
+    if (!svgEl) return;
+    let rotationCSS;
+    if (mode === 'relative') {
+        rotationCSS = `rotateZ(${o.rz}deg) rotateY(${o.ry}deg) rotateX(${o.rx}deg)`;
+    } else {
+        rotationCSS = `rotateX(${o.rx}deg) rotateY(${o.ry}deg) rotateZ(${o.rz}deg)`;
+    }
+    svgEl.style.transform =
+        `perspective(${PU_PERSPECTIVE}px) ` +
+        `translateZ(${o.tz}px) ` +
+        `translateX(${o.tx}px) translateY(${o.ty}px) ` +
+        rotationCSS;
+    svgEl.style.zIndex = zIndex;
+}
+
+function applySingleTransform(svgEl, layer, zIndex) {
+    applyCubeSideTransform(svgEl, puOffsets[layer], puOffsetMode[layer], zIndex);
+}
+
+/* While a secondary cube layer is selected, the Offset section edits THAT
+   layer's own offsets instead of the global (primary cube) ones. */
+function puOffsetCtx() {
+    const L = puStyleTargetLayer;
+    if (L && L.type === 'cube' && !isBuiltinLayer(L.id)) {
+        if (!L.offsets) L.offsets = { left: { ...PU_DEFAULTS }, right: { ...PU_DEFAULTS } };
+        if (!L.offsetMode) L.offsetMode = { left: 'relative', right: 'relative' };
+        return { offs: L.offsets, mode: L.offsetMode, scoped: true, layer: L };
+    }
+    return { offs: puOffsets, mode: puOffsetMode, scoped: false, layer: null };
+}
+
+/* Mirror of applyPowerUserTransforms but for one secondary cube layer's
+   holder: per-side transforms on the inner svgs. */
+function applySecondaryCubeTransforms(layer, elOpt) {
+    if (!powerUserMode || !layer || layer.type !== 'cube' || isBuiltinLayer(layer.id)) return;
+    let el = elOpt;
+    if (!el) {
+        const inner = document.getElementById('canvas-inner');
+        el = inner && inner.querySelector(`.pu-layer[data-layer-id="${layer.id}"]`);
+    }
+    if (!el || !el.firstElementChild) return;
+    const svgs = el.firstElementChild.querySelectorAll('svg');
+    if (!svgs.length) return;
+    const offs = layer.offsets || { left: { ...PU_DEFAULTS }, right: { ...PU_DEFAULTS } };
+    const mode = layer.offsetMode || { left: 'relative', right: 'relative' };
+    const leftZ = offs.left.tz, rightZ = offs.right.tz;
+    let leftIdx, rightIdx;
+    if (leftZ > rightZ) { leftIdx = 2; rightIdx = 0; }
+    else if (rightZ > leftZ) { leftIdx = 0; rightIdx = 2; }
+    else { leftIdx = 1; rightIdx = 0; }
+    applyCubeSideTransform(svgs[0], offs.left, mode.left, leftIdx);
+    if (svgs[1]) applyCubeSideTransform(svgs[1], offs.right, mode.right, rightIdx);
 }
 
 function applyPowerUserTransforms() {
@@ -3748,46 +3784,33 @@ function applyPowerUserTransforms() {
         applySingleTransform(svgs[1], 'right', rightIdx);
     }
 
+    for (const l of puLayers) applySecondaryCubeTransforms(l);
+
     if (puLayers.length) renderPUCanvas();
-}
-
-function applySingleTransform(svgEl, layer, zIndex) {
-    if (!svgEl) return;
-    const o = puOffsets[layer];
-    const mode = puOffsetMode[layer];
-
-    let rotationCSS;
-    if (mode === 'relative') {
-        rotationCSS = `rotateZ(${o.rz}deg) rotateY(${o.ry}deg) rotateX(${o.rx}deg)`;
-    } else {
-        rotationCSS = `rotateX(${o.rx}deg) rotateY(${o.ry}deg) rotateZ(${o.rz}deg)`;
-    }
-
-    svgEl.style.transform =
-        `perspective(${PU_PERSPECTIVE}px) ` +
-        `translateZ(${o.tz}px) ` +
-        `translateX(${o.tx}px) translateY(${o.ty}px) ` +
-        rotationCSS;
-    svgEl.style.zIndex = zIndex;
 }
 
 function syncPUInputsFromState(layer) {
     const map = PU_INPUT_MAP[layer];
-    const state = puOffsets[layer];
+    const state = puOffsetCtx().offs[layer];
     for (const key of PU_KEYS) {
         const el = map[key];
         if (!el) continue;
         const val = state[key];
-        document.getElementById(el.slider).value = val;
         document.getElementById(el.num).value = Number(val).toFixed(key === 'tz' || key === 'tx' || key === 'ty' ? 1 : 0);
     }
 }
 
 function resetPUOffsets(layer) {
-    puOffsets[layer] = { ...PU_DEFAULTS };
+    const ctx = puOffsetCtx();
+    ctx.offs[layer] = { ...PU_DEFAULTS };
     syncPUInputsFromState(layer);
-    applyPowerUserTransforms();
-    savePUSettings();
+    if (ctx.scoped) {
+        applySecondaryCubeTransforms(ctx.layer);
+        savePULayersToSettings();
+    } else {
+        applyPowerUserTransforms();
+        savePUSettings();
+    }
 }
 
 function resetAllPUOffsets() {
@@ -3851,7 +3874,15 @@ function loadPUSettings() {
         puLayers = s.puLayers;
         puLayerIdCounter = s.puLayerIdCounter || puLayers.length;
         puHasImageLayers = s.puHasImageLayers || puLayers.some(l => l.type === 'image');
+        /* Migrate layers saved before per-layer cube offsets existed. */
+        for (const l of puLayers) {
+            if (l.type === 'cube' && !isBuiltinLayer(l.id)) {
+                if (!l.offsets) l.offsets = { left: { ...PU_DEFAULTS }, right: { ...PU_DEFAULTS } };
+                if (!l.offsetMode) l.offsetMode = { left: 'relative', right: 'relative' };
+            }
+        }
     }
+    ensureCubeSelected();
 
     if (s.puCustomFonts) {
         window.__puCustomFonts = s.puCustomFonts;
@@ -3874,23 +3905,30 @@ window.togglePowerUserMode = togglePowerUserMode;
 
 /* ── Mode toggle ── */
 function syncPUModeUI() {
+    const mode = puOffsetCtx().mode;
     document.querySelectorAll('[data-pu-mode]').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.puMode === puOffsetMode[puActiveLayer]);
+        btn.classList.toggle('active', btn.dataset.puMode === mode[puActiveLayer]);
     });
 }
 
-document.getElementById('pu-mode-seg').addEventListener('click', e => {
+document.getElementById('power-user-section').addEventListener('click', e => {
     const btn = e.target.closest('[data-pu-mode]');
     if (!btn) return;
     const newMode = btn.dataset.puMode;
-    if (newMode === puOffsetMode[puActiveLayer]) return;
+    const ctx = puOffsetCtx();
+    if (newMode === ctx.mode[puActiveLayer]) return;
 
-    convertOffsetsForMode(puActiveLayer, newMode);
-    puOffsetMode[puActiveLayer] = newMode;
+    convertOffsetsForMode(puActiveLayer, newMode, ctx);
+    ctx.mode[puActiveLayer] = newMode;
     syncPUModeUI();
     syncPUInputsFromState(puActiveLayer);
-    applyPowerUserTransforms();
-    savePUSettings();
+    if (ctx.scoped) {
+        applySecondaryCubeTransforms(ctx.layer);
+        savePULayersToSettings();
+    } else {
+        applyPowerUserTransforms();
+        savePUSettings();
+    }
 });
 
 /* ── Layer tab switching ── */
@@ -3901,23 +3939,38 @@ document.getElementById('pu-layer-tabs').addEventListener('click', e => {
     document.querySelectorAll('[data-pu-layer]').forEach(t => t.classList.toggle('active', t.dataset.puLayer === puActiveLayer));
     document.getElementById('pu-offsets-left').style.display = puActiveLayer === 'left' ? '' : 'none';
     document.getElementById('pu-offsets-right').style.display = puActiveLayer === 'right' ? '' : 'none';
+    document.getElementById('pu-rot-left').style.display = puActiveLayer === 'left' ? '' : 'none';
+    document.getElementById('pu-rot-right').style.display = puActiveLayer === 'right' ? '' : 'none';
     syncPUModeUI();
 });
+
+/* Tab labels follow the canvas orientation (horizontal = left/right, vertical = top/bottom). */
+function updatePULayerTabs() {
+    const vertInput = document.querySelector('input[name="orientation"]:checked');
+    const vert = !!vertInput && vertInput.value === 'vertical';
+    const tl = document.getElementById('pu-tab-left');
+    const tr = document.getElementById('pu-tab-right');
+    if (tl) tl.textContent = vert ? 'Top Image' : 'Left Image';
+    if (tr) tr.textContent = vert ? 'Bottom Image' : 'Right Image';
+}
 
 /* ── Sync slider ↔ number for each offset input ── */
 function hookPUInput(layer, key) {
     const map = PU_INPUT_MAP[layer][key];
-    const slider = document.getElementById(map.slider);
     const num = document.getElementById(map.num);
     const decimals = (key === 'tz' || key === 'tx' || key === 'ty') ? 1 : 0;
     const sync = (val) => {
         num.value = Number(val).toFixed(decimals);
-        slider.value = val;
-        puOffsets[layer][key] = Number(val);
-        applyPowerUserTransforms();
-        savePUSettings();
+        const ctx = puOffsetCtx();
+        ctx.offs[layer][key] = Number(val);
+        if (ctx.scoped) {
+            applySecondaryCubeTransforms(ctx.layer);
+            savePULayersToSettings();
+        } else {
+            applyPowerUserTransforms();
+            savePUSettings();
+        }
     };
-    slider.addEventListener('input', () => sync(slider.value));
     num.addEventListener('input', () => sync(num.value));
 }
 
@@ -3928,15 +3981,6 @@ for (const layer of ['left', 'right']) {
 }
 
 document.getElementById('pu-reset-all').addEventListener('click', resetAllPUOffsets);
-
-/* ── Hook into draw() to reapply transforms after SVGs are replaced ── */
-(function hookDrawForPU() {
-    const origDraw = draw;
-    draw = function () {
-        origDraw();
-        requestAnimationFrame(() => applyPowerUserTransforms());
-    };
-})();
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -3992,7 +4036,7 @@ function ensureBuiltinLayers() {
             id: PU_BUILTIN_BG,
             type: 'bg',
             visible: true,
-            bgColor: '#1a1a2e',
+            bgColor: '#FFFFFF00',
             bgImageData: '',
             bgOpacity: 1,
         });
@@ -4064,16 +4108,37 @@ function getPUCanvasSettings() {
    Enhanced mode: only shown while the cube image layer is focused. */
 
 function updateExportLayerVisibility() {
-    const sec = document.getElementById('section-export-layer');
-    if (!sec) return;
-    let show;
-    if (!powerUserMode) {
-        show = !isDalton3DStyle();
-    } else {
-        const sel = getSelectedPULayer();
-        show = !!sel && sel.type === 'cube';
-    }
-    sec.style.display = show ? '' : 'none';
+    const group = document.getElementById('export-layer-group');
+    if (!group) return;
+    // In enhanced mode the group lives inside the Display section, which is
+    // shown only while a cube-type layer is selected — nothing to do there.
+    group.style.display = (!powerUserMode && isDalton3DStyle()) ? 'none' : '';
+}
+
+function updateLayerScopedControls() {
+    updatePULayerTabs();
+    const single = exportLayer !== 'both';
+    const is3D = isDalton3DStyle();
+    const gapRow = document.getElementById('layer-distance-row');
+    if (gapRow) gapRow.style.display = (!single && !is3D) ? '' : 'none';
+    const orientRow = document.getElementById('orientation-row');
+    if (orientRow) orientRow.style.display = (!single && !is3D) ? '' : 'none';
+    const tabs = document.getElementById('pu-layer-tabs');
+    if (tabs) tabs.style.display = single ? 'none' : '';
+}
+
+function updateEnhancedTopBar() {
+    const bar = document.querySelector('.input-bar');
+    const bulk = document.getElementById('bulk-export-btn');
+    if (bulk) bulk.style.display = powerUserMode ? 'none' : '';
+    if (!bar) return;
+    if (!powerUserMode) { bar.style.display = ''; return; }
+    const sel = getSelectedPULayer();
+    bar.style.display = (sel && sel.type === 'cube') ? '' : 'none';
+}
+
+function ensureCubeSelected() {
+    if (!getSelectedPULayer()) selectedPULayerId = PU_BUILTIN_CUBE;
 }
 
 /* ── CRUD ── */
@@ -4086,7 +4151,13 @@ function makePULayerData(type, overrides) {
         x: 0, y: 0, z: 0,
         rx: 0, ry: 0, rz: 0,
         rotMode: 'absolute',
+        offsets: { left: { ...PU_DEFAULTS }, right: { ...PU_DEFAULTS } },
+        offsetMode: { left: 'relative', right: 'relative' },
         text: type === 'text' ? 'Text' : '',
+        scramble: '',
+        svgMarkup: '',
+        svgShape: null,
+        cubeHex: '',
         color: '#ffffff',
         fontFamily: 'Syne',
         fontSize: 48,
@@ -4110,6 +4181,8 @@ function addPULayer(type, overrides) {
     ensureBuiltinLayers();
     const layer = makePULayerData(type, overrides);
     puLayers.push(layer);
+    if (type === 'cube') generateSecondaryCubeMarkup(layer);
+    swapScrambleInputFor(layer.id);
     selectedPULayerId = layer.id;
     if (type === 'image') puHasImageLayers = true;
     renderPU();
@@ -4120,8 +4193,10 @@ function addPULayer(type, overrides) {
 
 function removePULayer(id) {
     if (isBuiltinLayer(id)) return;
+    const wasSelected = selectedPULayerId === id;
+    if (wasSelected) swapScrambleInputFor(PU_BUILTIN_CUBE);
     puLayers = puLayers.filter(l => l.id !== id);
-    if (selectedPULayerId === id) selectedPULayerId = null;
+    ensureCubeSelected();
     puHasImageLayers = puLayers.some(l => l.type === 'image');
     renderPU();
     savePULayersToSettings();
@@ -4136,9 +4211,265 @@ function updatePULayer(id, props) {
     savePULayersToSettings();
 }
 
+/* Numeric-only mutation that does NOT rebuild the properties panel, so the
+   input being typed in keeps focus. */
+function nudgePULayer(id, props) {
+    const layer = puLayers.find(l => l.id === id);
+    if (!layer) return;
+    Object.assign(layer, props);
+    renderPUCanvas();
+    requestAnimationFrame(updatePUSelectionOverlay);
+    savePULayersToSettings();
+}
+
 function selectPULayer(id) {
+    swapScrambleInputFor(id);
     selectedPULayerId = id;
     renderPU();
+}
+
+/* The topbar input edits the primary cube's global scramble, or — while a
+   secondary cube layer is selected — that layer's own scramble. */
+let primaryScrambleMemo = '';
+let topbarShowsGlobal = true;
+function swapScrambleInputFor(newId) {
+    if (!powerUserMode) return;
+    const input = document.getElementById('scramble-input');
+    if (!input) return;
+    const next = puLayers.find(l => l.id === newId);
+    if (!next) return;
+    const nextIsCube = next.type === 'cube';
+    const nextIsSecondary = nextIsCube && !isBuiltinLayer(next.id);
+    if (topbarShowsGlobal) primaryScrambleMemo = input.value;
+    if (nextIsSecondary) {
+        input.value = next.scramble || '';
+        topbarShowsGlobal = false;
+        enterSecondaryStyleScope(next);
+    } else {
+        if (puStyleTargetLayer) leaveSecondaryStyleScope(true);
+        if (nextIsCube) {
+            input.value = primaryScrambleMemo;
+            topbarShowsGlobal = true;
+        }
+    }
+}
+
+function generateSecondaryCubeMarkup(layer) {
+    const build = () => {
+        let hex = PLACEHOLDER_HEX;
+        const raw = (layer.scramble || '').trim();
+        if (raw) {
+            try {
+                const conv = sq1vis.algToHex(sq1vis.unkarnify(raw));
+                hex = `${conv.tlHex}|${conv.blHex}`;
+                validateSquare1Hex(hex);
+            } catch (err) {
+                hex = PLACEHOLDER_HEX;
+            }
+        }
+        layer.cubeHex = hex;
+        const size = parseInt(document.getElementById('size-input').value, 10) || 400;
+        const gap = parseInt(document.getElementById('gap-input').value, 10) || 100;
+        const orientEl = document.querySelector('input[name=orientation]:checked');
+        const isVertical = orientEl ? orientEl.value === 'vertical' : false;
+        const showSlice = !document.getElementById('hide-slice')?.checked;
+        const showSides = !document.getElementById('hide-sides')?.checked;
+        let markup = sq1vis.getSVG(hex, size, gap, !raw || muteActive, isVertical, showSlice, showSides);
+        // Namespace ids so defs never collide with the primary cube's.
+        const uid = layer.id.replace(/[^a-zA-Z0-9]/g, '') || 'x';
+        markup = markup
+            .replace(/\bid="([^"]+)"/g, (m, id) => `id="${id}-${uid}"`)
+            .replace(/url\(#([^)]+)\)/g, (m, id) => `url(#${id}-${uid})`)
+            .replace(/(xlink:href|href)="#([^"]+)"/g, (m, attr, id) => `${attr}="#${id}-${uid}"`);
+        /* Bake per-layer layer visibility: getSVG always emits top then bottom,
+           so hide whichever side the scoped exportLayer excludes. */
+        if (exportLayer !== 'both') {
+            const firstSvg = markup.indexOf('<svg');
+            const secondSvg = firstSvg !== -1 ? markup.indexOf('<svg', firstSvg + 1) : -1;
+            const hideAt = exportLayer === 'top' ? secondSvg : firstSvg;
+            if (hideAt !== -1) {
+                markup = markup.slice(0, hideAt) +
+                    markup.slice(hideAt).replace(/style="([^"]*)"/, (m, s) => `style="${s};display:none;"`);
+            }
+        }
+        layer.svgMarkup = markup;
+        const wMatch = markup.match(/\bwidth="([\d.]+)"/);
+        const hMatch = markup.match(/\bheight="([\d.]+)"/);
+        layer.naturalWidth = wMatch ? Math.round(parseFloat(wMatch[1])) : size;
+        layer.naturalHeight = hMatch ? Math.round(parseFloat(hMatch[1])) : Math.round(size / 2);
+    };
+    /* The live-selected layer renders from the edited (live) context; every
+       other read regenerates from that layer's own stored shape. */
+    if (powerUserMode && puStyleTargetLayer === layer) build();
+    else withSvgShape(layer.svgShape, build);
+}
+
+let secondaryScrambleTimer = null;
+function scheduleSecondaryScramble(layer, value) {
+    clearTimeout(secondaryScrambleTimer);
+    secondaryScrambleTimer = setTimeout(() => {
+        layer.scramble = value;
+        generateSecondaryCubeMarkup(layer);
+        renderPUCanvas();
+        savePULayersToSettings();
+    }, 250);
+}
+
+/* Global-scene readers must always see the primary scramble, even while the
+   topbar input temporarily displays a selected secondary cube's scramble. */
+function globalScrambleValue() {
+    if (powerUserMode && !topbarShowsGlobal) return primaryScrambleMemo;
+    return document.getElementById('scramble-input').value;
+}
+
+/* ── Per-layer SVG style context ──
+   While a secondary cube layer is selected, the left-sidebar design controls
+   (design style, color scheme, layer distance, orientation, slice/side
+   toggles, stroke widths, mute) edit THAT layer only. The global scene keeps
+   rendering from a captured memo, so the primary cube is never affected. */
+
+let puStyleMemo = null;
+let puStyleTargetLayer = null;
+
+function captureSvgShape() {
+    return {
+        gap: document.getElementById('gap-input').value,
+        isVertical: (document.querySelector('input[name=orientation]:checked') || {}).value === 'vertical',
+        showSlice: !document.getElementById('hide-slice').checked,
+        showSides: !document.getElementById('hide-sides').checked,
+        size: document.getElementById('size-input').value,
+        exportLayer,
+        styleIndex: sq1vis.getActiveStyleIndex(),
+        showSideColors: sq1vis.getShowSideColors(),
+        styleSettings: (() => {
+            const obj = {};
+            const prevIdx = sq1vis.getActiveStyleIndex();
+            for (const style of sq1vis.getStyles()) {
+                sq1vis.setActiveStyle(style.index);
+                obj[style.source] = JSON.parse(JSON.stringify(sq1vis.getStyleSettings()));
+            }
+            sq1vis.setActiveStyle(prevIdx);
+            return obj;
+        })(),
+        colorOverrides: (() => {
+            const obj = {};
+            const prevIdx = sq1vis.getActiveStyleIndex();
+            const prevSides = sq1vis.getShowSideColors();
+            for (const style of sq1vis.getStyles()) {
+                for (const withSides of [true, false]) {
+                    sq1vis.setActiveStyle(style.index);
+                    sq1vis.setShowSideColors(withSides);
+                    obj[style.source + '_' + (withSides ? 'with' : 'without')] = JSON.parse(JSON.stringify(sq1vis.getColorScheme()));
+                }
+            }
+            sq1vis.setActiveStyle(prevIdx);
+            sq1vis.setShowSideColors(prevSides);
+            return obj;
+        })(),
+        piecesColors: JSON.parse(JSON.stringify(sq1vis.getPiecesColors())),
+        muteActive,
+    };
+}
+
+function applySvgShape(shape) {
+    if (!shape) return;
+    document.getElementById('gap-input').value = shape.gap;
+    const gapSlider = document.getElementById('gap-slider');
+    if (gapSlider) gapSlider.value = shape.gap;
+    const orient = document.querySelector(`input[name=orientation][value="${shape.isVertical ? 'vertical' : 'horizontal'}"]`);
+    if (orient) orient.checked = true;
+    document.getElementById('hide-slice').checked = !shape.showSlice;
+    document.getElementById('hide-sides').checked = !shape.showSides;
+    if (shape.size != null) {
+        document.getElementById('size-input').value = shape.size;
+        const sizeSlider = document.getElementById('size-slider');
+        if (sizeSlider) sizeSlider.value = shape.size;
+    }
+    if (shape.exportLayer) {
+        exportLayer = shape.exportLayer;
+        document.querySelectorAll('#export-layer-group .export-tab')
+            .forEach(b => b.classList.toggle('active', b.dataset.val === exportLayer));
+    }
+    muteActive = !!shape.muteActive;
+    const muteBtn = document.getElementById('fill-mute-btn');
+    if (muteBtn) muteBtn.classList.toggle('active', muteActive);
+
+    const prevIdx = sq1vis.getActiveStyleIndex();
+    const prevSides = sq1vis.getShowSideColors();
+    if (shape.styleSettings) {
+        for (const style of sq1vis.getStyles()) {
+            const saved = shape.styleSettings[style.source];
+            if (!saved) continue;
+            sq1vis.setActiveStyle(style.index);
+            sq1vis.setStyleSettings(saved);
+        }
+    }
+    if (shape.colorOverrides) {
+        for (const style of sq1vis.getStyles()) {
+            for (const withSides of [true, false]) {
+                const saved = shape.colorOverrides[style.source + '_' + (withSides ? 'with' : 'without')];
+                if (!saved) continue;
+                sq1vis.setActiveStyle(style.index);
+                sq1vis.setShowSideColors(withSides);
+                const sanitized = sanitizeSavedScheme(saved);
+                if (sanitized) sq1vis.setColorScheme(sanitized);
+            }
+        }
+    }
+    sq1vis.setActiveStyle(shape.styleIndex != null ? shape.styleIndex : prevIdx);
+    sq1vis.setShowSideColors(shape.showSideColors != null ? shape.showSideColors : prevSides);
+    if (shape.piecesColors) sq1vis.setPiecesColors(shape.piecesColors);
+
+    const select = document.getElementById('svg-style-select');
+    if (select && shape.styleIndex != null) select.value = String(shape.styleIndex);
+}
+
+function refreshStyleContextUI() {
+    updateStyleToggles();
+    buildSchemeGrid();
+    updateRailUI();
+}
+
+function enterSecondaryStyleScope(layer) {
+    if (!layer.svgShape) layer.svgShape = captureSvgShape();
+    if (puStyleTargetLayer) {
+        puStyleTargetLayer.svgShape = captureSvgShape();
+    } else {
+        puStyleMemo = captureSvgShape();
+    }
+    puStyleTargetLayer = layer;
+    applySvgShape(layer.svgShape);
+    refreshStyleContextUI();
+    syncPUInputsFromState('left');
+    syncPUInputsFromState('right');
+    syncPUModeUI();
+    requestAnimationFrame(() => applyPowerUserTransforms());
+}
+
+function leaveSecondaryStyleScope(bakeEdits) {
+    if (!puStyleTargetLayer) return;
+    if (bakeEdits !== false) puStyleTargetLayer.svgShape = captureSvgShape();
+    puStyleTargetLayer = null;
+    applySvgShape(puStyleMemo);
+    puStyleMemo = null;
+    refreshStyleContextUI();
+    syncPUInputsFromState('left');
+    syncPUInputsFromState('right');
+    syncPUModeUI();
+    requestAnimationFrame(() => applyPowerUserTransforms());
+}
+
+function withSvgShape(shape, fn) {
+    const prev = captureSvgShape();
+    applySvgShape(shape);
+    try { return fn(); } finally { applySvgShape(prev); }
+}
+
+function setGlobalScrambleValue(value) {
+    primaryScrambleMemo = value;
+    if (!powerUserMode || topbarShowsGlobal) {
+        document.getElementById('scramble-input').value = value;
+    }
 }
 
 function getSelectedPULayer() {
@@ -4168,7 +4499,10 @@ function togglePULayerVisibility(id) {
 /* ── Master render ── */
 
 function renderPU() {
+    ensureCubeSelected();
     updateExportLayerVisibility();
+    updateLayerScopedControls();
+    updateEnhancedTopBar();
     renderPUCards();
     renderPUCanvas();
     renderPUProps();
@@ -4288,11 +4622,16 @@ function renderPUCanvas() {
         const wrap = inner.querySelector('.dalton-3d-wrap');
         if (wrap) wrap.style.display = cubeVisible ? '' : 'none';
     } else {
-        const svgs = inner.querySelectorAll('svg.squan');
+        // Only the primary cube's svgs — secondary cube layers live in the
+        // container and are managed independently.
+        const svgs = Array.from(inner.querySelectorAll('svg.squan')).filter(svg => !container.contains(svg));
         svgs.forEach(svg => { svg.style.display = ''; });
+        /* While a secondary layer is selected, the primary keeps rendering
+           from the memoized layer choice, never the live one. */
+        const primExportLayer = puStyleTargetLayer && puStyleMemo ? (puStyleMemo.exportLayer || 'both') : exportLayer;
         if (svgs.length === 2) {
-            svgs[0].style.display = cubeVisible && exportLayer !== 'bottom' ? '' : 'none';
-            svgs[1].style.display = cubeVisible && exportLayer !== 'top' ? '' : 'none';
+            svgs[0].style.display = cubeVisible && primExportLayer !== 'bottom' ? '' : 'none';
+            svgs[1].style.display = cubeVisible && primExportLayer !== 'top' ? '' : 'none';
         } else {
             svgs.forEach(svg => { svg.style.display = cubeVisible ? '' : 'none'; });
         }
@@ -4316,7 +4655,7 @@ function renderPUCanvas() {
             bgDiv.style.backgroundPosition = 'center';
         } else {
             bgDiv.style.backgroundImage = 'none';
-            bgDiv.style.backgroundColor = bgLayer.bgColor || '#1a1a2e';
+            bgDiv.style.backgroundColor = bgLayer.bgColor || '#FFFFFF00';
         }
         bgDiv.style.opacity = bgLayer.bgOpacity != null ? bgLayer.bgOpacity : 1;
     } else if (bgDiv) {
@@ -4324,7 +4663,8 @@ function renderPUCanvas() {
     }
 
     for (const layer of puLayers) {
-        if (layer.type === 'bg' || layer.type === 'cube') continue;
+        if (layer.type === 'bg') continue;
+        if (layer.type === 'cube' && isBuiltinLayer(layer.id)) continue;
         if (!layer.visible) continue;
 
         const el = document.createElement('div');
@@ -4352,6 +4692,22 @@ function renderPUCanvas() {
             el.appendChild(span);
             el.style.userSelect = 'none';
             el.style.padding = '4px 8px';
+        } else if (layer.type === 'cube') {
+            if (!layer.svgMarkup) generateSecondaryCubeMarkup(layer);
+            if (layer.svgMarkup) {
+                const holder = document.createElement('div');
+                holder.style.cssText = 'pointer-events:none;line-height:0';
+                holder.innerHTML = layer.svgMarkup;
+                holder.querySelectorAll('svg').forEach(svg => { svg.style.pointerEvents = 'none'; });
+                el.appendChild(holder);
+                el.style.width = (layer.naturalWidth * layer.scaleX) + 'px';
+                el.style.height = (layer.naturalHeight * layer.scaleY) + 'px';
+                holder.style.width = layer.naturalWidth + 'px';
+                holder.style.height = layer.naturalHeight + 'px';
+                holder.style.transformOrigin = 'top left';
+                holder.style.transform = `scale(${layer.scaleX}, ${layer.scaleY})`;
+            }
+            applySecondaryCubeTransforms(layer, el);
         } else if (layer.type === 'image' && layer.imageData) {
             const img = document.createElement('img');
             img.src = layer.imageData;
@@ -4378,7 +4734,10 @@ function applyPULayerTransform(el, layer) {
     el.style.left = '50%';
     el.style.top = '50%';
     el.style.transformOrigin = 'center center';
+    /* Cube layers anchor at their center so a fresh layer sits mid-canvas. */
+    const centerAnchor = layer.type === 'cube' ? 'translate(-50%, -50%) ' : '';
     el.style.transform =
+        centerAnchor +
         `perspective(${PU_PERSPECTIVE}px) ` +
         `translateZ(${layer.z}px) ` +
         `translateX(${layer.x}px) translateY(${layer.y}px) ` +
@@ -4411,6 +4770,15 @@ function updatePUSelectionOverlay() {
     const layerEl = inner.querySelector(`.pu-layer[data-layer-id="${selectedPULayerId}"]`);
     if (!layerEl) { overlay.style.display = 'none'; return; }
 
+    /* Cube layers (primary or secondary) get no on-canvas selection visuals —
+       selection is indicated in the layer list only. */
+    const selLayer = getSelectedPULayer();
+    if (!!selLayer && selLayer.type === 'cube') {
+        overlay.style.display = 'none';
+        return;
+    }
+    const showHandles = !!selLayer;
+
     const canvasRect = inner.getBoundingClientRect();
     const lr = layerEl.getBoundingClientRect();
 
@@ -4420,6 +4788,8 @@ function updatePUSelectionOverlay() {
     overlay.style.top = (lr.top - canvasRect.top) + 'px';
     overlay.style.width = lr.width + 'px';
     overlay.style.height = lr.height + 'px';
+
+    if (!showHandles) return;
 
     const handles = [
         { n: 'tl', c: 'nwse-resize', l: 0, t: 0 },
@@ -4469,16 +4839,15 @@ function renderPUCards() {
     html += '<button class="btn btn-secondary" id="pu-ws-import" title="Import workspace">Import</button>';
     html += '</div>';
 
-    if (puLayers.length <= 2) {
-        html += '<div class="pu-empty-layers">No user layers yet.<br>Add text or image below.</div>';
-    }
-
     html += '<div class="pu-layer-list">';
     for (let i = puLayers.length - 1; i >= 0; i--) {
         const l = puLayers[i];
         let icon, label, typeLabel;
         if (l.type === 'bg') { icon = bgIcon; label = 'Background'; typeLabel = 'BG'; }
-        else if (l.type === 'cube') { icon = cubeIcon; label = 'Cube Image'; typeLabel = '3D'; }
+        else if (l.type === 'cube') {
+            icon = cubeIcon; label = 'Cube Image';
+            typeLabel = isBuiltinLayer(l.id) ? '3D' : 'CUBE';
+        }
         else if (l.type === 'text') { icon = textIcon; label = (l.text || 'Text').substring(0, 24); typeLabel = 'TEXT'; }
         else { icon = imgIcon; label = 'Image'; typeLabel = 'IMG'; }
 
@@ -4489,7 +4858,7 @@ function renderPUCards() {
         if (l.type === 'bg' && l.bgImageData) {
             thumbContent = `<img src="${l.bgImageData}" />`;
         } else if (l.type === 'bg') {
-            thumbContent = `<div style="width:100%;height:100%;background:${l.bgColor || '#1a1a2e'};border-radius:3px"></div>`;
+            thumbContent = `<div style="width:100%;height:100%;background:${l.bgColor || '#FFFFFF00'};border-radius:3px"></div>`;
         } else if (l.type === 'image' && l.imageData) {
             thumbContent = `<img src="${l.imageData}" />`;
         } else if (l.type === 'cube') {
@@ -4524,6 +4893,7 @@ function renderPUCards() {
     html += '<div class="pu-add-layer-row">';
     html += '<button class="btn btn-secondary" id="pu-add-text">+ Text</button>';
     html += '<button class="btn btn-secondary" id="pu-add-image">+ Image</button>';
+    html += '<button class="btn btn-secondary" id="pu-add-cube">+ Cube</button>';
     html += '</div>';
     html += '<input type="file" id="pu-image-input" accept="image/png,image/jpeg,image/webp" style="display:none" />';
 
@@ -4550,6 +4920,7 @@ function renderPUCards() {
     });
 
     document.getElementById('pu-add-text')?.addEventListener('click', () => addPULayer('text'));
+    document.getElementById('pu-add-cube')?.addEventListener('click', () => addPULayer('cube'));
     const addImgBtn = document.getElementById('pu-add-image');
     const imgInput = document.getElementById('pu-image-input');
     if (addImgBtn && imgInput) {
@@ -4591,7 +4962,7 @@ function renderPUProps() {
     const showNormalSections = !layer || layer.type === 'cube';
 
     if (puSection) {
-        puSection.classList.toggle('visible', powerUserMode && showNormalSections);
+        puSection.classList.toggle('visible', powerUserMode && (!layer || layer.type === 'cube'));
     }
 
     const secDesigns = document.getElementById('section-designs');
@@ -4603,7 +4974,7 @@ function renderPUProps() {
 
     if (!layer) {
         parkPadRow();
-        propsSection.innerHTML = '<div class="pu-empty-layers">Select a layer to edit its properties.</div>';
+        propsSection.innerHTML = '';
         return;
     }
 
@@ -4653,8 +5024,9 @@ function renderPUProps() {
                 <input type="file" id="pul-bg-file" accept="image/*" style="display:none" />
             </div>
         </div>`;
-    } else if (layer.type === 'cube') {
-        html += '<div class="power-user-sub-group"><div class="power-user-sub-label" style="font-style:italic;color:var(--muted)">Use the offset controls above to adjust left/right image positioning.</div></div>';
+    } else if (layer.type === 'cube' && !isBuiltinLayer(layer.id)) {
+        /* secondary cube: styled via the scoped sidebar + Offset section —
+           no per-layer property groups here */
     } else if (layer.type === 'text') {
         html += `<div class="power-user-sub-group">
             <div class="power-user-sub-label">Content</div>
@@ -4717,7 +5089,10 @@ function renderPUProps() {
         </div>`;
     }
 
-    if (layer.type !== 'bg' && layer.type !== 'cube') {
+    /* Transform groups apply to movable layers only (text/images). Cube layers
+       — primary and secondary alike — are driven by the dedicated Offset
+       section, and the background has none. */
+    if (!isBuiltinLayer(layer.id) && layer.type !== 'cube') {
         html += `<div class="power-user-sub-group">
             <div class="power-user-sub-label">Position</div>
             ${puSliderField('pul-x', 'X', layer.x, -400, 400)}
@@ -4726,22 +5101,19 @@ function renderPUProps() {
         </div>`;
 
         html += `<div class="power-user-sub-group">
-            <div class="power-user-sub-label">Rotation</div>
-            <div class="field">
-                <label class="field-label">Mode</label>
-                <div class="scheme-mode-seg pu-mode-seg">
-                    <button type="button" class="scheme-mode-btn${layer.rotMode === 'relative' ? ' active' : ''}" data-pul-rotmode="relative">Relative</button>
-                    <button type="button" class="scheme-mode-btn${layer.rotMode === 'absolute' ? ' active' : ''}" data-pul-rotmode="absolute">Absolute</button>
-                </div>
+            <div class="power-user-sub-label">Rotation Offset Mode</div>
+            <div class="scheme-mode-seg">
+                <button type="button" class="scheme-mode-btn${layer.rotMode === 'relative' ? ' active' : ''}" data-pul-rotmode="relative" title="Rotations applied in screen space">Relative</button>
+                <button type="button" class="scheme-mode-btn${layer.rotMode === 'absolute' ? ' active' : ''}" data-pul-rotmode="absolute" title="Rotation axes rotate with the layer">Absolute</button>
             </div>
+        </div>`;
+
+        html += `<div class="power-user-sub-group">
+            <div class="power-user-sub-label">Rotation</div>
             ${puSliderField('pul-rx', 'X (Tilt)', layer.rx, -180, 180)}
             ${puSliderField('pul-ry', 'Y (Tilt)', layer.ry, -180, 180)}
             ${puSliderField('pul-rz', 'Z (Rotate)', layer.rz, -180, 180)}
         </div>`;
-    }
-
-    if (!isBuiltinLayer(layer.id)) {
-        html += '<button class="btn btn-secondary pu-layer-delete-btn" id="pu-delete-layer">Delete Layer</button>';
     }
 
     parkPadRow();
@@ -4772,11 +5144,11 @@ function renderPUProps() {
             });
         }
         if (pickrEls[pickrIdx]) {
-            const p = createPickr(pickrEls[pickrIdx], layer.bgColor || '#1a1a2e', (color) => updatePULayer(layer.id, { bgColor: color }));
+            const p = createPickr(pickrEls[pickrIdx], layer.bgColor || '#FFFFFF00', (color) => updatePULayer(layer.id, { bgColor: color }));
             puPickrs.push(p);
         }
         pickrIdx++;
-        hookPUFieldSlider('pul-bg-opacity', 'pul-bg-opacity-num', (layer.bgOpacity != null ? layer.bgOpacity : 1) * 100, 0, 100, 0, val => updatePULayer(layer.id, { bgOpacity: val / 100 }));
+        hookPUFieldSlider('pul-bg-opacity', 'pul-bg-opacity-num', (layer.bgOpacity != null ? layer.bgOpacity : 1) * 100, 0, 100, 0, val => nudgePULayer(layer.id, { bgOpacity: val / 100 }));
         const dropzone = document.getElementById('pul-bg-dropzone');
         const bgFile = document.getElementById('pul-bg-file');
         if (dropzone && bgFile) {
@@ -4798,7 +5170,7 @@ function renderPUProps() {
             puPickrs.push(p);
         }
         pickrIdx++;
-        hookPUFieldSlider('pul-fontsize', 'pul-fontsize-num', layer.fontSize, 8, 200, 0, val => updatePULayer(layer.id, { fontSize: Math.round(val) }));
+        hookPUFieldSlider('pul-fontsize', 'pul-fontsize-num', layer.fontSize, 8, 200, 0, val => nudgePULayer(layer.id, { fontSize: Math.round(val) }));
 
         const fontSelect = document.getElementById('pul-font');
         const urlWrap = document.getElementById('pul-font-url-wrap');
@@ -4850,8 +5222,8 @@ function renderPUProps() {
             puPickrs.push(p);
         }
         pickrIdx++;
-        hookPUFieldSlider('pul-outline-size', 'pul-outline-size-num', layer.outlineSize || 0, 0, 20, 0, val => updatePULayer(layer.id, { outlineSize: Math.round(val) }));
-        hookPUFieldSlider('pul-outline-fade', 'pul-outline-fade-num', layer.outlineFade || 0, 0, 30, 0, val => updatePULayer(layer.id, { outlineFade: Math.round(val) }));
+        hookPUFieldSlider('pul-outline-size', 'pul-outline-size-num', layer.outlineSize || 0, 0, 20, 0, val => nudgePULayer(layer.id, { outlineSize: Math.round(val) }));
+        hookPUFieldSlider('pul-outline-fade', 'pul-outline-fade-num', layer.outlineFade || 0, 0, 30, 0, val => nudgePULayer(layer.id, { outlineFade: Math.round(val) }));
     }
 
     if (layer.type === 'image') {
@@ -4877,22 +5249,18 @@ function renderPUProps() {
         }
     }
 
-    hookPUFieldSlider('pul-x', 'pul-x-num', layer.x, -400, 400, 1, val => updatePULayer(layer.id, { x: val }));
-    hookPUFieldSlider('pul-y', 'pul-y-num', layer.y, -400, 400, 1, val => updatePULayer(layer.id, { y: val }));
-    hookPUFieldSlider('pul-z', 'pul-z-num', layer.z, -500, 500, 1, val => updatePULayer(layer.id, { z: val }));
-    hookPUFieldSlider('pul-rx', 'pul-rx-num', layer.rx, -180, 180, 0, val => updatePULayer(layer.id, { rx: val }));
-    hookPUFieldSlider('pul-ry', 'pul-ry-num', layer.ry, -180, 180, 0, val => updatePULayer(layer.id, { ry: val }));
-    hookPUFieldSlider('pul-rz', 'pul-rz-num', layer.rz, -180, 180, 0, val => updatePULayer(layer.id, { rz: val }));
+    hookPUFieldSlider('pul-x', 'pul-x-num', layer.x, -400, 400, 1, val => nudgePULayer(layer.id, { x: val }));
+    hookPUFieldSlider('pul-y', 'pul-y-num', layer.y, -400, 400, 1, val => nudgePULayer(layer.id, { y: val }));
+    hookPUFieldSlider('pul-z', 'pul-z-num', layer.z, -500, 500, 1, val => nudgePULayer(layer.id, { z: val }));
+    hookPUFieldSlider('pul-rx', 'pul-rx-num', layer.rx, -180, 180, 0, val => nudgePULayer(layer.id, { rx: val }));
+    hookPUFieldSlider('pul-ry', 'pul-ry-num', layer.ry, -180, 180, 0, val => nudgePULayer(layer.id, { ry: val }));
+    hookPUFieldSlider('pul-rz', 'pul-rz-num', layer.rz, -180, 180, 0, val => nudgePULayer(layer.id, { rz: val }));
 
     propsSection.querySelectorAll('[data-pul-rotmode]').forEach(btn => {
         btn.addEventListener('click', () => {
             if (btn.dataset.pulRotmode === layer.rotMode) return;
             updatePULayer(layer.id, { rotMode: btn.dataset.pulRotmode });
         });
-    });
-
-    document.getElementById('pu-delete-layer')?.addEventListener('click', async () => {
-        if (await puConfirmDelete('Delete this layer?')) removePULayer(layer.id);
     });
 }
 
@@ -4928,8 +5296,11 @@ function renderPUProps() {
             if (e.ctrlKey || e.metaKey) {
                 selectPULayer(layerEl.dataset.layerId);
             }
-            const layer = getSelectedPULayer();
-            if (!layer) return;
+            const layer = puLayers.find(l => l.id === layerEl.dataset.layerId);
+            /* Cube layers are positioned via the sidebar, not by canvas dragging. */
+            if (!layer || layer.type === 'cube') return;
+            const sel = getSelectedPULayer();
+            if (!sel) return;
             e.preventDefault();
             drag = {
                 mode: 'move',
@@ -5088,7 +5459,7 @@ function puSaveWorkspace() {
     if (!name) return;
     try {
         const data = JSON.parse(localStorage.getItem('pu_workspaces') || '{}');
-        data[name] = { layers: puLayers, layerIdCounter: puLayerIdCounter, timestamp: Date.now() };
+        data[name] = { layers: stripPULayersForStorage(puLayers), layerIdCounter: puLayerIdCounter, timestamp: Date.now() };
         localStorage.setItem('pu_workspaces', JSON.stringify(data));
     } catch (e) { console.error('Save workspace failed:', e); }
 }
@@ -5104,13 +5475,14 @@ function puLoadWorkspaceDialog() {
     puLayerIdCounter = data[name].layerIdCounter || puLayers.length;
     puHasImageLayers = puLayers.some(l => l.type === 'image');
     ensureBuiltinLayers();
+    ensureCubeSelected();
     renderPU();
     savePULayersToSettings();
     updateDalton3DUI();
 }
 
 function puExportWorkspace() {
-    const payload = { layers: puLayers, layerIdCounter: puLayerIdCounter };
+    const payload = { layers: stripPULayersForStorage(puLayers), layerIdCounter: puLayerIdCounter };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -5135,6 +5507,7 @@ function puImportWorkspace() {
                     puLayerIdCounter = data.layerIdCounter || puLayers.length;
                     puHasImageLayers = puLayers.some(l => l.type === 'image');
                     ensureBuiltinLayers();
+                    ensureCubeSelected();
                     renderPU();
                     savePULayersToSettings();
                     updateDalton3DUI();
@@ -5146,12 +5519,19 @@ function puImportWorkspace() {
     input.click();
 }
 
+function stripPULayersForStorage(layers) {
+    return layers.map(l => {
+        const { svgMarkup, ...rest } = l;
+        return rest;
+    });
+}
+
 /* ── Persistence ── */
 
 function savePULayersToSettings() {
     try {
         const s = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
-        s.puLayers = puLayers;
+        s.puLayers = stripPULayersForStorage(puLayers);
         s.puLayerIdCounter = puLayerIdCounter;
         s.puHasImageLayers = puHasImageLayers;
         s.puCustomFonts = window.__puCustomFonts || {};
@@ -5172,9 +5552,22 @@ if (powerUserMode) {
 } else {
     renderPUCanvas();
 }
+ensureCubeSelected();
+primaryScrambleMemo = document.getElementById('scramble-input').value;
+topbarShowsGlobal = true;
+updateEnhancedTopBar();
+updateLayerScopedControls();
 updateDalton3DUI();
 
 hookSaveListeners();
+
+/* While a secondary cube layer owns the sidebar (style scope), global
+   settings must not persist the layer's transient values. */
+const __origSaveSettings = saveSettings;
+saveSettings = function () {
+    if (!puStyleTargetLayer) __origSaveSettings();
+};
+
 updateRailUI();
 appInitialized = true;
 draw();
