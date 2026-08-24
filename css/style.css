@@ -1909,6 +1909,15 @@ button:disabled {
     margin-bottom: .45rem;
 }
 
+/* Orientation keeps the normal-mode stacked layout (title, then tabs). */
+.sidebar.pu-locked #orientation-row {
+    display: block;
+}
+
+.sidebar.pu-locked #orientation-row > label.field-label {
+    margin-bottom: .45rem;
+}
+
 /* ── Offset section compact grids (X Y Z over three number inputs) ── */
 .pu-offset-grid {
     display: grid;
@@ -2011,6 +2020,17 @@ button:disabled {
 
 .topbar-input + .bulk-export-open-btn {
     margin-left: calc(-0.5rem - 1px);
+}
+
+/* Enhanced mode hides the BULK button — the input bar keeps its rounded
+   right edge and the scramble input inherits the full corner radius. */
+.input-bar.bulk-hidden {
+    border-top-right-radius: var(--radius);
+    border-bottom-right-radius: var(--radius);
+}
+
+.input-bar.bulk-hidden #scramble-input {
+    border-radius: var(--radius) !important;
 }
 
 /* ─── Modal Base ──────────────────────────────────────── */

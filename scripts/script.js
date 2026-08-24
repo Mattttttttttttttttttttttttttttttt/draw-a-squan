@@ -4131,6 +4131,7 @@ function updateEnhancedTopBar() {
     const bar = document.querySelector('.input-bar');
     const bulk = document.getElementById('bulk-export-btn');
     if (bulk) bulk.style.display = powerUserMode ? 'none' : '';
+    if (bar) bar.classList.toggle('bulk-hidden', !!powerUserMode);
     if (!bar) return;
     if (!powerUserMode) { bar.style.display = ''; return; }
     const sel = getSelectedPULayer();
@@ -4275,6 +4276,11 @@ function generateSecondaryCubeMarkup(layer) {
         const showSlice = !document.getElementById('hide-slice')?.checked;
         const showSides = !document.getElementById('hide-sides')?.checked;
         let markup = sq1vis.getSVG(hex, size, gap, !raw || muteActive, isVertical, showSlice, showSides);
+        /* Drop the wrapper's 2rem screen padding and center its children, so
+           the layer box hugs the artwork and single-sided views stay centered
+           on the canvas middle (the mean of both sides' centers). */
+        markup = markup.replace('padding:2rem;', '');
+        markup = markup.replace(/(display:flex;align-items:center;)/, '$1justify-content:center;');
         // Namespace ids so defs never collide with the primary cube's.
         const uid = layer.id.replace(/[^a-zA-Z0-9]/g, '') || 'x';
         markup = markup
@@ -4293,10 +4299,36 @@ function generateSecondaryCubeMarkup(layer) {
             }
         }
         layer.svgMarkup = markup;
-        const wMatch = markup.match(/\bwidth="([\d.]+)"/);
-        const hMatch = markup.match(/\bheight="([\d.]+)"/);
-        layer.naturalWidth = wMatch ? Math.round(parseFloat(wMatch[1])) : size;
-        layer.naturalHeight = hMatch ? Math.round(parseFloat(hMatch[1])) : Math.round(size / 2);
+        /* Full composition extents — both SVGs plus the flex gap — so the
+           element box matches the visible artwork and -50% centering lands
+           the whole image on the canvas middle. Dimensions are read ONLY
+           from the <svg> opening tags (viewBox preferred); scanning the
+           whole markup would also hit stroke-width etc. and poison the
+           result (e.g. Abid's Design). */
+        const svgOpenTags = markup.match(/<svg\b[^>]*>/g) || [];
+        const tagDims = svgOpenTags.map(tag => {
+            let w = null, h = null;
+            const vb = tag.match(/viewBox="(-?[\d.]+)[ ,]+(-?[\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)"/);
+            if (vb) { w = parseFloat(vb[3]); h = parseFloat(vb[4]); }
+            else {
+                const wm = tag.match(/\swidth="([\d.]+)"/);
+                const hm = tag.match(/\sheight="([\d.]+)"/);
+                if (wm) w = parseFloat(wm[1]);
+                if (hm) h = parseFloat(hm[1]);
+            }
+            return { w: (w && w > 0 && w < 5000) ? w : null, h: (h && h > 0 && h < 5000) ? h : null };
+        });
+        const svgWidths = tagDims.map(d => d.w);
+        const svgHeights = tagDims.map(d => d.h);
+        const gapMatch = markup.match(/margin-(?:left|top):([\d.]+)px;/);
+        const gapPx = gapMatch ? parseFloat(gapMatch[1]) : 0;
+        if (/flex-direction:column/.test(markup)) {
+            layer.naturalWidth = Math.round(Math.max(svgWidths[0] || size, svgWidths[1] || size));
+            layer.naturalHeight = Math.round((svgHeights[0] || size) + (svgHeights[1] || size) + gapPx);
+        } else {
+            layer.naturalWidth = Math.round((svgWidths[0] || size) + (svgWidths[1] || size) + gapPx);
+            layer.naturalHeight = Math.round(Math.max(svgHeights[0] || size / 2, svgHeights[1] || size / 2));
+        }
     };
     /* The live-selected layer renders from the edited (live) context; every
        other read regenerates from that layer's own stored shape. */
@@ -4511,6 +4543,8 @@ function renderPU() {
 
 /* ── Canvas rendering ── */
 
+let puLastCubeRect = null;
+
 function getPUCubeRect(inner) {
     // Bounding box of everything cube-related that is currently visible,
     // relative to #canvas-inner's content box. Returns null if nothing shows.
@@ -4536,11 +4570,26 @@ function getPUCubeRect(inner) {
             if (svg.style.display !== 'none') consider(svg);
         });
     }
-    return rect;
+    /* Remember the last real extent so hiding the primary cube doesn't
+       collapse the automatic background frame — it must retain the
+       dimensions (and position) as if the cube were still there. */
+    if (rect) puLastCubeRect = rect;
+    return rect || puLastCubeRect;
 }
+
+let puLastGeo = null;
+let puLastGeoMode = null;
 
 function getPUCanvasGeometry(inner) {
     const settings = getPUCanvasSettings();
+
+    /* While the primary cube is hidden, the background frame must stay
+       exactly where it was — as if the cube were still visible — in both
+       automatic and custom mode. */
+    const primCubeLayer = puLayers.find(l => l.id === PU_BUILTIN_CUBE);
+    const primHidden = !!primCubeLayer && !primCubeLayer.visible;
+    if (primHidden && puLastGeo && puLastGeoMode === settings.mode) return puLastGeo;
+
     const cube = getPUCubeRect(inner);
 
     let cx, cy;
@@ -4552,36 +4601,40 @@ function getPUCanvasGeometry(inner) {
         cy = inner.clientHeight / 2;
     }
 
+    let result;
     if (settings.mode === 'custom') {
-        return {
+        result = {
             left: Math.round(cx - settings.width / 2),
             top: Math.round(cy - settings.height / 2),
             width: settings.width,
             height: settings.height,
         };
-    }
-
-    // Automatic: hug the visible cube content plus the padding slider.
-    let w, h;
-    if (cube) {
-        w = cube.right - cube.left;
-        h = cube.bottom - cube.top;
     } else {
-        w = Math.min(inner.clientWidth, inner.clientHeight) * 0.7;
-        h = w;
+        // Automatic: hug the visible cube content plus the padding slider.
+        let w, h;
+        if (cube) {
+            w = cube.right - cube.left;
+            h = cube.bottom - cube.top;
+        } else {
+            w = Math.min(inner.clientWidth, inner.clientHeight) * 0.7;
+            h = w;
+        }
+        let refW = w;
+        if (!isDalton3DStyle()) {
+            const refEl = Array.from(inner.querySelectorAll('svg.squan')).find(s => s.style.display !== 'none');
+            if (refEl) refW = parseFloat(refEl.getAttribute('width')) || w;
+        }
+        const padPx = Math.round(refW * getEffectivePadPct() / 100);
+        result = {
+            left: Math.round(cx - w / 2) - padPx,
+            top: Math.round(cy - h / 2) - padPx,
+            width: Math.max(16, Math.round(w) + padPx * 2),
+            height: Math.max(16, Math.round(h) + padPx * 2),
+        };
     }
-    let refW = w;
-    if (!isDalton3DStyle()) {
-        const refEl = Array.from(inner.querySelectorAll('svg.squan')).find(s => s.style.display !== 'none');
-        if (refEl) refW = parseFloat(refEl.getAttribute('width')) || w;
-    }
-    const padPx = Math.round(refW * getEffectivePadPct() / 100);
-    return {
-        left: Math.round(cx - w / 2) - padPx,
-        top: Math.round(cy - h / 2) - padPx,
-        width: Math.max(16, Math.round(w) + padPx * 2),
-        height: Math.max(16, Math.round(h) + padPx * 2),
-    };
+    puLastGeoMode = settings.mode;
+    puLastGeo = result;
+    return result;
 }
 
 function renderPUCanvas() {
@@ -4632,6 +4685,9 @@ function renderPUCanvas() {
         if (svgs.length === 2) {
             svgs[0].style.display = cubeVisible && primExportLayer !== 'bottom' ? '' : 'none';
             svgs[1].style.display = cubeVisible && primExportLayer !== 'top' ? '' : 'none';
+            /* Keep a single visible side centered on the canvas middle. */
+            const wrapEl = svgs[0].parentElement;
+            if (wrapEl) wrapEl.style.justifyContent = primExportLayer !== 'both' ? 'center' : '';
         } else {
             svgs.forEach(svg => { svg.style.display = cubeVisible ? '' : 'none'; });
         }
@@ -4743,7 +4799,10 @@ function applyPULayerTransform(el, layer) {
         `translateX(${layer.x}px) translateY(${layer.y}px) ` +
         `scale(${layer.scaleX}, ${layer.scaleY}) ` +
         rot;
-    el.style.zIndex = layer.zIndex || 10;
+    /* Layer law: the closer a layer is to the top of the list, the higher
+       its stacking priority. Base 10 keeps everything above the primary
+       cube's per-side z range (0–2). */
+    el.style.zIndex = String(10 + Math.max(0, puLayers.indexOf(layer)));
     el.style.pointerEvents = 'auto';
     el.style.cursor = 'move';
 }
