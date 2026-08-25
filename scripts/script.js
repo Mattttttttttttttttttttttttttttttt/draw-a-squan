@@ -10,6 +10,14 @@ import {
 } from './dalton3dRenderer.js';
 import { parseScramble } from './parseScramble.js';
 import { initBlenderNumberInputs, setBlenderNumberInputsEnabled } from './blenderNumberInput.js';
+import {
+    listWorkspaces,
+    getWorkspace,
+    putWorkspace,
+    deleteWorkspace as dbDeleteWorkspace,
+    clearWorkspaces,
+} from './puWorkspaceDB.js';
+import { initPUMenuBar } from './puMenuBar.js';
 
 initBlenderNumberInputs();
 
@@ -44,6 +52,16 @@ let puHasImageLayers = false;
 const PU_ZOOM_MIN = 0.5;
 const PU_ZOOM_MAX = 4;
 let puZoom = 1;
+
+/* Workspaces (IndexedDB-backed) + ribbon View toggles */
+let puActiveWsId = null;
+let puActiveWsName = '';
+let puActiveWsCreated = 0;
+let puView = { rulers: false, grid: false, coords: false };
+let menuApi = null;
+let puSwitchingWS = false;
+let puSaveBusy = false;
+let lastSavedSig = '';
 let classicalSnapshot = null;
 let customSnapshot = null;
 let customMuteActive = false;
@@ -617,7 +635,7 @@ function buildSidebar() {
         <div id="pu-layer-props-panel"></div>
       </div>
 
-      <div class="section">
+      <div class="section" id="section-export">
         <div class="section-title">Export</div>
 
         <div class="export-tab-group" id="export-format-group">
@@ -3672,6 +3690,15 @@ function togglePowerUserMode() {
     document.body.classList.toggle('pu-enhanced', powerUserMode);
 
     if (powerUserMode) {
+        menuApi?.setView(puView);
+        ensureActiveWorkspace();
+    } else {
+        menuApi?.closePanels();
+        /* hide the View overlays; preferences stay saved for next time */
+        menuApi?.setView({ rulers: false, grid: false, coords: false });
+    }
+
+    if (powerUserMode) {
         vpCanvas.classList.add('power-user-active');
         inner.classList.add('power-user-active');
         ensureBuiltinLayers();
@@ -3774,6 +3801,104 @@ function wirePUStatusBar() {
     slider?.addEventListener('dblclick', () => setPUZoom(1));
     document.getElementById('pu-zoom-out')?.addEventListener('click', () => setPUZoom(puZoom - 0.1));
     document.getElementById('pu-zoom-in')?.addEventListener('click', () => setPUZoom(puZoom + 0.1));
+}
+
+/* ── Secondary top bar (ribbon) wiring ── */
+
+function loadImageEl(src) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+    });
+}
+
+async function insertImageAsset(asset) {
+    try {
+        const img = await loadImageEl(asset.src);
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth || 256;
+        c.height = img.naturalHeight || 256;
+        c.getContext('2d').drawImage(img, 0, 0);
+        addPULayer('image', {
+            imageData: c.toDataURL('image/png'),
+            naturalWidth: c.width,
+            naturalHeight: c.height,
+        });
+    } catch (e) {
+        flashBtn('Could not load asset');
+    }
+}
+
+function wireStaticPUInputs() {
+    const imgInput = document.getElementById('pu-image-input');
+    imgInput?.addEventListener('change', () => {
+        const file = imgInput.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => addPULayer('image', {
+                imageData: reader.result,
+                naturalWidth: img.naturalWidth,
+                naturalHeight: img.naturalHeight,
+            });
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+        imgInput.value = '';
+    });
+
+    const wsImport = document.getElementById('pu-ws-import-input');
+    wsImport?.addEventListener('change', () => {
+        const file = wsImport.files[0];
+        if (file) handleWorkspaceFile(file);
+        wsImport.value = '';
+    });
+
+    const dataImport = document.getElementById('pu-data-import-input');
+    dataImport?.addEventListener('change', () => {
+        const file = dataImport.files[0];
+        if (file) handleWorkspaceFile(file);
+        dataImport.value = '';
+    });
+}
+
+function initPUMenuBarUI() {
+    menuApi = initPUMenuBar({
+        insertText: () => addPULayer('text'),
+        insertCube: () => addPULayer('cube'),
+        insertImageLocal: () => document.getElementById('pu-image-input')?.click(),
+        insertImageAsset,
+        exportPNG: method => doEnhancedExport(method),
+        listWorkspaces: async () => {
+            const rows = await listWorkspaces();
+            return rows.map(r => ({ ...r, isCurrent: r.id === puActiveWsId }));
+        },
+        workspaceNew: wsNew,
+        workspaceImportFile: () => document.getElementById('pu-ws-import-input')?.click(),
+        workspaceOpen: wsOpen,
+        workspaceDelete: wsDelete,
+        workspaceExport: wsExport,
+        dataExportAll,
+        dataImportAll: () => document.getElementById('pu-data-import-input')?.click(),
+        dataDeleteAll,
+        getViewState: () => ({
+            rulers: !!puView.rulers,
+            grid: !!puView.grid,
+            coords: !!puView.coords,
+        }),
+        setViewState: next => {
+            puView = { rulers: !!next.rulers, grid: !!next.grid, coords: !!next.coords };
+            savePUSettings();
+        },
+        onCoords: (x, y) => {
+            const el = document.getElementById('pu-status-coords');
+            if (!el) return;
+            el.textContent = x == null ? '' : `x ${x} · y ${y}`;
+        },
+    });
 }
 
 function setPUZoom(z) {
@@ -3918,6 +4043,8 @@ function savePUSettings() {
         s.puLayerIdCounter = puLayerIdCounter;
         s.puHasImageLayers = puHasImageLayers;
         s.puZoom = puZoom;
+        s.puActiveWsId = puActiveWsId;
+        s.puView = puView;
         s.puCustomFonts = window.__puCustomFonts || {};
         localStorage.setItem(LS_KEY, JSON.stringify(s));
     } catch (e) {}
@@ -3953,6 +4080,15 @@ function loadPUSettings() {
         puZoom = Math.min(PU_ZOOM_MAX, Math.max(PU_ZOOM_MIN, s.puZoom));
     }
     applyPUZoom();
+
+    if (typeof s.puActiveWsId === 'string') puActiveWsId = s.puActiveWsId;
+    if (s.puView && typeof s.puView === 'object') {
+        puView = {
+            rulers: !!s.puView.rulers,
+            grid: !!s.puView.grid,
+            coords: !!s.puView.coords,
+        };
+    }
 
     if (s.puOffsetMode) {
         puOffsetMode = { left: s.puOffsetMode.left || 'relative', right: s.puOffsetMode.right || 'relative' };
@@ -5001,14 +5137,7 @@ function renderPUCards() {
     const bgIcon = '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>';
     const cubeIcon = '<svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
 
-    let html = '<div class="pu-workspace-bar">';
-    html += '<button class="btn btn-secondary" id="pu-ws-save" title="Save workspace">Save</button>';
-    html += '<button class="btn btn-secondary" id="pu-ws-load" title="Load workspace">Load</button>';
-    html += '<button class="btn btn-secondary" id="pu-ws-export" title="Export workspace">Export</button>';
-    html += '<button class="btn btn-secondary" id="pu-ws-import" title="Import workspace">Import</button>';
-    html += '</div>';
-
-    html += '<div class="pu-layer-list">';
+    let html = '<div class="pu-layer-list">';
     for (let i = puLayers.length - 1; i >= 0; i--) {
         const l = puLayers[i];
         let icon, label, typeLabel, thumbExtra = '';
@@ -5062,13 +5191,6 @@ function renderPUCards() {
     }
     html += '</div>';
 
-    html += '<div class="pu-add-layer-row">';
-    html += '<button class="btn btn-secondary" id="pu-add-text">+ Text</button>';
-    html += '<button class="btn btn-secondary" id="pu-add-image">+ Image</button>';
-    html += '<button class="btn btn-secondary" id="pu-add-cube">+ Cube</button>';
-    html += '</div>';
-    html += '<input type="file" id="pu-image-input" accept="image/png,image/jpeg,image/webp" style="display:none" />';
-
     rightSidebar.innerHTML = html;
 
     updatePUStatusBarInfo();
@@ -5092,35 +5214,6 @@ function renderPUCards() {
     rightSidebar.querySelectorAll('[data-pul-del]').forEach(btn => {
         btn.addEventListener('click', e => { e.stopPropagation(); removePULayer(btn.dataset.pulDel); });
     });
-
-    document.getElementById('pu-add-text')?.addEventListener('click', () => addPULayer('text'));
-    document.getElementById('pu-add-cube')?.addEventListener('click', () => addPULayer('cube'));
-    const addImgBtn = document.getElementById('pu-add-image');
-    const imgInput = document.getElementById('pu-image-input');
-    if (addImgBtn && imgInput) {
-        addImgBtn.addEventListener('click', () => imgInput.click());
-        imgInput.addEventListener('change', () => {
-            const file = imgInput.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = () => {
-                const img = new Image();
-                img.onload = () => addPULayer('image', {
-                    imageData: reader.result,
-                    naturalWidth: img.naturalWidth,
-                    naturalHeight: img.naturalHeight,
-                });
-                img.src = reader.result;
-            };
-            reader.readAsDataURL(file);
-            imgInput.value = '';
-        });
-    }
-
-    document.getElementById('pu-ws-save')?.addEventListener('click', puSaveWorkspace);
-    document.getElementById('pu-ws-load')?.addEventListener('click', puLoadWorkspaceDialog);
-    document.getElementById('pu-ws-export')?.addEventListener('click', puExportWorkspace);
-    document.getElementById('pu-ws-import')?.addEventListener('click', puImportWorkspace);
 }
 
 /* ── Left sidebar: Layer properties ── */
@@ -5142,9 +5235,12 @@ function renderPUProps() {
     const secDesigns = document.getElementById('section-designs');
     const secDisplay = document.getElementById('section-display');
     const secColor = document.getElementById('section-color-scheme');
+    const secExport = document.getElementById('section-export');
     if (secDesigns) secDesigns.style.display = (!powerUserMode || showNormalSections) ? '' : 'none';
     if (secDisplay) secDisplay.style.display = (!powerUserMode || showNormalSections) ? '' : 'none';
     if (secColor) secColor.style.display = (!powerUserMode || showNormalSections) ? '' : 'none';
+    /* Enhanced mode exports via the ribbon instead */
+    if (secExport) secExport.style.display = powerUserMode ? 'none' : '';
 
     if (!layer) {
         parkPadRow();
@@ -5634,27 +5730,24 @@ function puConfirmDelete(msg) {
     });
 }
 
-/* ── Workspace ── */
+/* ── Workspaces (IndexedDB, auto-saved) ───────────────────────────────── */
 
-function puSaveWorkspace() {
-    const name = prompt('Workspace name:');
-    if (!name) return;
-    try {
-        const data = JSON.parse(localStorage.getItem('pu_workspaces') || '{}');
-        data[name] = { layers: stripPULayersForStorage(puLayers), layerIdCounter: puLayerIdCounter, timestamp: Date.now() };
-        localStorage.setItem('pu_workspaces', JSON.stringify(data));
-    } catch (e) { console.error('Save workspace failed:', e); }
+let puSaveTimer = null;
+
+function serializePUWorkspace() {
+    return {
+        layers: stripPULayersForStorage(puLayers),
+        layerIdCounter: puLayerIdCounter,
+    };
 }
 
-function puLoadWorkspaceDialog() {
-    let data;
-    try { data = JSON.parse(localStorage.getItem('pu_workspaces') || '{}'); } catch (e) { data = {}; }
-    const names = Object.keys(data);
-    if (!names.length) { alert('No saved workspaces.'); return; }
-    const name = prompt('Load which workspace?\nAvailable: ' + names.join(', '));
-    if (!name || !data[name]) return;
-    puLayers = data[name].layers || [];
-    puLayerIdCounter = data[name].layerIdCounter || puLayers.length;
+function currentWSSig() {
+    return JSON.stringify(serializePUWorkspace());
+}
+
+function applyWorkspacePayload(data) {
+    puLayers = (data.layers || []).map(l => ({ ...l }));
+    puLayerIdCounter = data.layerIdCounter || puLayers.length;
     puHasImageLayers = puLayers.some(l => l.type === 'image');
     ensureBuiltinLayers();
     ensureCubeSelected();
@@ -5663,42 +5756,213 @@ function puLoadWorkspaceDialog() {
     updateDalton3DUI();
 }
 
-function puExportWorkspace() {
-    const payload = { layers: stripPULayersForStorage(puLayers), layerIdCounter: puLayerIdCounter };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'draw-squan-workspace.json';
-    a.click();
-    URL.revokeObjectURL(a.href);
+async function capturePUThumb() {
+    const svgStr = await buildEnhancedCompositionSVG();
+    const canvas = await rasterizeComposition(svgStr, 'png');
+    const maxW = 320;
+    const scale = Math.min(1, maxW / Math.max(1, canvas.width));
+    const t = document.createElement('canvas');
+    t.width = Math.max(1, Math.round(canvas.width * scale));
+    t.height = Math.max(1, Math.round(canvas.height * scale));
+    t.getContext('2d').drawImage(canvas, 0, 0, t.width, t.height);
+    return t.toDataURL('image/png');
 }
 
-function puImportWorkspace() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.addEventListener('change', () => {
-        const file = input.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-            try {
-                const data = JSON.parse(reader.result);
-                if (data.layers) {
-                    puLayers = data.layers;
-                    puLayerIdCounter = data.layerIdCounter || puLayers.length;
-                    puHasImageLayers = puLayers.some(l => l.type === 'image');
-                    ensureBuiltinLayers();
-                    ensureCubeSelected();
-                    renderPU();
-                    savePULayersToSettings();
-                    updateDalton3DUI();
-                }
-            } catch (e) { alert('Invalid workspace file.'); }
-        };
-        reader.readAsText(file);
+async function snapshotCurrentWorkspace(force) {
+    if (!powerUserMode || !puActiveWsId || puSwitchingWS) return;
+    const sig = currentWSSig();
+    if (!force && sig === lastSavedSig) return;
+    if (puSaveBusy) { schedulePUSave(); return; }
+    puSaveBusy = true;
+    try {
+        let thumb = null;
+        try { thumb = await capturePUThumb(); } catch (e) { /* blank/unrenderable is fine */ }
+        await putWorkspace({
+            id: puActiveWsId,
+            name: puActiveWsName || 'Workspace',
+            createdAt: puActiveWsCreated || Date.now(),
+            updatedAt: Date.now(),
+            thumb,
+            data: serializePUWorkspace(),
+        });
+        lastSavedSig = sig;
+    } catch (e) {
+        console.warn('workspace autosave failed:', e);
+    } finally {
+        puSaveBusy = false;
+    }
+}
+
+function schedulePUSave() {
+    clearTimeout(puSaveTimer);
+    puSaveTimer = setTimeout(() => snapshotCurrentWorkspace(false), 1200);
+}
+
+async function migrateLegacyWorkspaces() {
+    try {
+        const legacy = JSON.parse(localStorage.getItem('pu_workspaces') || '{}');
+        for (const [name, ws] of Object.entries(legacy)) {
+            await putWorkspace({
+                id: 'ws-legacy-' + name.replace(/\W+/g, '-').toLowerCase(),
+                name,
+                createdAt: ws.timestamp || Date.now(),
+                updatedAt: ws.timestamp || Date.now(),
+                thumb: null,
+                data: { layers: ws.layers || [], layerIdCounter: ws.layerIdCounter || 0 },
+            });
+        }
+    } catch (e) { /* nothing to migrate */ }
+}
+
+async function createWorkspaceFromCurrent(name) {
+    puActiveWsId = 'ws-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+    puActiveWsName = name;
+    puActiveWsCreated = Date.now();
+    savePUSettings();
+    lastSavedSig = currentWSSig();
+    await snapshotCurrentWorkspace(true);
+}
+
+async function ensureActiveWorkspace() {
+    try {
+        let rows = await listWorkspaces();
+        if (!rows.length) await migrateLegacyWorkspaces();
+        rows = await listWorkspaces();
+        if (puActiveWsId && rows.some(r => r.id === puActiveWsId)) {
+            const rec = rows.find(r => r.id === puActiveWsId);
+            puActiveWsName = rec.name;
+            puActiveWsCreated = rec.createdAt || Date.now();
+            lastSavedSig = currentWSSig();
+            return;
+        }
+        await createWorkspaceFromCurrent(`Workspace ${rows.length + 1}`);
+    } catch (e) {
+        console.warn('workspace init failed:', e);
+    }
+}
+
+async function wsNew() {
+    puSwitchingWS = true;
+    puLayers = [];
+    puLayerIdCounter = 0;
+    puHasImageLayers = false;
+    ensureBuiltinLayers();
+    ensureCubeSelected();
+    renderPU();
+    puSwitchingWS = false;
+    const rows = await listWorkspaces().catch(() => []);
+    await createWorkspaceFromCurrent(`Workspace ${rows.length + 1}`);
+    flashBtn('New workspace created');
+}
+
+async function wsOpen(id) {
+    const rec = await getWorkspace(id).catch(() => null);
+    if (!rec) return;
+    puSwitchingWS = true;
+    applyWorkspacePayload(rec.data || {});
+    puActiveWsId = rec.id;
+    puActiveWsName = rec.name || 'Workspace';
+    puActiveWsCreated = rec.createdAt || Date.now();
+    lastSavedSig = currentWSSig();
+    savePUSettings();
+    puSwitchingWS = false;
+    flashBtn(`Opened “${puActiveWsName}”`);
+}
+
+async function wsDelete(id) {
+    const yes = await puConfirmDelete('Delete this workspace? This cannot be undone.');
+    if (!yes) return;
+    await dbDeleteWorkspace(id).catch(() => {});
+    if (id === puActiveWsId) {
+        puActiveWsId = null;
+        const rows = await listWorkspaces().catch(() => []);
+        if (rows.length) {
+            await wsOpen(rows[0].id);
+        } else {
+            await wsNew();
+        }
+    }
+    flashBtn('Workspace deleted');
+}
+
+function slugify(s) {
+    return String(s).replace(/\W+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'workspace';
+}
+
+function downloadJSON(payload, fname) {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    triggerDownload(blob, fname);
+}
+
+async function wsExport(id) {
+    const rec = await getWorkspace(id).catch(() => null);
+    if (!rec) return;
+    downloadJSON({
+        app: 'draw-a-squan-workspace',
+        version: 1,
+        name: rec.name,
+        workspace: rec.data,
+    }, `${slugify(rec.name)}.json`);
+}
+
+async function importWorkspaceObject(entry, fallbackName) {
+    const data = entry.workspace || entry.data || entry;
+    if (!data || !Array.isArray(data.layers)) throw new Error('bad payload');
+    const id = 'ws-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+    await putWorkspace({
+        id,
+        name: entry.name || fallbackName || 'Imported workspace',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        thumb: null,
+        data: { layers: data.layers, layerIdCounter: data.layerIdCounter || data.layers.length },
     });
-    input.click();
+    return id;
+}
+
+async function handleWorkspaceFile(file) {
+    try {
+        const parsed = JSON.parse(await file.text());
+        if (Array.isArray(parsed.workspaces)) {
+            for (const w of parsed.workspaces) await importWorkspaceObject(w);
+            flashBtn(`Imported ${parsed.workspaces.length} workspaces`);
+        } else if (parsed.layers || parsed.workspace) {
+            const id = await importWorkspaceObject(parsed);
+            await wsOpen(id);
+        } else {
+            throw new Error('unknown format');
+        }
+    } catch (e) {
+        flashBtn('Invalid workspace file');
+    }
+}
+
+async function dataExportAll() {
+    const rows = await listWorkspaces().catch(() => []);
+    downloadJSON({
+        app: 'draw-a-squan-workspaces',
+        version: 1,
+        exportedAt: Date.now(),
+        workspaces: rows.map(r => ({ id: r.id, name: r.name, createdAt: r.createdAt, data: r.data })),
+    }, 'draw-a-squan-workspaces.json');
+}
+
+const PU_LS_KEYS_PREFIX = 'pu';
+
+async function dataDeleteAll() {
+    const yes = await puConfirmDelete('Delete ALL enhanced-mode data? Every saved workspace and all Enhanced Mode settings will be removed.');
+    if (!yes) return;
+    try { await clearWorkspaces(); } catch (e) {}
+    try {
+        const s = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+        for (const k of Object.keys(s)) {
+            if (k.startsWith(PU_LS_KEYS_PREFIX)) delete s[k];
+        }
+        localStorage.setItem(LS_KEY, JSON.stringify(s));
+        localStorage.removeItem('pu_workspaces');
+    } catch (e) {}
+    flashBtn('All enhanced-mode data deleted — reloading…');
+    setTimeout(() => location.reload(), 900);
 }
 
 function stripPULayersForStorage(layers) {
@@ -5719,12 +5983,16 @@ function savePULayersToSettings() {
         s.puCustomFonts = window.__puCustomFonts || {};
         localStorage.setItem(LS_KEY, JSON.stringify(s));
     } catch (e) {}
+    schedulePUSave();
 }
 
 
 
 loadPUSettings();
 wirePUStatusBar();
+wireStaticPUInputs();
+initPUMenuBarUI();
+menuApi?.setView(powerUserMode ? puView : { rulers: false, grid: false, coords: false });
 watchInnerResize();
 ensureBuiltinLayers();
 if (powerUserMode) {
@@ -5733,9 +6001,12 @@ if (powerUserMode) {
         if (pngTab) pngTab.click();
     }
     renderPU();
+    ensureActiveWorkspace();
 } else {
     renderPUCanvas();
 }
+/* periodic autosave safety net (the change-hook debounce covers most cases) */
+setInterval(() => snapshotCurrentWorkspace(false), 4000);
 ensureCubeSelected();
 primaryScrambleMemo = document.getElementById('scramble-input').value;
 topbarShowsGlobal = true;

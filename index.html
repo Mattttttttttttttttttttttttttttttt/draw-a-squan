@@ -148,6 +148,10 @@
           autocomplete="off" />
         <button class="bulk-export-open-btn" id="bulk-export-btn" title="Bulk Export">BULK</button>
       </div>
+      <div class="pu-menubar-wrap">
+        <div class="pu-menubar" id="pu-menubar"></div>
+        <div class="pu-menu-panel" id="pu-menu-panel"></div>
+      </div>
       <div class="viewport-canvas" id="viewport-canvas">
         <div class="canvas-inner" id="canvas-inner">
           <div class="placeholder loading-placeholder" id="placeholder">
@@ -178,6 +182,7 @@
       </div>
       <div class="pu-statusbar" id="pu-statusbar">
         <span class="pu-status-info" id="pu-status-info"></span>
+        <span class="pu-status-coords" id="pu-status-coords"></span>
         <div class="pu-status-zoom">
           <button type="button" class="pu-zoom-btn" id="pu-zoom-out" title="Zoom out">−</button>
           <input type="range" id="pu-zoom-slider" min="50" max="400" step="10" value="100"
@@ -187,6 +192,11 @@
         </div>
       </div>
     </main>
+
+    <!-- ══ ENHANCED MODE HIDDEN FILE INPUTS ══ -->
+    <input type="file" id="pu-image-input" accept="image/png,image/jpeg,image/webp" style="display:none" />
+    <input type="file" id="pu-ws-import-input" accept=".json,application/json" style="display:none" />
+    <input type="file" id="pu-data-import-input" accept=".json,application/json" style="display:none" />
 
     <!-- ══ RIGHT SIDEBAR (PU layer list) ══ -->
     <aside class="sidebar sidebar-right hidden" id="sidebar-right"></aside>
