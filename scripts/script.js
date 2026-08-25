@@ -3773,6 +3773,7 @@ function applyPUZoom() {
     if (slider) slider.value = String(pct);
     if (readout) readout.textContent = pct + '%';
 
+    menuApi?.redrawOverlays?.();
     requestAnimationFrame(updatePUSelectionOverlay);
 }
 
@@ -3873,6 +3874,8 @@ function initPUMenuBarUI() {
         insertImageAsset,
         exportPNG: method => doEnhancedExport(method),
         listWorkspaces: async () => {
+            /* re-render the current workspace's thumbnail on every open */
+            await snapshotCurrentWorkspace(true).catch(() => {});
             const rows = await listWorkspaces();
             return rows.map(r => ({ ...r, isCurrent: r.id === puActiveWsId }));
         },
@@ -5823,11 +5826,24 @@ async function createWorkspaceFromCurrent(name) {
     await snapshotCurrentWorkspace(true);
 }
 
-async function ensureActiveWorkspace() {
+/* Single-flight wrapper: togglePowerUserMode and the boot tail can both
+   call this concurrently — without the guard they'd race and create
+   "Workspace 1" twice. */
+let ensuringWS = null;
+
+function ensureActiveWorkspace() {
+    if (!ensuringWS) {
+        ensuringWS = ensureActiveWorkspaceInner().finally(() => { ensuringWS = null; });
+    }
+    return ensuringWS;
+}
+
+async function ensureActiveWorkspaceInner() {
     try {
         let rows = await listWorkspaces();
         if (!rows.length) await migrateLegacyWorkspaces();
         rows = await listWorkspaces();
+        /* another caller may have activated one while we were awaiting */
         if (puActiveWsId && rows.some(r => r.id === puActiveWsId)) {
             const rec = rows.find(r => r.id === puActiveWsId);
             puActiveWsName = rec.name;

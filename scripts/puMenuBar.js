@@ -12,13 +12,27 @@ const TABS = [
     { id: 'data', label: 'Data' },
 ];
 
-/* Prebuilt vector assets shipped with the app */
-export const IMAGE_ASSETS = [
-    { label: 'Star', src: './img/assets/star.svg' },
-    { label: 'Arrow', src: './img/assets/arrow-right.svg' },
-    { label: 'Heart', src: './img/assets/heart.svg' },
-    { label: 'Bolt', src: './img/assets/bolt.svg' },
+/* Prebuilt vector assets shipped with the app. The actual list lives in
+   img/assets/assets.json so new art can be linked without touching code;
+   these defaults are only a fallback if the manifest can't be fetched. */
+const DEFAULT_ASSETS = [
+    { id: 'star', label: 'Star', src: './img/icon-192.png' },
+    { id: 'arrow', label: 'Arrow', src: './img/icon-192.png' },
+    { id: 'heart', label: 'Heart', src: './img/icon-192.png' },
+    { id: 'bolt', label: 'Bolt', src: './img/icon-192.png' },
 ];
+
+let assetsPromise = null;
+
+function getImageAssets() {
+    if (!assetsPromise) {
+        assetsPromise = fetch('./img/assets/assets.json')
+            .then(r => (r.ok ? r.json() : Promise.reject(new Error('manifest missing'))))
+            .then(m => (Array.isArray(m.assets) && m.assets.length ? m.assets : DEFAULT_ASSETS))
+            .catch(() => DEFAULT_ASSETS);
+    }
+    return assetsPromise;
+}
 
 let hooks = {};
 let api = {};
@@ -193,48 +207,80 @@ async function renderWorkspacesPanel(p, tabBtn) {
     p.appendChild(grid);
 }
 
-/* ── Insert panel ── */
+/* ── Insert panel (Image opens a sibling panel — no room for flyouts) ── */
 
-function renderInsertPanel(p, tabBtn) {
+async function renderInsertPanel(p, tabBtn) {
     positionPanel(tabBtn, 230);
     p.innerHTML = `
         <div class="pm-head">Insert</div>
         <button type="button" class="pm-row" data-ins="text">Text</button>
         <button type="button" class="pm-row" data-ins="cube">New cube layer</button>
-        <div class="pm-row pm-hassub" data-ins="image" tabindex="0">
-            Image<span class="pm-arrow">▸</span>
-            <div class="pm-sub">
-                <div class="pm-row pm-hassub2" tabindex="0">
-                    From image assets<span class="pm-arrow">▸</span>
-                    <div class="pm-sub pm-assets">
-                        ${IMAGE_ASSETS.map(a =>
-        `<button type="button" class="pm-asset" data-asset="${a.src}" title="${a.label}">
-                            <img src="${a.src}" alt="" draggable="false"><span>${a.label}</span>
-                          </button>`).join('')}
-                    </div>
-                </div>
-                <button type="button" class="pm-row" data-ins="image-local">From local files…</button>
-            </div>
-        </div>`;
-    $all('[data-ins]', p).forEach(el => {
-        el.addEventListener('click', e => {
-            if (e.target.closest('.pm-sub')) return;
-            const kind = el.dataset.ins;
-            if (el.classList.contains('pm-hassub')) return;
-            closePanel();
-            if (kind === 'text') hooks.insertText();
-            else if (kind === 'cube') hooks.insertCube();
-            else if (kind === 'image-local') hooks.insertImageLocal();
-        });
+        <button type="button" class="pm-row pm-hassub" data-ins="image">Image<span class="pm-arrow">▸</span></button>`;
+    $('[data-ins=text]', p).addEventListener('click', e => {
+        e.stopPropagation();
+        closePanel();
+        hooks.insertText();
     });
-    $all('.pm-asset', p).forEach(btn => {
-        btn.addEventListener('click', e => {
-            e.stopPropagation();
-            const asset = IMAGE_ASSETS.find(a => a.src === btn.dataset.asset);
-            closePanel();
-            if (asset) hooks.insertImageAsset(asset);
-        });
+    $('[data-ins=cube]', p).addEventListener('click', e => {
+        e.stopPropagation();
+        closePanel();
+        hooks.insertCube();
     });
+    $('[data-ins=image]', p).addEventListener('click', e => {
+        e.stopPropagation();
+        renderInsertImagePanel(p, tabBtn);
+    });
+}
+
+async function renderInsertImagePanel(p, tabBtn) {
+    positionPanel(tabBtn, 292);
+    p.innerHTML = '<div class="pm-head">Insert image</div><div class="pm-empty">Loading…</div>';
+    const assets = await getImageAssets();
+    if (activeTab !== 'insert') return;
+
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'pm-row pm-back';
+    back.innerHTML = '‹ Back';
+    back.addEventListener('click', e => {
+        e.stopPropagation();
+        renderInsertPanel(p, tabBtn);
+    });
+
+    const local = document.createElement('button');
+    local.type = 'button';
+    local.className = 'pm-row';
+    local.textContent = 'From local files…';
+    local.addEventListener('click', e => {
+        e.stopPropagation();
+        closePanel();
+        hooks.insertImageLocal();
+    });
+
+    const grid = document.createElement('div');
+    grid.className = 'pm-assets pm-assets-panel';
+    for (const asset of assets) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pm-asset';
+        btn.title = asset.label || '';
+        const img = document.createElement('img');
+        img.src = asset.src;
+        img.alt = '';
+        img.draggable = false;
+        const span = document.createElement('span');
+        span.textContent = asset.label || '';
+        btn.append(img, span);
+        btn.addEventListener('click', ev => {
+            ev.stopPropagation();
+            closePanel();
+            hooks.insertImageAsset({ src: asset.src, label: asset.label });
+        });
+        grid.appendChild(btn);
+    }
+
+    p.innerHTML = `<div class="pm-head">Insert image <span class="pm-hint">prebuilt assets</span></div>`;
+    p.append(back, grid, local);
 }
 
 /* ── View panel ── */
@@ -315,7 +361,10 @@ function renderDataPanel(p, tabBtn) {
     });
 }
 
-/* ── View overlays: rulers, grid, coordinates ── */
+/* ── View overlays: rulers, grid, coordinates ──
+   Rulers and grid measure from the CENTER of the work area (where the
+   cube sits), in layout units, so 0/0 is always the middle of the frame
+   and values stay meaningful at any zoom. */
 
 let rulerTop = null;
 let rulerLeft = null;
@@ -323,74 +372,120 @@ let markerH = null;
 let markerV = null;
 let gridEl = null;
 let ro = null;
+let gridRO = null;
 let mmHandler = null;
 
-const TICK_MAJOR = 50;
-const TICK_LABEL = 100;
+const RULER_THICK = 18;
+
+function viewZ() {
+    const inner = $('#canvas-inner');
+    if (!inner) return 1;
+    return 1 / (parseFloat(inner.style.getPropertyValue('--pu-zinv')) || 1);
+}
+
+/* screen-space position of the workspace center, relative to the viewport */
+function viewOrigin() {
+    const vc = $('#viewport-canvas');
+    const inner = $('#canvas-inner');
+    if (!vc || !inner) return null;
+    const ir = inner.getBoundingClientRect();
+    const vr = vc.getBoundingClientRect();
+    return { x: ir.left - vr.left + ir.width / 2, y: ir.top - vr.top + ir.height / 2 };
+}
+
+/* smallest "1-2-5 ×10ⁿ" step whose on-screen length clears minPx */
+function niceStep(minPx, z) {
+    for (let k = 0; k < 7; k++) {
+        for (const m of [1, 2, 5]) {
+            const step = m * Math.pow(10, k);
+            if (step * z >= minPx) return step;
+        }
+    }
+    return Math.pow(10, 7);
+}
 
 function drawRuler(canvas, horizontal) {
     const vc = $('#viewport-canvas');
-    const inner = $('#canvas-inner');
-    if (!canvas || !vc || !inner) return;
-    const thick = 18;
-    const len = horizontal ? vc.clientWidth : vc.clientHeight;
+    if (!canvas || !vc) return;
+    /* the left ruler starts below the top one */
+    const len = horizontal ? vc.clientWidth : Math.max(0, vc.clientHeight - RULER_THICK);
+    if (len <= 0) return;
     const dpr = window.devicePixelRatio || 1;
-    if (canvas.width !== Math.round(len * dpr)) {
-        canvas.width = Math.round(len * dpr);
-        canvas.height = Math.round(thick * dpr);
+    const w = horizontal ? len : RULER_THICK;
+    const h = horizontal ? RULER_THICK : len;
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
     }
-    canvas.style.width = `${len}px`;
-    canvas.style.height = `${thick}px`;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
 
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, len, thick);
-    ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--surface') || '#16161c';
-    ctx.fillRect(0, 0, len, thick);
+    ctx.clearRect(0, 0, w, h);
+    const bg = getComputedStyle(document.body).getPropertyValue('--surface').trim() || '#16161c';
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
 
-    const z = 1 / (parseFloat(inner.style.getPropertyValue('--pu-zinv')) || 1);
-    const ir = inner.getBoundingClientRect();
-    const vcr = vc.getBoundingClientRect();
-    const originPx = horizontal ? (ir.left - vcr.left) : (ir.top - vcr.top);
+    const z = viewZ();
+    const org = viewOrigin();
+    if (!org) return;
+    const cross = horizontal ? org.x : org.y; /* where layout 0 sits on screen */
 
     const cs = getComputedStyle(document.documentElement);
-    const cTick = cs.getPropertyValue('--border2') || '#333';
-    const cText = cs.getPropertyValue('--muted') || '#888';
+    const cTick = (cs.getPropertyValue('--border2') || '#333').trim();
+    const cText = (cs.getPropertyValue('--muted') || '#888').trim();
+    const cAccent = (cs.getPropertyValue('--accent') || '#0ae').trim();
 
-    ctx.strokeStyle = cTick.trim();
-    ctx.fillStyle = cText.trim();
+    const minor = niceStep(10, z);
+    const major = minor * 5;
+    const showLabels = major * z >= 30;
+
     ctx.font = '9px monospace';
     ctx.textBaseline = 'top';
 
-    const startLayout = Math.floor((-originPx / z) / TICK_MAJOR) * TICK_MAJOR;
-    const endLayout = ((len - originPx) / z);
-    for (let L = startLayout; L <= endLayout; L += TICK_MAJOR) {
-        const px = originPx + L * z;
-        if (px < -1 || px > len + 1) continue;
-        const major = ((L % TICK_LABEL) + TICK_LABEL) % TICK_LABEL === 0;
-        const tickLen = major ? 9 : 5;
+    const startL = Math.floor((-(horizontal ? cross : cross)) / minor) * minor - minor;
+    const endL = (horizontal ? w : h) - cross + minor;
+    for (let L = startL; L <= endL; L += minor) {
+        const px = Math.round(cross + L * z) + 0.5;
+        const isMajor = ((L % major) + major) % major === 0;
+        const tickLen = isMajor ? 9 : 5;
+        ctx.strokeStyle = L === 0 ? cAccent : cTick;
         ctx.beginPath();
         if (horizontal) {
-            ctx.moveTo(px + 0.5, thick - tickLen);
-            ctx.lineTo(px + 0.5, thick);
-            if (major && z * TICK_LABEL > 34) ctx.fillText(String(L), px + 3, 2);
+            ctx.moveTo(px, h - tickLen);
+            ctx.lineTo(px, h);
         } else {
-            ctx.moveTo(thick - tickLen, px + 0.5);
-            ctx.lineTo(thick, px + 0.5);
-            if (major && z * TICK_LABEL > 34) {
+            ctx.moveTo(w - tickLen, px);
+            ctx.lineTo(w, px);
+        }
+        ctx.stroke();
+        if (isMajor && showLabels && L !== 0) {
+            ctx.fillStyle = cText;
+            const label = String(L);
+            if (horizontal) {
+                ctx.textAlign = 'left';
+                ctx.fillText(label, px + 3, 2);
+            } else {
                 ctx.save();
                 ctx.translate(2, px + 3);
-                ctx.fillText(String(L), 0, 0);
+                ctx.fillText(label, 0, 0);
                 ctx.restore();
             }
         }
-        ctx.stroke();
+    }
+    /* accent dot marking the workspace center (origin) */
+    ctx.strokeStyle = cAccent;
+    ctx.fillStyle = cAccent;
+    if (cross >= 0 && cross <= (horizontal ? w : h)) {
+        if (horizontal) ctx.fillRect(Math.round(cross) - 1, h - 12, 2, 12);
+        else ctx.fillRect(w - 12, Math.round(cross) - 1, 12, 2);
     }
 }
 
 function redrawRulers() {
-    if (rulerTop?. isConnected) drawRuler(rulerTop, true);
-    if (rulerLeft?.isConnected) drawRuler(rulerLeft, false);
+    drawRuler(rulerTop, true);
+    drawRuler(rulerLeft, false);
 }
 
 function moveMarkers(clientX, clientY) {
@@ -398,7 +493,7 @@ function moveMarkers(clientX, clientY) {
     if (!vc || !markerH || !markerV) return;
     const r = vc.getBoundingClientRect();
     const inX = clientX >= r.left && clientX <= r.right;
-    const inY = clientY >= r.top && clientY <= r.bottom;
+    const inY = clientX >= r.top && clientY <= r.bottom;
     markerH.style.display = inX ? 'block' : 'none';
     markerV.style.display = inY ? 'block' : 'none';
     markerH.style.left = `${clientX - r.left}px`;
@@ -431,10 +526,11 @@ function ensureRulers() {
             if (hooks.getViewState().coords) {
                 const inner = $('#canvas-inner');
                 if (inner) {
-                    const z = 1 / (parseFloat(inner.style.getPropertyValue('--pu-zinv')) || 1);
-                    const ir = inner.getBoundingClientRect();
-                    const x = Math.round((e.clientX - ir.left) / z);
-                    const y = Math.round((e.clientY - ir.top) / z);
+                    const z = viewZ();
+                    const org = viewOrigin();
+                    const vr = $('#viewport-canvas').getBoundingClientRect();
+                    const x = Math.round((e.clientX - vr.left - org.x) / z);
+                    const y = Math.round((e.clientY - vr.top - org.y) / z);
                     hooks.onCoords(x, y);
                 }
             }
@@ -454,19 +550,78 @@ function teardownRulers() {
     if (ro) { ro.disconnect(); ro = null; }
 }
 
+/* Adaptive precision grid: drawn over the viewport in screen space with
+   lines anchored to layout coordinates. Minor/major spacing picks the
+   smallest 1-2-5 step that stays legible, so subdividing increases
+   automatically as you zoom in — constant usable density. */
 function ensureGrid() {
-    const inner = $('#canvas-inner');
-    if (!inner) return;
+    const vc = $('#viewport-canvas');
+    if (!vc) return;
     if (!gridEl) {
-        gridEl = document.createElement('div');
+        gridEl = document.createElement('canvas');
         gridEl.className = 'pu-grid-overlay';
+        vc.appendChild(gridEl);
+        gridRO = new ResizeObserver(drawGrid);
+        gridRO.observe(vc);
     }
-    if (gridEl.parentElement !== inner) inner.appendChild(gridEl);
-    gridEl.style.display = 'block';
+    drawGrid();
+}
+
+function drawGrid() {
+    const vc = $('#viewport-canvas');
+    if (!gridEl || !vc) return;
+    const w = vc.clientWidth;
+    const h = vc.clientHeight;
+    if (w <= 0 || h <= 0) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (gridEl.width !== Math.round(w * dpr) || gridEl.height !== Math.round(h * dpr)) {
+        gridEl.width = Math.round(w * dpr);
+        gridEl.height = Math.round(h * dpr);
+    }
+    gridEl.style.width = `${w}px`;
+    gridEl.style.height = `${h}px`;
+
+    const ctx = gridEl.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const z = viewZ();
+    const org = viewOrigin();
+    if (!org) return;
+
+    const minor = niceStep(11, z);
+    const major = minor * 5;
+    const cs = getComputedStyle(document.documentElement);
+    const cMinor = (cs.getPropertyValue('--accent') || '#0ae').trim();
+    const alphaMinor = 0.08;
+    const alphaMajor = 0.20;
+
+    const x0 = Math.floor((-org.x / z) / minor) * minor;
+    const x1 = (w - org.x) / z;
+    const y0 = Math.floor((-org.y / z) / minor) * minor;
+    const y1 = (h - org.y) / z;
+
+    ctx.lineWidth = 1;
+    for (const orient of ['v', 'h']) {
+        const start = orient === 'v' ? x0 : y0;
+        const end = orient === 'v' ? x1 : y1;
+        for (let L = start; L <= end; L += minor) {
+            const px = Math.round((orient === 'v' ? org.x : org.y) + L * z) + 0.5;
+            const isMajor = ((L % major) + major) % major === 0;
+            ctx.strokeStyle = cMinor;
+            ctx.globalAlpha = L === 0 ? 0.55 : (isMajor ? alphaMajor : alphaMinor);
+            ctx.beginPath();
+            if (orient === 'v') { ctx.moveTo(px, 0); ctx.lineTo(px, h); }
+            else { ctx.moveTo(0, px); ctx.lineTo(w, px); }
+            ctx.stroke();
+        }
+    }
+    ctx.globalAlpha = 1;
 }
 
 function teardownGrid() {
     if (gridEl) { gridEl.remove(); gridEl = null; }
+    if (gridRO) { gridRO.disconnect(); gridRO = null; }
 }
 
 /* ── public API ── */
@@ -504,6 +659,12 @@ export function initPUMenuBar(userHooks) {
     });
 
     api.closePanels = closePanel;
+
+    /* re-render rulers + grid (zoom changes, theme swaps, …) */
+    api.redrawOverlays = () => {
+        if (rulerTop?.isConnected) redrawRulers();
+        if (gridEl?.isConnected) drawGrid();
+    };
 
     api.setView = state => {
         if (state.rulers) ensureRulers();

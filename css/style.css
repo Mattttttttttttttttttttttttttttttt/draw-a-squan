@@ -3341,40 +3341,22 @@ body.pu-enhanced .pu-menubar-wrap {
     opacity: .6;
 }
 
-/* flyout submenus */
-.pm-hassub,
-.pm-hassub2 {
-    position: relative;
+/* sibling panel navigation (Insert ⇄ Image) */
+.pm-back {
+    color: var(--muted);
+    margin-bottom: 2px;
 }
 
-.pm-sub {
-    display: none;
-    position: absolute;
-    left: calc(100% - 4px);
-    top: -6px;
-    min-width: 180px;
-    padding: 6px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--surface);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-    z-index: 5;
+.pm-back:hover {
+    color: var(--text);
 }
 
-.pm-hassub:hover > .pm-sub,
-.pm-hassub2:hover > .pm-sub {
-    display: block;
-}
-
-.pm-sub.pm-assets {
-    display: none;
-    grid-template-columns: 1fr 1fr;
-    gap: 4px;
-    min-width: 190px;
-}
-
-.pm-hassub2:hover > .pm-sub.pm-assets {
+/* asset grid inside the Insert-image panel */
+.pm-assets-panel {
     display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin: 6px 0;
 }
 
 .pm-asset {
@@ -3574,9 +3556,24 @@ body.pu-enhanced .pu-menubar-wrap {
 
 .pu-ruler {
     position: absolute;
+    z-index: 60;
+    pointer-events: none;
+}
+
+.pu-ruler-top {
     top: 0;
     left: 0;
-    z-index: 60;
+}
+
+.pu-ruler-left {
+    top: 18px;
+    left: 0;
+}
+
+.pu-grid-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 45;
     pointer-events: none;
 }
 
@@ -3600,17 +3597,6 @@ body.pu-enhanced .pu-menubar-wrap {
     width: 18px;
     height: 1px;
     box-shadow: 0 0 4px var(--accent);
-}
-
-.pu-grid-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background-image:
-        linear-gradient(rgba(0, 229, 255, 0.13) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 229, 255, 0.13) 1px, transparent 1px);
-    background-size: 50px 50px;
 }
 
 /* live mouse coordinates in the bottom bar */

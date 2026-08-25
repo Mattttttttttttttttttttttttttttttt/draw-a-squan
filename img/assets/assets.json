@@ -1,0 +1,10 @@
+{
+    "version": 1,
+    "_comment": "Prebuilt image assets for Insert > Image. Add entries here to link new art; 'src' is relative to index.html. All entries currently point at the generic cube-image icon as a placeholder.",
+    "assets": [
+        { "id": "star", "label": "Star", "src": "./icon-192.png" },
+        { "id": "arrow", "label": "Arrow", "src": "./icon-192.png" },
+        { "id": "heart", "label": "Heart", "src": "./icon-192.png" },
+        { "id": "bolt", "label": "Bolt", "src": "./icon-192.png" }
+    ]
+}
