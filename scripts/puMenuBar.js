@@ -226,10 +226,21 @@ async function renderInsertPanel(p, tabBtn) {
         closePanel();
         hooks.insertCube();
     });
-    $('[data-ins=image]', p).addEventListener('click', e => {
+    const imageRow = $('[data-ins=image]', p);
+    /* open on click OR on a brief hover (ribbon idiom) */
+    let imgHoverTimer = null;
+    imageRow.addEventListener('click', e => {
         e.stopPropagation();
+        clearTimeout(imgHoverTimer);
         renderInsertImagePanel(p, tabBtn);
     });
+    imageRow.addEventListener('mouseenter', () => {
+        clearTimeout(imgHoverTimer);
+        imgHoverTimer = setTimeout(() => {
+            if (activeTab === 'insert') renderInsertImagePanel(p, tabBtn);
+        }, 160);
+    });
+    imageRow.addEventListener('mouseleave', () => clearTimeout(imgHoverTimer));
 }
 
 async function renderInsertImagePanel(p, tabBtn) {
@@ -374,8 +385,12 @@ let gridEl = null;
 let ro = null;
 let gridRO = null;
 let mmHandler = null;
+let scrollHandler = null;
+let lastMouse = null;
 
-const RULER_THICK = 18;
+const RULER_TOP = 18;   /* horizontal ruler thickness */
+const RULER_LEFT = 34;  /* vertical ruler thickness — wider so negative
+                           labels ("-250") fit without clipping */
 
 function viewZ() {
     const inner = $('#canvas-inner');
@@ -407,12 +422,13 @@ function niceStep(minPx, z) {
 function drawRuler(canvas, horizontal) {
     const vc = $('#viewport-canvas');
     if (!canvas || !vc) return;
+    const thick = horizontal ? RULER_TOP : RULER_LEFT;
     /* the left ruler starts below the top one */
-    const len = horizontal ? vc.clientWidth : Math.max(0, vc.clientHeight - RULER_THICK);
+    const len = horizontal ? vc.clientWidth : Math.max(0, vc.clientHeight - RULER_TOP);
     if (len <= 0) return;
     const dpr = window.devicePixelRatio || 1;
-    const w = horizontal ? len : RULER_THICK;
-    const h = horizontal ? RULER_THICK : len;
+    const w = horizontal ? len : thick;
+    const h = horizontal ? thick : len;
     if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
         canvas.width = Math.round(w * dpr);
         canvas.height = Math.round(h * dpr);
@@ -430,7 +446,10 @@ function drawRuler(canvas, horizontal) {
     const z = viewZ();
     const org = viewOrigin();
     if (!org) return;
-    const cross = horizontal ? org.x : org.y; /* where layout 0 sits on screen */
+    /* the vertical ruler's canvas starts RULER_TOP px below the viewport
+       top — compensate so its notch for layout-y lands on the true spot */
+    const crossRaw = horizontal ? org.x : org.y;
+    const cross = horizontal ? crossRaw : crossRaw - RULER_TOP;
 
     const cs = getComputedStyle(document.documentElement);
     const cTick = (cs.getPropertyValue('--border2') || '#333').trim();
@@ -444,10 +463,11 @@ function drawRuler(canvas, horizontal) {
     ctx.font = '9px monospace';
     ctx.textBaseline = 'top';
 
-    const startL = Math.floor((-(horizontal ? cross : cross)) / minor) * minor - minor;
-    const endL = (horizontal ? w : h) - cross + minor;
+    const startL = Math.floor(-cross / minor) * minor - minor;
+    const endL = len - cross + minor;
     for (let L = startL; L <= endL; L += minor) {
         const px = Math.round(cross + L * z) + 0.5;
+        if (px < -1 || px > len + 1) continue;
         const isMajor = ((L % major) + major) % major === 0;
         const tickLen = isMajor ? 9 : 5;
         ctx.strokeStyle = L === 0 ? cAccent : cTick;
@@ -467,17 +487,18 @@ function drawRuler(canvas, horizontal) {
                 ctx.textAlign = 'left';
                 ctx.fillText(label, px + 3, 2);
             } else {
+                /* right-align so minus signs stay inside the strip */
+                ctx.textAlign = 'right';
                 ctx.save();
-                ctx.translate(2, px + 3);
+                ctx.translate(thick - 3, px + 3);
                 ctx.fillText(label, 0, 0);
                 ctx.restore();
             }
         }
     }
-    /* accent dot marking the workspace center (origin) */
-    ctx.strokeStyle = cAccent;
-    ctx.fillStyle = cAccent;
-    if (cross >= 0 && cross <= (horizontal ? w : h)) {
+    /* accent marker at the origin tick */
+    if (cross >= 0 && cross <= len) {
+        ctx.fillStyle = cAccent;
         if (horizontal) ctx.fillRect(Math.round(cross) - 1, h - 12, 2, 12);
         else ctx.fillRect(w - 12, Math.round(cross) - 1, 12, 2);
     }
@@ -500,6 +521,34 @@ function moveMarkers(clientX, clientY) {
     markerV.style.top = `${clientY - r.top}px`;
 }
 
+function updateCoords(clientX, clientY) {
+    if (!hooks.getViewState().coords) return;
+    const inner = $('#canvas-inner');
+    const vc = $('#viewport-canvas');
+    if (!inner || !vc) return;
+    const z = viewZ();
+    const org = viewOrigin();
+    const vr = vc.getBoundingClientRect();
+    hooks.onCoords(Math.round((clientX - vr.left - org.x) / z),
+                   Math.round((clientY - vr.top - org.y) / z));
+}
+
+/* the workspace scrolls inside #viewport-canvas — rulers and grid are
+   screen-anchored, so every scroll must re-anchor them to layout space */
+function setupScrollRedraw() {
+    const vc = $('#viewport-canvas');
+    if (!vc || scrollHandler) return;
+    scrollHandler = () => {
+        redrawRulers();
+        drawGrid();
+        if (lastMouse) {
+            moveMarkers(lastMouse.x, lastMouse.y);
+            updateCoords(lastMouse.x, lastMouse.y);
+        }
+    };
+    vc.addEventListener('scroll', scrollHandler, { capture: true });
+}
+
 function ensureRulers() {
     const vc = $('#viewport-canvas');
     if (!vc) return;
@@ -519,21 +568,13 @@ function ensureRulers() {
     rulerTop.style.display = '';
     rulerLeft.style.display = '';
     redrawRulers();
+    setupScrollRedraw();
 
     if (!mmHandler) {
         mmHandler = e => {
+            lastMouse = { x: e.clientX, y: e.clientY };
             moveMarkers(e.clientX, e.clientY);
-            if (hooks.getViewState().coords) {
-                const inner = $('#canvas-inner');
-                if (inner) {
-                    const z = viewZ();
-                    const org = viewOrigin();
-                    const vr = $('#viewport-canvas').getBoundingClientRect();
-                    const x = Math.round((e.clientX - vr.left - org.x) / z);
-                    const y = Math.round((e.clientY - vr.top - org.y) / z);
-                    hooks.onCoords(x, y);
-                }
-            }
+            updateCoords(e.clientX, e.clientY);
         };
         vc.addEventListener('mousemove', mmHandler);
         vc.addEventListener('mouseleave', () => {
@@ -547,7 +588,12 @@ function ensureRulers() {
 function teardownRulers() {
     [rulerTop, rulerLeft, markerH, markerV].forEach(el => el && el.remove());
     rulerTop = rulerLeft = markerH = markerV = null;
+    lastMouse = null;
     if (ro) { ro.disconnect(); ro = null; }
+    if (!gridEl && scrollHandler) {
+        $('#viewport-canvas')?.removeEventListener('scroll', scrollHandler, { capture: true });
+        scrollHandler = null;
+    }
 }
 
 /* Adaptive precision grid: drawn over the viewport in screen space with
@@ -565,6 +611,7 @@ function ensureGrid() {
         gridRO.observe(vc);
     }
     drawGrid();
+    setupScrollRedraw();
 }
 
 function drawGrid() {
@@ -622,6 +669,10 @@ function drawGrid() {
 function teardownGrid() {
     if (gridEl) { gridEl.remove(); gridEl = null; }
     if (gridRO) { gridRO.disconnect(); gridRO = null; }
+    if (!rulerTop && scrollHandler) {
+        $('#viewport-canvas')?.removeEventListener('scroll', scrollHandler, { capture: true });
+        scrollHandler = null;
+    }
 }
 
 /* ── public API ── */
@@ -660,10 +711,14 @@ export function initPUMenuBar(userHooks) {
 
     api.closePanels = closePanel;
 
-    /* re-render rulers + grid (zoom changes, theme swaps, …) */
+    /* re-render rulers + grid and re-anchor markers (zoom, scroll, theme) */
     api.redrawOverlays = () => {
         if (rulerTop?.isConnected) redrawRulers();
         if (gridEl?.isConnected) drawGrid();
+        if (lastMouse && markerH?.isConnected) {
+            moveMarkers(lastMouse.x, lastMouse.y);
+            updateCoords(lastMouse.x, lastMouse.y);
+        }
     };
 
     api.setView = state => {

@@ -128,6 +128,14 @@
   <!-- ═══ APP SHELL ═══ -->
   <div class="app">
 
+    <!-- ══ SECONDARY TOP BAR (Enhanced mode only, full app width) ══ -->
+    <div class="pu-menubar-wrap">
+      <div class="pu-menubar" id="pu-menubar"></div>
+      <div class="pu-menu-panel" id="pu-menu-panel"></div>
+    </div>
+
+    <div class="app-body">
+
     <!-- ══ SIDEBAR (built dynamically in JS) ══ -->
     <aside class="sidebar" id="sidebar"></aside>
 
@@ -147,10 +155,6 @@
         <input type="text" class="topbar-input" id="scramble-input" placeholder="1,0 / 3,3 / 0,-3 / ... (supports karn)"
           autocomplete="off" />
         <button class="bulk-export-open-btn" id="bulk-export-btn" title="Bulk Export">BULK</button>
-      </div>
-      <div class="pu-menubar-wrap">
-        <div class="pu-menubar" id="pu-menubar"></div>
-        <div class="pu-menu-panel" id="pu-menu-panel"></div>
       </div>
       <div class="viewport-canvas" id="viewport-canvas">
         <div class="canvas-inner" id="canvas-inner">
@@ -200,6 +204,8 @@
 
     <!-- ══ RIGHT SIDEBAR (PU layer list) ══ -->
     <aside class="sidebar sidebar-right hidden" id="sidebar-right"></aside>
+
+    </div><!-- /app-body -->
 
   </div>
 

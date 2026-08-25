@@ -141,8 +141,17 @@ header {
 /* ─── App shell ───────────────────────────────────────── */
 .app {
     display: flex;
+    flex-direction: column;
     flex: 1;
     overflow: hidden;
+}
+
+/* row container under the full-width ribbon strip */
+.app-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
 }
 
 /* ─── Sidebar ─────────────────────────────────────────── */
@@ -3206,6 +3215,8 @@ body.b3-dragging * {
     display: none;
     position: relative;
     flex-shrink: 0;
+    width: 100%;
+    background: var(--surface);
 }
 
 body.pu-enhanced .pu-menubar-wrap {
@@ -3594,7 +3605,7 @@ body.pu-enhanced .pu-menubar-wrap {
 
 .pu-rmarker-v {
     left: 0;
-    width: 18px;
+    width: 34px;
     height: 1px;
     box-shadow: 0 0 4px var(--accent);
 }
