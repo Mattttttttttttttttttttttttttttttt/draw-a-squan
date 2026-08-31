@@ -9,6 +9,7 @@ import {
     DALTON_3D_ORIENTATION_VERSION,
 } from './dalton3dRenderer.js';
 import { parseScramble } from './parseScramble.js';
+import { API_BASE_URL, PRESETS, buildQueryString } from './apiConfig.js';
 
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
 var schemePickrs = {};
@@ -517,6 +518,7 @@ function buildSidebar() {
         <div class="export-action-row">
           <button class="btn btn-export" id="do-export">Download Image</button>
           <button class="btn btn-export" id="do-copy">Copy to Clipboard</button>
+          <button class="btn btn-export" id="do-share">Copy API Link / Formula</button>
         </div>
       </div>
     `;
@@ -708,6 +710,8 @@ setTimeout(() => {
 let exportLayer = 'both';
 let exportFmt = 'png';
 let febMode = 'download'; // 'download' or 'copy'
+let apiCellRef = 'C41';       // default cell ref for the Sheets formula
+let apiInputMode = 'cell';    // 'cell' | 'inline'
 let lastUsedColors = [];
 const lastUsedLimit = 6;
 
@@ -1166,6 +1170,9 @@ function saveSettings() {
         exportFmt,
         // Floating button mode
         febMode,
+        // Share link / sheets formula preferences
+        apiCellRef,
+        apiInputMode,
         // Sidebar state
         sidebarHidden: sidebar.classList.contains('hidden'),
         // Mute
@@ -1287,6 +1294,10 @@ function loadSettings() {
 
     // Floating button mode
     if (s.febMode) setFebMode(s.febMode);
+
+    // Share link / sheets formula preferences
+    if (s.apiCellRef) apiCellRef = s.apiCellRef;
+    if (s.apiInputMode === 'cell' || s.apiInputMode === 'inline') apiInputMode = s.apiInputMode;
 
     // Sidebar state; this is just to change the floating btn.
     // Sidebar is already open due to the script in the html
@@ -2323,6 +2334,305 @@ document.getElementById('ctx-copy').addEventListener('click', function () {
     hideMenu();
     doExport('clipboard');
 });
+
+/* ─── API link & Sheets formula export / presets ──────── */
+function currentInputText() {
+    return document.getElementById('scramble-input').value.trim();
+}
+
+// Is the active design renderable by the API? (Dalton's 3D design is not yet.)
+function apiStyleSupported() {
+    const source = sq1vis.getActiveStyle()?.source;
+    return source === 'SAC2' || source === 'Abid';
+}
+
+// Serialize the current UI state into API query params. Returns null when the
+// active design isn't supported by the API yet.
+function collectApiParams() {
+    if (!apiStyleSupported()) return null;
+    const source = sq1vis.getActiveStyle().source;
+
+    const params = {
+        mode: MODES[currentModeIndex].value,
+        style: source,
+        size: parseInt(document.getElementById('size-input').value, 10),
+        pad: getEffectivePadPct(),
+        gap: parseInt(document.getElementById('gap-input').value, 10),
+        orient: document.querySelector('input[name=orientation]:checked').value,
+        layer: exportLayer,
+        fmt: exportFmt,
+    };
+
+    if (document.getElementById('hide-slice').checked) params.hideSlice = 1;
+    if (source === 'SAC2' && document.getElementById('hide-sides').checked) params.hideSides = 1;
+
+    if (source === 'Abid') {
+        const ss = sq1vis.getStyleSettings();
+        params.layerRatio = ss.layerRatio;
+        params.strokeOuter = ss.strokeWidthOuter;
+        params.strokeSlice = ss.sliceStrokeWidth;
+        params.strokeInner = ss.strokeWidthInner;
+    }
+
+    // Always capture the full color scheme of the active variant so the API
+    // renders exactly what's on screen.
+    const scheme = sq1vis.getColorScheme();
+    const slots = sq1vis.getColorSlots();
+    if (slots.length) {
+        params.scheme = 'custom';
+        params.c = slots.map(s => `${s.id}:${scheme[s.id]}`).join(',');
+    }
+
+    return params;
+}
+
+function buildApiLink() {
+    const params = collectApiParams();
+    if (!params) return null;
+    return `${API_BASE_URL}?${buildQueryString({ input: currentInputText(), ...params })}`;
+}
+
+// Build a Google Sheets =IMAGE() formula.
+//   cell=true : =IMAGE("<base>?input="&ENCODEURL(INDEX(SPLIT(<cell>,CHAR(10)),1))&"&...")
+//   cell=false: inline the current input into the URL.
+function buildSheetsFormula({ cell = true, cellRef = apiCellRef, inline = false } = {}) {
+    const params = collectApiParams();
+    if (!params) return null;
+    if (!inline && cell) {
+        const ref = String(cellRef || 'A1');
+        const rest = buildQueryString(params);
+        return `=IMAGE("${API_BASE_URL}?input="&ENCODEURL(INDEX(SPLIT(${ref},CHAR(10)),1))&"&${rest}")`;
+    }
+    const full = buildQueryString({ input: currentInputText(), ...params });
+    return `=IMAGE("${API_BASE_URL}?${full}")`;
+}
+
+function copyText(text, okMsg = 'Copied!') {
+    if (text == null) { flashBtn('API cannot render this design yet'); return false; }
+    navigator.clipboard.writeText(text).then(() => flashBtn(okMsg)).catch(() => flashBtn('Copy failed'));
+    return true;
+}
+
+function copyApiLink() {
+    copyText(buildApiLink(), 'API link copied!');
+}
+
+function copySheetsFormula() {
+    copyText(buildSheetsFormula({ inline: apiInputMode === 'inline' }), 'Formula copied!');
+}
+
+// ── Share modal ────────────────────────────────────
+const shareOverlay = document.getElementById('share-modal-overlay');
+const shareTabs = document.querySelectorAll('.modal-tab[data-share-tab]');
+const sharePanelLink = document.getElementById('share-tab-link');
+const sharePanelFormula = document.getElementById('share-tab-formula');
+const shareCellRow = document.getElementById('share-cell-row');
+const shareCellInput = document.getElementById('share-cell-ref');
+const shareApiOutput = document.getElementById('share-api-output');
+const shareFormulaOutput = document.getElementById('share-formula-output');
+const shareLinkCopyBtn = document.getElementById('share-copy-api');
+const shareFormulaCopyBtn = document.getElementById('share-copy-formula');
+
+function openShareModal(tab) {
+    if (!apiStyleSupported()) { flashBtn('API does not yet support the 3D design'); return; }
+    shareCellInput.value = apiCellRef;
+    syncShareTabs(tab || (shareTabs[0]?.dataset.shareTab || 'link'));
+    refreshShareOutputs();
+    shareOverlay.classList.add('open');
+}
+
+function syncShareTabs(tab) {
+    shareTabs.forEach(t => t.classList.toggle('active', t.dataset.shareTab === tab));
+    sharePanelLink.style.display = tab === 'link' ? '' : 'none';
+    sharePanelFormula.style.display = tab === 'formula' ? '' : 'none';
+}
+
+function refreshShareOutputs() {
+    shareApiOutput.value = buildApiLink() || '';
+    const modeEl = document.querySelector('input[name="share-input-mode"]:checked');
+    const inline = modeEl ? modeEl.value === 'inline' : false;
+    shareCellRow.style.display = inline ? 'none' : '';
+    shareFormulaOutput.value = buildSheetsFormula({ inline, cellRef: shareCellInput.value }) || '';
+}
+
+shareTabs.forEach(tab => tab.addEventListener('click', () => {
+    syncShareTabs(tab.dataset.shareTab);
+    refreshShareOutputs();
+}));
+
+shareOverlay.addEventListener('click', e => { if (e.target === shareOverlay) shareOverlay.classList.remove('open'); });
+document.getElementById('share-modal-close').addEventListener('click', () => shareOverlay.classList.remove('open'));
+
+shareCellInput.addEventListener('input', () => { apiCellRef = shareCellInput.value; refreshShareOutputs(); saveSettings(); });
+
+for (const r of document.querySelectorAll('input[name="share-input-mode"]')) {
+    r.addEventListener('change', () => {
+        apiInputMode = r.value;
+        refreshShareOutputs();
+        saveSettings();
+    });
+}
+if (apiInputMode) {
+    const el = document.querySelector(`input[name="share-input-mode"][value="${apiInputMode}"]`);
+    if (el) el.checked = true;
+}
+
+shareLinkCopyBtn.addEventListener('click', () => copyText(shareApiOutput.value, 'API link copied!'));
+shareFormulaCopyBtn.addEventListener('click', () => copyText(shareFormulaOutput.value, 'Formula copied!'));
+
+document.getElementById('do-share').addEventListener('click', () => openShareModal('link'));
+
+document.getElementById('ctx-api-link').addEventListener('click', () => { hideMenu(); copyApiLink(); });
+document.getElementById('ctx-sheets-formula').addEventListener('click', () => { hideMenu(); copySheetsFormula(); });
+
+// ── Hidden preset tooling ──────────────────────────
+// Alt+Shift+P copies the current settings as a JS preset object ready to be
+// pasted into PRESETS in scripts/apiConfig.js.
+document.addEventListener('keydown', e => {
+    if (e.altKey && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+        e.preventDefault();
+        const params = collectApiParams();
+        if (!params) { flashBtn('Cannot dump preset for the 3D design'); return; }
+        const input = currentInputText();
+        const obj = { label: 'My Preset' };
+        if (input) obj.input = input;
+        obj.params = params;
+        const pretty = JSON.stringify(obj, null, 2)
+            .replace(/"([^"]+)":/g, '$1:')
+            .replace(/"/g, "'");
+        navigator.clipboard.writeText(pretty)
+            .then(() => flashBtn('Preset dumped to clipboard!'))
+            .catch(() => flashBtn('Copy failed'));
+    }
+});
+
+// Console-only way to activate a preset (no UI entry point yet):
+//   applySquanPreset('example')
+function applySquanPreset(name) {
+    const preset = PRESETS[name];
+    if (!preset) { console.warn(`No preset named "${name}". Available: ${Object.keys(PRESETS).join(', ') || '(none)'}`); return false; }
+    const params = preset.params || {};
+    applyApiParams(params);
+    if (preset.input) document.getElementById('scramble-input').value = preset.input;
+    draw();
+    saveSettings();
+    console.log(`Applied preset "${name}"`, params);
+    return true;
+}
+
+function applySquanParam(key, value) {
+    switch (key) {
+        case 'mode': {
+            const idx = MODES.findIndex(m => m.value === String(value).toLowerCase());
+            if (idx > -1) setMode(idx);
+            break;
+        }
+        case 'style': {
+            const idx = sq1vis.getStyles().findIndex(s =>
+                s.source.toLowerCase() === String(value).toLowerCase()
+                || s.name.toLowerCase() === String(value).toLowerCase());
+            if (idx > -1 && !sq1vis.getStyles()[idx].is3D) sq1vis.setActiveStyle(idx);
+            document.getElementById('svg-style-select').value = sq1vis.getActiveStyleIndex();
+            updateStyleToggles();
+            buildStyleSliderControls();
+            buildSchemeGrid();
+            break;
+        }
+        case 'size': setDisplaySize(parseInt(value, 10) || 400); break;
+        case 'pad': {
+            const raw = parseInt(value, 10);
+            const source = sq1vis.getActiveStyle()?.source;
+            const rawVal = Number.isNaN(raw) ? 0 : raw - (PAD_SAFE_ZERO[source] ?? 11);
+            document.getElementById('pad-input').value = rawVal;
+            document.getElementById('pad-slider').value = rawVal;
+            break;
+        }
+        case 'gap':
+            document.getElementById('gap-input').value = parseInt(value, 10) || 100;
+            document.getElementById('gap-slider').value = parseInt(value, 10) || 100;
+            break;
+        case 'orient': {
+            const r = document.querySelector(`input[name=orientation][value="${String(value).toLowerCase()}"]`);
+            if (r) r.checked = true;
+            break;
+        }
+        case 'layer': {
+            if (['both', 'top', 'bottom'].includes(value)) {
+                exportLayer = value;
+                document.querySelectorAll('.export-tab[data-group="layer"]').forEach(b => b.classList.toggle('active', b.dataset.val === value));
+            }
+            break;
+        }
+        case 'fmt': {
+            if (['svg', 'png', 'jpeg', 'bmp'].includes(value)) {
+                exportFmt = value;
+                document.querySelectorAll('.export-tab[data-group="fmt"]').forEach(b => b.classList.toggle('active', b.dataset.val === value));
+                updateCopyVisibility();
+            }
+            break;
+        }
+        case 'hideSlice': document.getElementById('hide-slice').checked = truthyApi(value); break;
+        case 'hideSides': document.getElementById('hide-sides').checked = truthyApi(value); break;
+        case 'layerRatio': sq1vis.setStyleSettings({ layerRatio: parseFloat(value) }); break;
+        case 'strokeOuter': setLinkedStrokeValue('strokeWidthOuter', value); break;
+        case 'strokeSlice': setLinkedStrokeValue('sliceStrokeWidth', value); break;
+        case 'strokeInner': setLinkedStrokeValue('strokeWidthInner', value); break;
+        case 'scheme':
+            // Colors are applied via the "c" param in applyApiParams; this just
+            // validates the value.
+            if (!['classic', 'custom'].includes(String(value).toLowerCase())) {
+                console.warn(`Unknown scheme "${value}"`);
+            }
+            break;
+        case 'c': {
+            const scheme = {};
+            for (const pair of String(value).split(',')) {
+                const i = pair.indexOf(':');
+                if (i === -1) continue;
+                const id = pair.slice(0, i).trim();
+                let color = pair.slice(i + 1).trim();
+                if (!id || !color) continue;
+                color = color.replace(/^([0-9a-fA-F]{6}|[0-9a-fA-F]{3,8})(?:[^0-9a-fA-F]|$)/, '#$1');
+                scheme[id] = color;
+            }
+            sq1vis.setColorScheme(scheme);
+            Object.keys(schemePickrs).forEach(id => {
+                if (scheme[id]) {
+                    try { schemePickrs[id].setColor(scheme[id], true); } catch (e) {}
+                    paintPickrButton(schemePickrs[id], scheme[id]);
+                }
+            });
+            break;
+        }
+    }
+}
+
+function applyApiParams(params) {
+    // Ensure the design is set first so colors land in the right variant.
+    if (params.style) applySquanParam('style', params.style);
+    for (const [key, value] of Object.entries(params)) {
+        if (key === 'style' || key === 'c') continue;
+        applySquanParam(key, value);
+    }
+    if (params.c) applySquanParam('c', params.c);
+}
+
+function truthyApi(v) {
+    return v === true || v === 'true' || v === '1' || v === 1;
+}
+
+function setLinkedStrokeValue(controlId, value) {
+    sq1vis.setStyleSettings({ [controlId]: parseFloat(value) });
+    for (const inst of styleControlInstances) {
+        const hasId = [inst.parts.top?.id, inst.parts.middle?.id, inst.parts.bottom?.id].includes(controlId);
+        if (hasId) inst.setValues({ [controlId]: parseFloat(value) });
+    }
+}
+
+window.applySquanPreset = applySquanPreset;
+window.collectApiParams = collectApiParams;
+window.buildApiLink = buildApiLink;
+window.buildSheetsFormula = buildSheetsFormula;
 
 /* ─── Init ────────────────────────────────────────── */
 

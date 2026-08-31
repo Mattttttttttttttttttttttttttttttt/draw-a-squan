@@ -2,6 +2,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { Resvg } from "@resvg/resvg-js";
 import { algToHex, invertScramble, unkarnify } from "../scripts/parseScramble.js";
 import { renderSquare1SVG, renderSquare1LayerSVG } from "../scripts/drawScrambleCore.js";
+import { resolveSettings } from "../scripts/apiConfig.js";
 
 function inputToHex(input, mode) {
   if (mode === "hex") return input;
@@ -40,28 +41,40 @@ function combineLayers(html, sc, gap, isVert) {
 export const drawApi = onRequest({ cors: true }, async (req, res) => {
   try {
     const q = req.query;
-    if (!q.input) { res.status(400).send("Missing ?input= param"); return; }
-
-    const mode = q.mode || "scramble";
-    const size = parseInt(q.size, 10) || 400;
-    const padPct = parseInt(q.pad, 10) || 28;
-    const gap = parseInt(q.gap, 10) || 100;
-    const layer = q.layer || "both";
-    const fmt = (q.fmt || "png").toLowerCase();
-    const isVert = q.orient === "vertical";
-
-    const hex = inputToHex(String(q.input), mode);
-    const sc = Math.round(size * (220 / 400));
-    const exportPad = Math.round(sc * padPct / 100);
-
-    let svg;
-    if (layer !== "both") {
-      svg = renderSquare1LayerSVG(hex, { size, showSlice: true, layer, exportPad });
-    } else {
-      const html = renderSquare1SVG(hex, { size, ringDistance: gap, isVertical: isVert, showSlice: true, exportPad });
-      svg = combineLayers(html, sc, gap, isVert);
+    if (q.input == null || String(q.input).trim() === "") {
+      res.status(400).send("Missing ?input= param");
+      return;
     }
 
+    // Shared parameter resolution (presets + defaults + style settings).
+    const s = resolveSettings(q);
+
+    const hex = inputToHex(s.input, s.mode);
+    const baseOptions = {
+      styleIndex: s.styleIndex,
+      showSideColors: s.showSideColors,
+      styleSettings: s.styleSettings,
+      colorScheme: s.colorScheme,
+      size: s.size,
+      ringDistance: s.ringDistance,
+      isVertical: s.isVertical,
+      showSlice: s.showSlice,
+      exportPad: s.exportPad,
+    };
+
+    let svg;
+    if (s.layer !== "both") {
+      svg = renderSquare1LayerSVG(hex, {
+        ...baseOptions,
+        layer: s.layer === "top" ? "top" : "bottom",
+      });
+    } else {
+      const html = renderSquare1SVG(hex, baseOptions);
+      const sc = Math.round(s.size * (220 / 400));
+      svg = combineLayers(html, sc, s.ringDistance, s.isVertical);
+    }
+
+    const fmt = s.fmt;
     if (fmt === "svg") {
       res.set("Content-Type", "image/svg+xml");
       res.set("Cache-Control", "public, max-age=3600");

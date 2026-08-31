@@ -221,6 +221,48 @@
     </div>
   </div>
 
+  <!-- ═══ SHARE / API LINK MODAL ═══ -->
+  <div class="modal-overlay" id="share-modal-overlay">
+    <div class="modal-box" id="share-modal">
+      <div class="modal-header">
+        <span class="modal-title">Share / Export Link</span>
+        <button class="modal-close-btn" id="share-modal-close">✕</button>
+      </div>
+      <div class="modal-tabs">
+        <button class="modal-tab active" data-share-tab="link">API Link</button>
+        <button class="modal-tab" data-share-tab="formula">Sheets Formula</button>
+      </div>
+      <div class="modal-tab-panel" id="share-tab-link">
+        <p class="modal-hint">Stable image API link with the current input inlined. Everything has sensible defaults, so the link stays short.</p>
+        <textarea class="share-output" id="share-api-output" readonly spellcheck="false"></textarea>
+        <div class="modal-actions">
+          <button class="btn btn-primary modal-action-btn" id="share-copy-api">Copy API Link</button>
+        </div>
+      </div>
+      <div class="modal-tab-panel" id="share-tab-formula" style="display:none;">
+        <p class="modal-hint">Google Sheets formula. Input is pulled from a cell and split on newline by default (INDEX + SPLIT). Select "inline" to embed the current input directly.</p>
+        <div class="share-input-mode">
+          <label class="share-radio">
+            <input type="radio" name="share-input-mode" value="cell" checked />
+            <span>Input from cell (newline-split)</span>
+          </label>
+          <label class="share-radio">
+            <input type="radio" name="share-input-mode" value="inline" />
+            <span>Inline input</span>
+          </label>
+        </div>
+        <div class="field" id="share-cell-row">
+          <label class="field-label">Cell reference</label>
+          <input type="text" id="share-cell-ref" value="C41" autocomplete="off" spellcheck="false" />
+        </div>
+        <textarea class="share-output" id="share-formula-output" readonly spellcheck="false"></textarea>
+        <div class="modal-actions">
+          <button class="btn btn-primary modal-action-btn" id="share-copy-formula">Copy Formula</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="ctx-menu">
     <div class="ctx-section ctx-format-row">
       <span class="ctx-label">Format</span>
@@ -246,6 +288,22 @@
         <path d="M3 11V3h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
       Copy to Clipboard
+    </button>
+    <div class="ctx-divider"></div>
+    <button class="ctx-btn" id="ctx-api-link">
+      <svg viewBox="0 0 16 16" fill="none" class="ctx-icon">
+        <path d="M6.5 9.5L9.5 6.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+        <path d="M4.6 8L3.5 9.1a3.1 3.1 0 0 0 4.4 4.4l1.5-1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+        <path d="M11.4 8l1.1-1.1a3.1 3.1 0 0 0-4.4-4.4L6.6 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+      </svg>
+      Copy API Link
+    </button>
+    <button class="ctx-btn" id="ctx-sheets-formula">
+      <svg viewBox="0 0 16 16" fill="none" class="ctx-icon">
+        <rect x="2.5" y="2" width="11" height="12" rx="1" stroke="currentColor" stroke-width="1.2" />
+        <path d="M2.5 5.5h11M5 5.5v8.5M8 5.5v8.5M11 5.5v8.5" stroke="currentColor" stroke-width="1.2" />
+      </svg>
+      Copy Sheets Formula
     </button>
   </div>
   <div id="toast" class="toast"></div>

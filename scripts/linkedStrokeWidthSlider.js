@@ -232,6 +232,24 @@ export class LinkedStrokeWidthSlider {
         });
     }
 
+    // Programmatically set values by control id (e.g. when applying a preset).
+    // Missing ids leave that part unchanged.
+    setValues(values = {}, emit = true) {
+        const byId = {
+            [this.parts.top.id]: 'top',
+            [this.parts.middle.id]: 'middle',
+            [this.parts.bottom.id]: 'bottom',
+        };
+        for (const [id, part] of Object.entries(byId)) {
+            if (Object.prototype.hasOwnProperty.call(values, id)) {
+                const config = this.parts[part];
+                const next = this.snapToStep(Number(values[id]), config);
+                this.state[part] = this.valueToPercent(next, config);
+            }
+        }
+        this.render(emit);
+    }
+
     formatPart(part) {
         const config = this.parts[part];
         return this.percentToValue(this.state[part], config).toFixed(config.decimals ?? 4);

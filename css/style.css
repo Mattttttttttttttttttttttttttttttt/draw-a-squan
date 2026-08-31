@@ -2003,3 +2003,45 @@ button:disabled {
         inset: 0;
     }
 }
+
+/* ─── Share / API link modal ──────────────────────────── */
+.share-output {
+    width: 100%;
+    min-height: 84px;
+    resize: vertical;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    line-height: 1.5;
+    word-break: break-all;
+    white-space: pre-wrap;
+    padding: .6rem .7rem;
+}
+
+.share-input-mode {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem 1.25rem;
+}
+
+.share-radio {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.share-radio input {
+    accent-color: var(--accent);
+}
+
+#share-cell-row {
+    margin-top: .15rem;
+}
+
