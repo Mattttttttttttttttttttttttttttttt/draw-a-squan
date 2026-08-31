@@ -71,16 +71,36 @@ export const PRESETS = {
   // Use the hidden shortcut (Alt+Shift+P in the app) to copy the current UI
   // state as a ready-to-paste preset object, then drop it into this map:
   //
-  //   "my presets": {
-  //     label: "My Preset",
-  //     input: "optional seed scramble",
-  //     params: { style: "Abid", gap: 120, layerRatio: 0.8, ... },
-  //   },
+//   "my presets": {
+//     label: "My Preset",
+//     // NOTE: a preset must NOT set input/mode/fmt — those describe the puzzle
+//     // being rendered, not its look & feel. Any forbidden key is stripped at
+//     // expansion time; the caller's ?input= always wins.
+//     params: { style: "Abid", gap: 120, layerRatio: 0.8, ... },
+//   },
   //
   // Example (tasteful Abid baseline) — replace or remove whenever you like.
   "abid-standard": {
     label: "Abid Standard",
     params: { style: "Abid", gap: 120, layerRatio: 0.8 },
+  },
+  "sac2-slim": {
+    label: "SAC2 Slim",
+    params: { style: "SAC2", gap: 80 },
+  },
+  "tight-layers": {
+    label: "Tight Layers",
+    params: { gap: 60, layerRatio: 0.5 },
+  },
+  // Colors-only preset: sets ONLY the color scheme, leaves the design (style /
+  // gap / strokes / everything else) untouched. Stack with a design preset or
+  // let the explicit params / defaults decide the rest.
+  "warm-rubik": {
+    label: "Warm Rubik Colors",
+    params: {
+      scheme: "custom",
+      c: "front:#E63946,right:#F4A261,back:#E76F51,left:#F1C40F",
+    },
   },
 };
 
@@ -104,11 +124,35 @@ function parseIntParam(raw, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-// Expand &p= preset over a base params object, then overlay explicit params.
-// Precedence (lowest → highest): base defaults → preset params → explicit params.
-export function expandPreset(params = {}, presetKey) {
-  const preset = presetKey && PRESETS[presetKey] ? PRESETS[presetKey].params : {};
-  return { ...params, ...preset };
+// Params that a preset may never set — they describe the puzzle being rendered
+// (which input, how to interpret it, image format, and recursion), not a style
+// preference. Presets are meant to be pure "look & feel" stacks, so we strip
+// these out of any preset's params at expansion time. The caller's explicit
+// ?input= (and mode/fmt/p) always win.
+const PRESET_FORBIDDEN = ['input', 'mode', 'fmt', 'p', 'pc'];
+
+// Expand &p= preset(s) over a base params object, then overlay explicit params.
+// Precedence (lowest → highest): base defaults → later-listed presets →
+// earlier-listed presets → explicit params.
+//
+// Presets are stackable: &p=a,b applies preset a then preset b, with the
+// FIRST-mentioned preset winning any conflict (applied last here). A single
+// (&p=a) works exactly as before. Explicit query params always win over presets.
+export function expandPreset(params = {}, presetKeys) {
+  const keys = (Array.isArray(presetKeys) ? presetKeys : String(presetKeys ?? '').split(','))
+    .map(k => String(k).trim()).filter(Boolean);
+  let out = { ...params };
+  // Apply from LAST to FIRST so the first-mentioned preset takes priority.
+  for (let i = keys.length - 1; i >= 0; i--) {
+    const preset = PRESETS[keys[i]];
+    if (!preset || !preset.params) continue;
+    // Drop any forbidden keys from the preset's params so a preset can never
+    // hardcode the input / mode / format / nested preset.
+    const safe = { ...preset.params };
+    for (const fk of PRESET_FORBIDDEN) delete safe[fk];
+    out = { ...out, ...safe };
+  }
+  return out;
 }
 
 // Turn a flat params object into a URL-encoded query string.

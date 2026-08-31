@@ -4,6 +4,9 @@ import { algToHex, invertScramble, unkarnify } from "../scripts/parseScramble.js
 import { renderSquare1SVG, renderSquare1LayerSVG } from "../scripts/drawScrambleCore.js";
 import { resolveSettings } from "../scripts/apiConfig.js";
 
+const PLACEHOLDER_HEX = "011233455677|998bbaddcffe";
+const INVALID_MSG = "input doesn't lead to valid position";
+
 function inputToHex(input, mode) {
   if (mode === "hex") return input;
   if (mode === "inverse") {
@@ -12,6 +15,26 @@ function inputToHex(input, mode) {
   }
   const { tlHex, blHex } = algToHex(unkarnify(input));
   return `${tlHex}|${blHex}`;
+}
+
+// Mirrors the browser's validateSquare1Hex() — guarantees the state is a
+// legal Square-1 position (no lone corners in any half-layer), otherwise the
+// position can't be rendered as a real cube.
+function validatePosition(hex) {
+  const clean = String(hex).replace(/[|/]/, "");
+  if (clean.length !== 24) throw new Error("Hex must be 24 data characters.");
+  const hasLoneCorner = (halfLayer) => {
+    for (const c of ["1", "3", "5", "7", "9", "b", "d", "f"]) {
+      if (halfLayer.split(c).length % 2 !== 1) return true;
+    }
+    return false;
+  };
+  if (hasLoneCorner(clean.slice(0, 6)) ||
+      hasLoneCorner(clean.slice(6, 12)) ||
+      hasLoneCorner(clean.slice(12, 18)) ||
+      hasLoneCorner(clean.slice(18, 24))) {
+    throw new Error(INVALID_MSG);
+  }
 }
 
 // Ports the DOM-based layer combiner from index.html's deeplink script to
@@ -41,15 +64,65 @@ function combineLayers(html, sc, gap, isVert) {
 export const drawApi = onRequest({ cors: true }, async (req, res) => {
   try {
     const q = req.query;
-    if (q.input == null || String(q.input).trim() === "") {
-      res.status(400).send("Missing ?input= param");
+    const isEmpty = q.input == null || String(q.input).trim() === "";
+
+    // Empty input renders the gray placeholder cube (matches the browser),
+    // never an error.
+    if (isEmpty) {
+      const s = resolveSettings({ ...q, input: PLACEHOLDER_HEX, mode: "hex" });
+      const baseOptions = {
+        styleIndex: s.styleIndex,
+        showSideColors: s.showSideColors,
+        styleSettings: s.styleSettings,
+        colorScheme: s.colorScheme,
+        piecesColors: s.piecesColors,
+        size: s.size,
+        ringDistance: s.ringDistance,
+        isVertical: s.isVertical,
+        showSlice: s.showSlice,
+        exportPad: s.exportPad,
+      };
+      let svg;
+      if (s.layer !== "both") {
+        svg = renderSquare1LayerSVG(PLACEHOLDER_HEX, {
+          ...baseOptions,
+          muted: true,
+          layer: s.layer === "top" ? "top" : "bottom",
+        });
+      } else {
+        const html = renderSquare1SVG(PLACEHOLDER_HEX, { ...baseOptions, muted: true });
+        const sc = Math.round(s.size * (220 / 400));
+        svg = combineLayers(html, sc, s.ringDistance, s.isVertical);
+      }
+      if (s.fmt === "svg") {
+        res.set("Content-Type", "image/svg+xml");
+        res.set("Cache-Control", "public, max-age=3600");
+        res.send(svg);
+        return;
+      }
+      const png = new Resvg(svg, { fitTo: { mode: "original" } }).render().asPng();
+      res.set("Content-Type", "image/png");
+      res.set("Cache-Control", "public, max-age=3600");
+      res.send(png);
       return;
     }
 
     // Shared parameter resolution (presets + defaults + style settings).
     const s = resolveSettings(q);
 
-    const hex = inputToHex(s.input, s.mode);
+    let hex;
+    try {
+      hex = inputToHex(s.input, s.mode);
+      validatePosition(hex);
+    } catch (err) {
+      if (err.message === INVALID_MSG) {
+        res.set("Content-Type", "text/plain");
+        res.send(INVALID_MSG);
+        return;
+      }
+      throw err;
+    }
+
     const baseOptions = {
       styleIndex: s.styleIndex,
       showSideColors: s.showSideColors,
