@@ -2383,6 +2383,11 @@ function collectApiParams() {
         params.c = slots.map(s => `${s.id}:${scheme[s.id]}`).join(',');
     }
 
+    // Capture per-sticker recolor overrides (piecesColors) so the API can
+    // reproduce individual sticker edits, not just the base scheme.
+    params.pc = btoa(unescape(encodeURIComponent(JSON.stringify(sq1vis.getPiecesColors()))))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
     return params;
 }
 

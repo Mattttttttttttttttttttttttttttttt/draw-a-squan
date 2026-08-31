@@ -1,0 +1,22 @@
+{
+  "name": "draw-a-squan-functions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloud Functions runtime for the draw-a-squan API (drawApi). Used by the Firebase Local Emulator and deployment.",
+  "main": "lib/draw/index.js",
+  "type": "module",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "node ./build.js"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "firebase-admin": "^13.2.0",
+    "firebase-functions": "^7.3.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  }
+}

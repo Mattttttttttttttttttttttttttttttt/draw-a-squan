@@ -7,7 +7,11 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "setup": "npm install && npm --prefix functions install && npm run build:functions",
+    "build:functions": "npm --prefix functions run build",
+    "emulators": "firebase emulators:start --only functions",
+    "emulators:bg": "node scripts/emulators-bg.mjs"
   },
   "repository": {
     "type": "git",
@@ -23,6 +27,7 @@
   "homepage": "https://github.com/Mattttttttttttttttttttttttttttttt/draw-a-squan#readme",
   "devDependencies": {
     "esbuild": "^0.28.1",
+    "firebase-tools": "^15.28.2",
     "svgo": "^4.0.1"
   }
 }

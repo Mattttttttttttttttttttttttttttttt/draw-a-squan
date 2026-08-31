@@ -55,6 +55,7 @@ export const drawApi = onRequest({ cors: true }, async (req, res) => {
       showSideColors: s.showSideColors,
       styleSettings: s.styleSettings,
       colorScheme: s.colorScheme,
+      piecesColors: s.piecesColors,
       size: s.size,
       ringDistance: s.ringDistance,
       isVertical: s.isVertical,

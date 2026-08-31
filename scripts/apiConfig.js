@@ -35,6 +35,8 @@ export const PARAM_DEFAULTS = {
   scheme: 'classic',    // classic | custom
   // c = comma separated "slotId:color" pairs (only read when scheme=custom)
   c: null,
+  // pc = base64url JSON of per-sticker recolor overrides (getPiecesColors)
+  pc: null,
 };
 
 // Map friendly API param name -> the core's styleSettings key.
@@ -187,13 +189,23 @@ export function resolveSettings(query = {}) {
   let colorScheme;
   if (scheme === 'custom' && merged.c) {
     colorScheme = {};
-    for (const pair of String(merged.c).split(',')) {
-      const idx = pair.indexOf(':');
-      if (idx === -1) continue;
-      const slotId = pair.slice(0, idx).trim();
-      let color = pair.slice(idx + 1).trim();
-      if (!slotId || !color) continue;
-      // Tolerate a leading # being eaten by URL parsers / spreadsheets.
+    // The c= value is "slot:color,slot:color,...". Colored values may be
+    // comma-containing rgba(...) strings, so splitting on "," would truncate
+    // them at the first comma. Recombine fragments that trail a "slot:" value
+    // (fragments without a ":") back onto the previous slot.
+    let lastSlot = null;
+    for (const part of String(merged.c).split(',')) {
+      const idx = part.indexOf(':');
+      if (idx !== -1) {
+        lastSlot = part.slice(0, idx).trim();
+        colorScheme[lastSlot] = part.slice(idx + 1).trim();
+      } else if (lastSlot) {
+        colorScheme[lastSlot] += ',' + part.trim();
+      }
+    }
+    // Tolerate a leading # being eaten by URL parsers / spreadsheets.
+    for (const slotId of Object.keys(colorScheme)) {
+      let color = colorScheme[slotId];
       color = color.replace(/^([0-9a-fA-F]{6}|[0-9a-fA-F]{3,8})(?:[^0-9a-fA-F]|$)/, '#$1');
       colorScheme[slotId] = color;
     }
@@ -210,6 +222,22 @@ export function resolveSettings(query = {}) {
   const sc = Math.round(size * (220 / 400));
   const exportPad = Math.round(sc * pad / 100);
 
+  // ---- per-sticker recolor overrides ------------------------------------
+  // Optional base64url-encoded JSON of getPiecesColors() (edgeColors,
+  // cornerColors, sliceColors). Absent -> no per-sticker overrides.
+  let piecesColors;
+  if (merged.pc) {
+    try {
+      const b64 = String(merged.pc).replace(/-/g, '+').replace(/_/g, '/');
+      const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+      const buf = Buffer.from(padded, 'base64').toString('utf8');
+      piecesColors = JSON.parse(buf);
+    } catch (err) {
+      // Ignore malformed pc; render with the plain scheme.
+      piecesColors = undefined;
+    }
+  }
+
   return {
     input,
     mode,
@@ -219,6 +247,7 @@ export function resolveSettings(query = {}) {
     showSideColors,
     styleSettings,
     colorScheme,
+    piecesColors,
     size,
     ringDistance: gap,
     isVertical,
