@@ -61,6 +61,17 @@ function combineLayers(html, sc, gap, isVert) {
     `<g transform="${g1shift}">${getInner(svg1)}</g></svg>`;
 }
 
+// Take the first non-empty line of a multi-line input. Google Sheets passes a
+// whole cell (often several scrambles, one per line); the backend should only
+// render the first line instead of requiring the caller to SPLIT/index it.
+function firstLine(input) {
+  const lines = String(input).split(/\r?\n/);
+  for (const line of lines) {
+    if (line.trim() !== '') return line.trim();
+  }
+  return '';
+}
+
 export const drawApi = onRequest({ cors: true }, async (req, res) => {
   try {
     const q = req.query;
@@ -109,6 +120,8 @@ export const drawApi = onRequest({ cors: true }, async (req, res) => {
 
     // Shared parameter resolution (presets + defaults + style settings).
     const s = resolveSettings(q);
+    // Only the first non-empty line of input is used (multi-line cells).
+    s.input = firstLine(s.input);
 
     let hex;
     try {

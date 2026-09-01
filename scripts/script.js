@@ -2353,42 +2353,71 @@ function collectApiParams() {
     const source = sq1vis.getActiveStyle().source;
 
     const params = {
-        mode: MODES[currentModeIndex].value,
-        style: source,
-        size: parseInt(document.getElementById('size-input').value, 10),
         pad: getEffectivePadPct(),
-        gap: parseInt(document.getElementById('gap-input').value, 10),
-        orient: document.querySelector('input[name=orientation]:checked').value,
-        layer: exportLayer,
-        fmt: exportFmt,
     };
+
+    // Only include a param when it differs from the API default, so the
+    // default configuration produces a short link (classic scheme, default
+    // colors, standard layout).
+    const mode = MODES[currentModeIndex].value;
+    const size = parseInt(document.getElementById('size-input').value, 10);
+    const gap = parseInt(document.getElementById('gap-input').value, 10);
+    const orient = document.querySelector('input[name=orientation]:checked').value;
+    const layer = exportLayer;
+    const fmt = exportFmt;
+
+    if (mode !== 'scramble') params.mode = mode;
+    if (source !== 'SAC2') params.style = source;
+    if (size !== 400) params.size = size;
+    if (gap !== 100) params.gap = gap;
+    if (orient !== 'horizontal') params.orient = orient;
+    if (layer !== 'both') params.layer = layer;
+    if (fmt !== 'png') params.fmt = fmt;
 
     if (document.getElementById('hide-slice').checked) params.hideSlice = 1;
     if (source === 'SAC2' && document.getElementById('hide-sides').checked) params.hideSides = 1;
 
     if (source === 'Abid') {
         const ss = sq1vis.getStyleSettings();
-        params.layerRatio = ss.layerRatio;
-        params.strokeOuter = ss.strokeWidthOuter;
-        params.strokeSlice = ss.sliceStrokeWidth;
-        params.strokeInner = ss.strokeWidthInner;
+        if (ss.layerRatio !== 0.76) params.layerRatio = ss.layerRatio;
+        if (ss.strokeWidthOuter !== 0.016) params.strokeOuter = ss.strokeWidthOuter;
+        if (ss.sliceStrokeWidth !== 0.016) params.strokeSlice = ss.sliceStrokeWidth;
+        if (ss.strokeWidthInner !== 0.0135) params.strokeInner = ss.strokeWidthInner;
     }
 
-    // Always capture the full color scheme of the active variant so the API
-    // renders exactly what's on screen.
+    // Only emit the color scheme when at least one slot has actually been
+    // changed; an untouched scheme renders via the classic default, keeping the
+    // link short instead of always dumping every slot.
     const scheme = sq1vis.getColorScheme();
     const slots = sq1vis.getColorSlots();
-    if (slots.length) {
+    const hasChangedSlot = slots.some(s => String(scheme[s.id]) !== String(s.default));
+    if (hasChangedSlot) {
         params.scheme = 'custom';
         params.c = slots.map(s => `${s.id}:${scheme[s.id]}`).join(',');
     }
 
-    // Capture per-sticker recolor overrides (piecesColors) so the API can
-    // reproduce individual sticker edits, not just the base scheme.
-    params.pc = btoa(unescape(encodeURIComponent(JSON.stringify(sq1vis.getPiecesColors()))))
-        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    // Only emit per-sticker recolor overrides when they differ from the
+    // default mapping — otherwise skip the (large) base64 blob entirely.
+    const pc = sq1vis.getPiecesColors();
+    if (!deepEqual(pc, sq1vis.createDefaultPieceColors())) {
+        params.pc = btoa(unescape(encodeURIComponent(JSON.stringify(pc))))
+            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
 
     return params;
+}
+
+// Recursive/ordered deep equality for plain JSON-like objects (used to detect
+// untouched per-sticker colors so we can omit the big pc= blob).
+function deepEqual(a, b) {
+    if (a === b) return true;
+    if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+    const ak = Object.keys(a), bk = Object.keys(b);
+    if (ak.length !== bk.length) return false;
+    for (const k of ak) {
+        if (!deepEqual(a[k], b[k])) return false;
+    }
+    return true;
 }
 
 function buildApiLink() {
@@ -2398,7 +2427,10 @@ function buildApiLink() {
 }
 
 // Build a Google Sheets =IMAGE() formula.
-//   cell=true : =IMAGE("<base>?input="&ENCODEURL(INDEX(SPLIT(<cell>,CHAR(10)),1))&"&...")
+//   cell=true : =IMAGE("<base>?input="&ENCODEURL(<cell>)&"&...")
+//               The whole cell value is passed as-is; the backend only renders
+//               the first line, so a multi-scramble cell behaves like
+//               INDEX(SPLIT(...),1) without needing it in the formula.
 //   cell=false: inline the current input into the URL.
 function buildSheetsFormula({ cell = true, cellRef = apiCellRef, inline = false } = {}) {
     const params = collectApiParams();
@@ -2406,7 +2438,7 @@ function buildSheetsFormula({ cell = true, cellRef = apiCellRef, inline = false 
     if (!inline && cell) {
         const ref = String(cellRef || 'A1');
         const rest = buildQueryString(params);
-        return `=IMAGE("${API_BASE_URL}?input="&ENCODEURL(INDEX(SPLIT(${ref},CHAR(10)),1))&"&${rest}")`;
+        return `=IMAGE("${API_BASE_URL}?input="&ENCODEURL(${ref})&"&${rest}")`;
     }
     const full = buildQueryString({ input: currentInputText(), ...params });
     return `=IMAGE("${API_BASE_URL}?${full}")`;

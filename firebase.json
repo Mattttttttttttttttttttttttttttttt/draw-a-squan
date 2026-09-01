@@ -8,10 +8,27 @@
       ]
     }
   ],
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/draw/api",
+        "function": "drawApi"
+      }
+    ]
+  },
   "emulators": {
     "functions": {
       "port": 5001,
       "host": "127.0.0.1"
+    },
+    "hosting": {
+      "port": 5000
     }
   }
 }
