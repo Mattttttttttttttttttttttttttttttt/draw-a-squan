@@ -9,7 +9,7 @@ import {
     DALTON_3D_ORIENTATION_VERSION,
 } from './dalton3dRenderer.js';
 import { parseScramble } from './parseScramble.js';
-import { API_BASE_URL, PRESETS, buildQueryString, encodePieceColors } from './apiConfig.js';
+import { API_BASE_URL, SETTINGS_PRESETS, COLOR_PRESETS, PRESETS, buildQueryString, encodePieceColors, buildStickerIndex } from './apiConfig.js';
 
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
 var schemePickrs = {};
@@ -963,8 +963,12 @@ async function renderDalton3D(moves, muted = false) {
     const stage = getDaltonStage();
     if (!dalton3DRenderer) {
         dalton3DRenderer = new Dalton3DRenderer(stage, {
-            onStickerClick: (pieceId) => {
+            onStickerClick: (pieceId, event) => {
                 if (!pieceId) return;
+                if (event && event.shiftKey) {
+                    logStickerIdx(pieceId);
+                    return;
+                }
                 if (pickColorActive) {
                     applyPickedColor(pieceId);
                 } else if (fillModeActive) {
@@ -1471,7 +1475,35 @@ function selectRecentColor(hex, slotEl) {
     if (!fillModeActive) activateFill();
 }
 
+// Map a DOM sticker id ("<piece> <surface>", e.g. "3 top" / "4 outer" /
+// "slice front") to its global sticker index (0..46) used by the pc= encoding.
+function stickerIdToIdx(stickerId) {
+    const idxByKey = buildStickerIndex();
+    const [piece, surface] = String(stickerId).trim().split(/\s+/);
+    if (!surface) return -1;
+    if (piece === 'slice') {
+        return idxByKey[`s:${surface}`] ?? -1;
+    }
+    const kind = parseInt(piece, 16) % 2 === 0 ? 'e' : 'c';
+    return idxByKey[`${kind}:${piece}:${surface}`] ?? -1;
+}
+
+// Shift+click on a sticker prints its sticker index + id to the console so the
+// color presets can be authored against a concrete reference.
+function logStickerIdx(stickerId) {
+    const idx = stickerIdToIdx(stickerId);
+    console.log(`%csticker idx ${idx}%c  (id "${stickerId}")`, 'color:#fff;background:#d33;padding:2px 6px;border-radius:3px;font-weight:bold', 'color:#888');
+}
+
 document.getElementById('canvas-inner').addEventListener('click', e => {
+    if (e.shiftKey) {
+        const piece = e.target.closest('.sticker[id]');
+        if (piece && piece.id.trim()) {
+            e.preventDefault();
+            logStickerIdx(piece.id);
+            return;
+        }
+    }
     if (pickColorActive) {
         const piece = e.target.closest('.sticker[id]');
         if (!piece || !piece.id.trim()) return;
@@ -2447,7 +2479,6 @@ function collectApiParams() {
     const slots = sq1vis.getColorSlots();
     const hasChangedSlot = slots.some(s => String(scheme[s.id]) !== String(s.default));
     if (hasChangedSlot) {
-        params.scheme = 'custom';
         params.c = slots.map(s => `${s.id}:${scheme[s.id]}`).join(',');
     }
 
@@ -2586,17 +2617,32 @@ document.addEventListener('keydown', e => {
     }
 });
 
-// Console-only way to activate a preset (no UI entry point yet):
-//   applySquanPreset('example')
+// Console-only way to activate a SETTINGS preset (design only; never colors):
+//   applySquanPreset('abid-standard')
 function applySquanPreset(name) {
-    const preset = PRESETS[name];
-    if (!preset) { console.warn(`No preset named "${name}". Available: ${Object.keys(PRESETS).join(', ') || '(none)'}`); return false; }
+    const preset = SETTINGS_PRESETS[name];
+    if (!preset) { console.warn(`No settings preset named "${name}". Available: ${Object.keys(SETTINGS_PRESETS).join(', ') || '(none)'}`); return false; }
     const params = preset.params || {};
     applyApiParams(params);
     if (preset.input) document.getElementById('scramble-input').value = preset.input;
     draw();
     saveSettings();
-    console.log(`Applied preset "${name}"`, params);
+    console.log(`Applied settings preset "${name}"`, params);
+    return true;
+}
+
+// Console-only way to activate a COLOR preset (palette only; never design):
+//   applyColorPreset('warm-rubik')   → applies the palette
+//   applyColorPreset('warm-rubik', { left: '#FF00FF' })   → applies then overrides `left`
+function applyColorPreset(name, overrides) {
+    const preset = COLOR_PRESETS[name];
+    if (!preset) { console.warn(`No color preset named "${name}". Available: ${Object.keys(COLOR_PRESETS).join(', ') || '(none)'}`); return false; }
+    const palette = { ...(preset.colors || {}), ...(overrides || {}) };
+    const c = Object.entries(palette).map(([k, v]) => `${k}:${v}`).join(',');
+    applySquanParam('c', c);
+    draw();
+    saveSettings();
+    console.log(`Applied color preset "${name}"`, palette);
     return true;
 }
 
@@ -2710,6 +2756,7 @@ function setLinkedStrokeValue(controlId, value) {
 }
 
 window.applySquanPreset = applySquanPreset;
+window.applyColorPreset = applyColorPreset;
 window.collectApiParams = collectApiParams;
 window.buildApiLink = buildApiLink;
 window.buildSheetsFormula = buildSheetsFormula;

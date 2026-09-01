@@ -346,11 +346,11 @@ export class Dalton3DRenderer {
             this.drawScene(p, this.lastOptions, false);
         };
 
-        p.mouseClicked = () => {
+        p.mouseClicked = (event) => {
             if (!this.ready || !this.lastOptions) return;
             if (p.mouseX < 0 || p.mouseY < 0 || p.mouseX > p.width || p.mouseY > p.height) return;
             const id = this.pickSticker(p.mouseX, p.mouseY);
-            if (id && this.onStickerClick) this.onStickerClick(id);
+            if (id && this.onStickerClick) this.onStickerClick(id, event || {});
         };
     }
 

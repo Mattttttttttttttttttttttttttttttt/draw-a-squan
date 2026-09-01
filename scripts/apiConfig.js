@@ -31,11 +31,15 @@ export const PARAM_DEFAULTS = {
   strokeOuter: 0.016,
   strokeSlice: 0.016,
   strokeInner: 0.0135,
-  // Color scheme
-  scheme: 'classic',    // classic | custom
-  // c = comma separated "slotId:color" pairs (only read when scheme=custom)
+  // Color section (independent of the settings section above)
+  scheme: 'classic',    // classic | custom (optional; colors now driven by cp/c)
+  // cp = color preset key(s) that define a named color palette (see COLOR_PRESETS)
+  cp: null,
+  // c = comma separated "name:color" palette definitions / overrides
+  //     (may redefine a cp= color or add a 9th+ named color)
   c: null,
-  // pc = base64url "color:idx,idx;color:idx" per-sticker recolor overrides
+  // pc = base64url "colorName:idx,idx;colorName:idx" custom color FORMATION —
+  //     which stickers use which named color (custom/formation only)
   pc: null,
 };
 
@@ -53,33 +57,57 @@ export const API_STYLES = [
   { name: "Abid's Design", source: 'Abid', index: 1 },
 ];
 
+// ============================================================================
+// Presets are split into TWO independent namespaces that can never interact:
+//
+//   1. SETTINGS_PRESETS  — the "rest of settings" section. Pure look & feel /
+//      output configuration (style, gap, strokes, layers, size, format...).
+//      Never sets colors. Applied via &p=<key>.
+//
+//   2. COLOR_PRESETS     — the "color" section. Defines a named color palette:
+//      the 6 face colors (top,bottom,front,right,back,left) plus the slice
+//      indicator and stroke, and optionally EXTRA named colors (a 9th color
+//      and up) that a custom formation may reference. Applied via &cp=<key>,
+//      overridable inline with &c=.
+//
+// A palette only ever touches colors; a settings preset only ever touches
+// design. The API request is therefore the union of two sections:
+//
+//     ...&p=<settingsPreset>&cp=<colorPreset>&c=left:#FF00FF&pc=<formation>...
+//
+//   - Color section : &cp= (palette preset) + &c= (inline per-color overrides
+//     / redefinitions, including extras) + &pc= (custom color FORMATION —
+//     which sticker uses which named color).
+//   - Settings section: &p= (design preset) + every other design/output param.
+//
+// "Custom color" is not part of a color preset. It is a FORMATION: a mapping
+// of stickers to color NAMES, those names being resolved by the color
+// palette. So a palette can say left=red and a formation can say
+// "sticker 38,40 -> left; sticker 37,35,32 -> front", and the same formation
+// renders differently under a different palette. To use a color beyond the
+// base 8, define it in the palette (c= or a color preset) and reference its
+// name in the formation.
+// ============================================================================
+
 // --------------------------------------------------------------------------
-// Presets.
+// Settings presets (the "rest of settings" section).
 //
 // Shape: { key: { label, params } } where `params` uses the SAME key names as
-// PARAM_DEFAULTS. `&p=<key>` expands to these params, then any explicit query
-// params override them. Roughly "hardcoded common configurations usable
-// worldwide".
+// PARAM_DEFAULTS (minus any color key). `&p=<key>` expands to these params,
+// then any explicit query param of the settings section overrides them.
 //
-// Add new ones by dumping the current UI state with the hidden shortcut
-// (Alt+Shift+P in the app) and pasting the object here.
+// COLOR KEYS (scheme / c / pc / cp) ARE FORBIDDEN here — a settings preset may
+// not set colors, and a color preset may not set design. The two sections stay
+// fully independent.
 // --------------------------------------------------------------------------
-export const PRESETS = {
-  // Every preset is keyed by a short name usable in API links as &p=<key> and
-  // in the app via applySquanPreset('<key>') from the browser console.
-  //
+export const SETTINGS_PRESETS = {
   // Use the hidden shortcut (Alt+Shift+P in the app) to copy the current UI
   // state as a ready-to-paste preset object, then drop it into this map:
   //
-//   "my presets": {
-//     label: "My Preset",
-//     // NOTE: a preset must NOT set input/mode/fmt — those describe the puzzle
-//     // being rendered, not its look & feel. Any forbidden key is stripped at
-//     // expansion time; the caller's ?input= always wins.
+//   "my settings": {
+//     label: "My Settings",
 //     params: { style: "Abid", gap: 120, layerRatio: 0.8, ... },
 //   },
-  //
-  // Example (tasteful Abid baseline) — replace or remove whenever you like.
   "abid-standard": {
     label: "Abid Standard",
     params: { style: "Abid", gap: 120, layerRatio: 0.8 },
@@ -92,16 +120,36 @@ export const PRESETS = {
     label: "Tight Layers",
     params: { gap: 60, layerRatio: 0.5 },
   },
-  // Colors-only preset: sets ONLY the color scheme, leaves the design (style /
-  // gap / strokes / everything else) untouched. Stack with a design preset or
-  // let the explicit params / defaults decide the rest.
+};
+
+// --------------------------------------------------------------------------
+// Color presets (the "color" section).
+//
+// Shape: { key: { label, colors } } where `colors` maps a NAMED color to a CSS
+// color value (hex / rgba). The names are typically the 6 face slots
+// (top,bottom,front,right,back,left) plus the slice/stroke slots, but any
+// string is allowed so a palette can define extra (9th+) named colors.
+//
+// The palette is applied wholesale, then any inline &c= override redefines
+// individual names (useful to keep e.g. "left" red but override it to
+// magenta for one request).
+// --------------------------------------------------------------------------
+export const COLOR_PRESETS = {
+  // Example — a warm palette defining face colors only. Replace/remove freely.
   "warm-rubik": {
     label: "Warm Rubik Colors",
-    params: {
-      scheme: "custom",
-      c: "front:#E63946,right:#F4A261,back:#E76F51,left:#F1C40F",
+    colors: {
+      front: "#E63946",
+      right: "#F4A261",
+      back: "#E76F51",
+      left: "#F1C40F",
     },
   },
+};
+
+// (Kept as a merged view for tooling; the two sections above are authoritative.)
+export const PRESETS = {
+  ...Object.fromEntries(Object.entries(SETTINGS_PRESETS).map(([k, v]) => [k, v])),
 };
 
 // --------------------------------------------------------------------------
@@ -124,35 +172,77 @@ function parseIntParam(raw, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-// Params that a preset may never set — they describe the puzzle being rendered
-// (which input, how to interpret it, image format, and recursion), not a style
-// preference. Presets are meant to be pure "look & feel" stacks, so we strip
-// these out of any preset's params at expansion time. The caller's explicit
-// ?input= (and mode/fmt/p) always win.
-const PRESET_FORBIDDEN = ['input', 'mode', 'fmt', 'p', 'pc'];
+// Keys a SETTINGS preset may never set — they either describe the puzzle being
+// rendered (input/mode/fmt) or belong to the COLOR section (scheme/c/pc/cp).
+// Splitting them out keeps the two sections fully independent: a settings
+// preset can never leak into colors, and a color preset can never touch design,
+// no matter how they're stacked.
+const SETTINGS_FORBIDDEN = ['input', 'mode', 'fmt', 'p', 'cp', 'scheme', 'c', 'pc'];
+// Keys a COLOR preset may never set — the design/output section. A color
+// preset only ever produces palette colors.
+const COLOR_FORBIDDEN = ['input', 'mode', 'fmt', 'p', 'cp', 'pc', 'style', 'size', 'pad', 'gap', 'orient', 'layer', 'hideSlice', 'hideSides', 'layerRatio', 'strokeOuter', 'strokeSlice', 'strokeInner'];
 
-// Expand &p= preset(s) over a base params object, then overlay explicit params.
-// Precedence (lowest → highest): base defaults → later-listed presets →
-// earlier-listed presets → explicit params.
-//
-// Presets are stackable: &p=a,b applies preset a then preset b, with the
-// FIRST-mentioned preset winning any conflict (applied last here). A single
-// (&p=a) works exactly as before. Explicit query params always win over presets.
-export function expandPreset(params = {}, presetKeys) {
-  const keys = (Array.isArray(presetKeys) ? presetKeys : String(presetKeys ?? '').split(','))
+function splitKeys(presetKeys) {
+  return (Array.isArray(presetKeys) ? presetKeys : String(presetKeys ?? '').split(','))
     .map(k => String(k).trim()).filter(Boolean);
+}
+
+// Expand &p= settings-preset(s) over a base params object.
+// Precedence (lowest → highest): base defaults → later-listed presets →
+// earlier-listed presets. First-mentioned preset wins conflicts; explicit
+// query params always beat presets (applied by the caller afterwards).
+export function expandSettingsPreset(params = {}, presetKeys) {
   let out = { ...params };
-  // Apply from LAST to FIRST so the first-mentioned preset takes priority.
+  const keys = splitKeys(presetKeys);
   for (let i = keys.length - 1; i >= 0; i--) {
-    const preset = PRESETS[keys[i]];
+    const preset = SETTINGS_PRESETS[keys[i]];
     if (!preset || !preset.params) continue;
-    // Drop any forbidden keys from the preset's params so a preset can never
-    // hardcode the input / mode / format / nested preset.
     const safe = { ...preset.params };
-    for (const fk of PRESET_FORBIDDEN) delete safe[fk];
+    for (const fk of SETTINGS_FORBIDDEN) delete safe[fk];
     out = { ...out, ...safe };
   }
   return out;
+}
+
+// Resolve the color section's palette from &cp= color-preset(s) merged with
+// inline &c= overrides. Returns null when nothing is defined (use defaults).
+// Precedence within the color section (lowest → highest): later-listed color
+// presets → earlier-listed → inline &c= overrides.
+export function resolveColorPalette(colorPresetKeys, inlineColors) {
+  const palette = {};
+
+  const keys = splitKeys(colorPresetKeys);
+  for (let i = keys.length - 1; i >= 0; i--) {
+    const preset = COLOR_PRESETS[keys[i]];
+    if (!preset || !preset.colors) continue;
+    Object.assign(palette, preset.colors);
+  }
+
+  if (inlineColors) {
+    // "name:color,name:color,..." — color values may be comma-containing
+    // rgba(...) strings, so recombine fragments without a ":" onto the
+    // previous name.
+    let lastName = null;
+    for (const part of String(inlineColors).split(',')) {
+      const idx = part.indexOf(':');
+      if (idx !== -1) {
+        lastName = part.slice(0, idx).trim();
+        palette[lastName] = part.slice(idx + 1).trim();
+      } else if (lastName) {
+        palette[lastName] += ',' + part.trim();
+      }
+    }
+    for (const name of Object.keys(palette)) {
+      palette[name] = palette[name].replace(/^([0-9a-fA-F]{6}|[0-9a-fA-F]{3,8})(?:[^0-9a-fA-F]|$)/, '#$1');
+    }
+  }
+
+  return Object.keys(palette).length ? palette : null;
+}
+
+// Backward-compatible alias used by tooling/older callers.
+export function expandPreset(params = {}, presetKeys) {
+  return expandSettingsPreset(params, presetKeys);
 }
 
 // Turn a flat params object into a URL-encoded query string.
@@ -365,9 +455,11 @@ export function decodePieceColors(encoded) {
 //   size, ringDistance, isVertical, showSlice, exportPad,
 // }
 export function resolveSettings(query = {}) {
-  const presetKey = query.p;
   const base = { ...PARAM_DEFAULTS };
-  const merged = expandPreset(base, presetKey);
+  // Settings section: only SETTINGS_PRESETS via &p= may contribute design /
+  // output params; color keys are forbidden here so a settings preset can
+  // never touch colors.
+  const merged = expandSettingsPreset(base, query.p);
 
   // Apply real query params (ignore the presence marker we already used).
   for (const key of Object.keys(merged)) {
@@ -412,32 +504,16 @@ export function resolveSettings(query = {}) {
     }
   }
 
-  // ---- color scheme ---------------------------------------------------
-  const scheme = String(merged.scheme || 'classic').toLowerCase();
-  let colorScheme;
-  if (scheme === 'custom' && merged.c) {
-    colorScheme = {};
-    // The c= value is "slot:color,slot:color,...". Colored values may be
-    // comma-containing rgba(...) strings, so splitting on "," would truncate
-    // them at the first comma. Recombine fragments that trail a "slot:" value
-    // (fragments without a ":") back onto the previous slot.
-    let lastSlot = null;
-    for (const part of String(merged.c).split(',')) {
-      const idx = part.indexOf(':');
-      if (idx !== -1) {
-        lastSlot = part.slice(0, idx).trim();
-        colorScheme[lastSlot] = part.slice(idx + 1).trim();
-      } else if (lastSlot) {
-        colorScheme[lastSlot] += ',' + part.trim();
-      }
-    }
-    // Tolerate a leading # being eaten by URL parsers / spreadsheets.
-    for (const slotId of Object.keys(colorScheme)) {
-      let color = colorScheme[slotId];
-      color = color.replace(/^([0-9a-fA-F]{6}|[0-9a-fA-F]{3,8})(?:[^0-9a-fA-F]|$)/, '#$1');
-      colorScheme[slotId] = color;
-    }
-  } else if (scheme !== 'classic' && scheme !== 'custom') {
+  // ---- color section (palette + formation) ------------------------------
+  // The palette is built entirely from the color section: &cp= color-preset(s)
+  // plus inline &c= redefinitions (which also allow a 9th+ named color). The
+  // design params above never influence it, and it never influences them.
+  // Leave both empty to keep the style's default colors.
+  let colorScheme = resolveColorPalette(query.cp, query.c);
+  // Accept the legacy scheme param for clarity, but it's no longer required to
+  // open the color section (using cp/c alone now turns colors on).
+  const scheme = String(merged.scheme ?? 'classic').toLowerCase();
+  if (scheme !== 'classic' && scheme !== 'custom') {
     throw new Error(`Unknown scheme "${scheme}". Use "classic" or "custom".`);
   }
 

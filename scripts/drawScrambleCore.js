@@ -687,6 +687,12 @@ export function createSquare1Core(initialState = {}) {
         for (const slot of variant.colorSlots) {
             colors[slot.id] = overrides[slot.id] ?? slot.default;
         }
+        // Additional NAMED colors beyond the base slots (a 9th+ color used by
+        // custom formation) are carried through the overrides map and resolved
+        // here so piecesColors entries that reference them get a real color.
+        for (const [id, hex] of Object.entries(overrides)) {
+            if (!(id in colors)) colors[id] = hex;
+        }
         return colors;
     }
 
