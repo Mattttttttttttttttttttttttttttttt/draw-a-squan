@@ -9,7 +9,7 @@ import {
     DALTON_3D_ORIENTATION_VERSION,
 } from './dalton3dRenderer.js';
 import { parseScramble } from './parseScramble.js';
-import { API_BASE_URL, PRESETS, buildQueryString } from './apiConfig.js';
+import { API_BASE_URL, PRESETS, buildQueryString, encodePieceColors } from './apiConfig.js';
 
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
 var schemePickrs = {};
@@ -2397,27 +2397,15 @@ function collectApiParams() {
     }
 
     // Only emit per-sticker recolor overrides when they differ from the
-    // default mapping — otherwise skip the (large) base64 blob entirely.
-    const pc = sq1vis.getPiecesColors();
-    if (!deepEqual(pc, sq1vis.createDefaultPieceColors())) {
-        params.pc = btoa(unescape(encodeURIComponent(JSON.stringify(pc))))
-            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    // default mapping — otherwise skip the pc= blob entirely. When there are
+    // changes, they're encoded as short "color:idx,idx" groups (see
+    // encodePieceColors) so the link stays as small as possible.
+    const pcEncoded = encodePieceColors(sq1vis.getPiecesColors());
+    if (pcEncoded) {
+        params.pc = pcEncoded;
     }
 
     return params;
-}
-
-// Recursive/ordered deep equality for plain JSON-like objects (used to detect
-// untouched per-sticker colors so we can omit the big pc= blob).
-function deepEqual(a, b) {
-    if (a === b) return true;
-    if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
-    const ak = Object.keys(a), bk = Object.keys(b);
-    if (ak.length !== bk.length) return false;
-    for (const k of ak) {
-        if (!deepEqual(a[k], b[k])) return false;
-    }
-    return true;
 }
 
 function buildApiLink() {

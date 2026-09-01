@@ -35,7 +35,7 @@ export const PARAM_DEFAULTS = {
   scheme: 'classic',    // classic | custom
   // c = comma separated "slotId:color" pairs (only read when scheme=custom)
   c: null,
-  // pc = base64url JSON of per-sticker recolor overrides (getPiecesColors)
+  // pc = base64url "color:idx,idx;color:idx" per-sticker recolor overrides
   pc: null,
 };
 
@@ -169,6 +169,190 @@ export function buildQueryString(params = {}) {
   return parts.join('&');
 }
 
+// --------------------------------------------------------------------------
+// Per-sticker recolor encoding (pc=).
+//
+// Custom color mode is not fully custom: it starts from the classical scheme
+// mapping and lets you repaint individual pieces independently (mute mode is
+// just one such repaint). So instead of serializing the whole verbose
+// getPiecesColors() tree, every sticker is given a FIXED index (0..46) and we
+// only encode the stickers that differ from the default mapping, grouped by
+// their (new) color value, as:
+//
+//     color:idx,idx,idx;color:idx
+//
+// then base64url the whole thing. The server reconstructs by first applying
+// the classical/default mapping, then overlaying each group's color onto the
+// listed sticker indices — links stay as short as possible.
+//
+// Sticker index assignment (share between client encoder and server decoder):
+//   Edges   (8 pieces, hex ids 0,2,4,6,8,a,c,e)  inner,outer
+//   Corners (8 pieces, hex ids 1,3,5,7,9,b,d,f)  top,left,right
+//   Slices  top,bottom,left,right,front,back,internal
+// --------------------------------------------------------------------------
+const EDGE_PIECES = ['0', '2', '4', '6', '8', 'a', 'c', 'e'];
+const CORNER_PIECES = ['1', '3', '5', '7', '9', 'b', 'd', 'f'];
+const SLICE_SIDES = ['top', 'bottom', 'left', 'right', 'front', 'back', 'internal'];
+
+// Canonical default color VALUE for each sticker (mirrors the core's
+// createDefaultPieceColors()). Single source of truth for both the encoder
+// (which stickers differ?) and the decoder (base skeleton to start from), so
+// they can never drift apart.
+const DEFAULT_EDGE_OUTER = { '0': 'back', '2': 'left', '4': 'front', '6': 'right', '8': 'right', 'a': 'front', 'c': 'left', 'e': 'back' };
+const DEFAULT_SLICE_EDGE_INNER = { '0': 'top', '2': 'top', '4': 'top', '6': 'top', '8': 'bottom', 'a': 'bottom', 'c': 'bottom', 'e': 'bottom' };
+const DEFAULT_CORNER = {
+  '1': { top: 'top', left: 'back', right: 'left' },
+  '3': { top: 'top', left: 'left', right: 'front' },
+  '5': { top: 'top', left: 'front', right: 'right' },
+  '7': { top: 'top', left: 'right', right: 'back' },
+  '9': { top: 'bottom', left: 'back', right: 'right' },
+  'b': { top: 'bottom', left: 'right', right: 'front' },
+  'd': { top: 'bottom', left: 'front', right: 'left' },
+  'f': { top: 'bottom', left: 'left', right: 'back' },
+};
+const DEFAULT_SLICE = { top: 'top', bottom: 'bottom', left: 'left', right: 'right', front: 'front', back: 'back', internal: 'internal' };
+
+function schemaDefaultPiecesColors() {
+  const edgeColors = {};
+  for (const p of EDGE_PIECES) edgeColors[p] = { inner: DEFAULT_SLICE_EDGE_INNER[p], outer: DEFAULT_EDGE_OUTER[p] };
+  const cornerColors = {};
+  for (const p of CORNER_PIECES) cornerColors[p] = { ...DEFAULT_CORNER[p] };
+  return { edgeColors, cornerColors, sliceColors: { ...DEFAULT_SLICE } };
+}
+
+// Build a stable "kind:piece:side" -> global sticker index (0..46).
+export function buildStickerIndex() {
+  const map = {};
+  let n = 0;
+  for (const p of EDGE_PIECES) {
+    map[`e:${p}:inner`] = n++;
+    map[`e:${p}:outer`] = n++;
+  }
+  for (const p of CORNER_PIECES) {
+    map[`c:${p}:top`] = n++;
+    map[`c:${p}:left`] = n++;
+    map[`c:${p}:right`] = n++;
+  }
+  for (const s of SLICE_SIDES) {
+    map[`s:${s}`] = n++;
+  }
+  return map;
+}
+
+// Reverse: sticker index -> "kind:piece:side" (or "kind:side" for slices).
+export function buildStickerIndexReverse() {
+  const fwd = buildStickerIndex();
+  const rev = {};
+  for (const [key, idx] of Object.entries(fwd)) rev[idx] = key;
+  return rev;
+}
+
+// Recursive/ordered deep equality for plain JSON-like objects.
+export function deepEqual(a, b) {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  const ak = Object.keys(a), bk = Object.keys(b);
+  if (ak.length !== bk.length) return false;
+  for (const k of ak) {
+    if (!deepEqual(a[k], b[k])) return false;
+  }
+  return true;
+}
+
+function b64urlEncode(str) {
+  if (typeof btoa === 'function') {
+    return btoa(unescape(encodeURIComponent(str)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  return Buffer.from(str, 'utf8').toString('base64url');
+}
+
+function b64urlDecode(str) {
+  if (typeof atob === 'function') {
+    return decodeURIComponent(escape(atob(String(str).replace(/-/g, '+').replace(/_/g, '/'))));
+  }
+  return Buffer.from(String(str).replace(/-/g, '+').replace(/_/g, '/'), 'base64url').toString('utf8');
+}
+
+// Encode per-sticker recolor overrides as a short base64url string.
+// Returns null when `pc` matches the default mapping (nothing changed), so
+// callers can omit pc= entirely for the default look.
+export function encodePieceColors(pc) {
+  if (!pc) return null;
+  const defaults = schemaDefaultPiecesColors();
+  if (deepEqual(pc, defaults)) return null;
+
+  const groups = new Map(); // colorValue -> [stickerIndex, ...]
+  const add = (color, idx) => {
+    if (!groups.has(color)) groups.set(color, []);
+    groups.get(color).push(idx);
+  };
+
+  for (const p of EDGE_PIECES) {
+    const piece = pc.edgeColors?.[p];
+    for (const side of ['inner', 'outer']) {
+      if (piece?.[side] === defaults.edgeColors[p][side]) continue;
+      add(piece[side], buildStickerIndex()[`e:${p}:${side}`]);
+    }
+  }
+  for (const p of CORNER_PIECES) {
+    const piece = pc.cornerColors?.[p];
+    for (const side of ['top', 'left', 'right']) {
+      if (piece?.[side] === defaults.cornerColors[p][side]) continue;
+      add(piece[side], buildStickerIndex()[`c:${p}:${side}`]);
+    }
+  }
+  for (const s of SLICE_SIDES) {
+    if (pc.sliceColors?.[s] === defaults.sliceColors[s]) continue;
+    add(pc.sliceColors[s], buildStickerIndex()[`s:${s}`]);
+  }
+
+  if (groups.size === 0) return null;
+
+  const parts = [];
+  for (const [color, idxs] of groups) {
+    parts.push(`${color}:${idxs.join(',')}`);
+  }
+  return b64urlEncode(parts.join(';'));
+}
+
+// Decode a pc= string back into a full {edgeColors, cornerColors, sliceColors}
+// object by starting from the classical default mapping and applying each
+// color group's sticker indices.
+export function decodePieceColors(encoded) {
+  const defaults = schemaDefaultPiecesColors();
+  if (!encoded) return defaults;
+
+  const reverse = buildStickerIndexReverse();
+  try {
+    const wire = b64urlDecode(encoded);
+    for (const group of wire.split(';')) {
+      if (!group) continue;
+      const ci = group.indexOf(':');
+      if (ci === -1) continue;
+      const color = group.slice(0, ci);
+      for (const idxStr of group.slice(ci + 1).split(',')) {
+        const key = reverse[parseInt(idxStr, 10)];
+        if (!key) continue;
+        const kind = key[0];
+        const rest = key.slice(2); // "piece:side" or "side"
+        if (kind === 'e') {
+          const [p, side] = rest.split(':');
+          defaults.edgeColors[p] = { ...defaults.edgeColors[p], [side]: color };
+        } else if (kind === 'c') {
+          const [p, side] = rest.split(':');
+          defaults.cornerColors[p] = { ...defaults.cornerColors[p], [side]: color };
+        } else if (kind === 's') {
+          defaults.sliceColors[rest] = color;
+        }
+      }
+    }
+  } catch (err) {
+    // Malformed pc= — fall back to the plain default mapping.
+  }
+  return defaults;
+}
+
 // Parse an API query (like req.query / URLSearchParams) into a fully-resolved
 // settings object that the renderer can use directly.
 //
@@ -267,20 +451,9 @@ export function resolveSettings(query = {}) {
   const exportPad = Math.round(sc * pad / 100);
 
   // ---- per-sticker recolor overrides ------------------------------------
-  // Optional base64url-encoded JSON of getPiecesColors() (edgeColors,
-  // cornerColors, sliceColors). Absent -> no per-sticker overrides.
-  let piecesColors;
-  if (merged.pc) {
-    try {
-      const b64 = String(merged.pc).replace(/-/g, '+').replace(/_/g, '/');
-      const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
-      const buf = Buffer.from(padded, 'base64').toString('utf8');
-      piecesColors = JSON.parse(buf);
-    } catch (err) {
-      // Ignore malformed pc; render with the plain scheme.
-      piecesColors = undefined;
-    }
-  }
+  // Optional base64url "color:idx,idx;color:idx" string (see encodePieceColors).
+  // Absent -> no per-sticker overrides (classical default mapping).
+  const piecesColors = merged.pc ? decodePieceColors(String(merged.pc)) : undefined;
 
   return {
     input,
