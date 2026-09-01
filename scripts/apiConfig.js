@@ -41,6 +41,10 @@ export const PARAM_DEFAULTS = {
   // pc = base64url "colorName:idx,idx;colorName:idx" custom color FORMATION —
   //     which stickers use which named color (custom/formation only)
   pc: null,
+  // pf = named FORMATION preset key (see FORMATION_PRESETS) — an alternative,
+  //     pre-built "which sticker gets which color" mapping that combines with
+  //     any palette (cp=/c=). An explicit pc= overrides pf=.
+  pf: null,
 };
 
 // Map friendly API param name -> the core's styleSettings key.
@@ -120,6 +124,14 @@ export const SETTINGS_PRESETS = {
     label: "Tight Layers",
     params: { gap: 60, layerRatio: 0.5 },
   },
+  // "obl" — style-conditional via the engine's own handling: SAC2 honors
+  // hideSides (hides the side colors) while completely ignoring layerRatio,
+  // and Abid forces sides on (ignoring hideSides) while honoring layerRatio.
+  // So one static preset yields: SAC2 → hide side colors, Abid → layerRatio 1.
+  "obl": {
+    label: "Obl",
+    params: { hideSides: true, layerRatio: 1 },
+  },
 };
 
 // --------------------------------------------------------------------------
@@ -135,14 +147,46 @@ export const SETTINGS_PRESETS = {
 // magenta for one request).
 // --------------------------------------------------------------------------
 export const COLOR_PRESETS = {
-  // Example — a warm palette defining face colors only. Replace/remove freely.
-  "warm-rubik": {
-    label: "Warm Rubik Colors",
+  // "default" — the stock face colors plus the muted helper gray used by the
+  // related settings presets. Everything else falls back to the style default.
+  "default": {
+    label: "Default",
     colors: {
-      front: "#E63946",
-      right: "#F4A261",
-      back: "#E76F51",
-      left: "#F1C40F",
+      muted: "#818181FF",
+    },
+  },
+
+  // "white-top" — white top, dark-gray bottom, green left, blue right. The
+  // rest of the faces stay at their style defaults.
+  "white-top": {
+    label: "White Top",
+    colors: {
+      top: "#FFFFFF",
+      bottom: "#474747FF",
+      left: "#00AA00",
+      right: "#0066CC",
+      muted: "#818181FF",
+    },
+  },
+
+  // "yellow-top" — same as white-top but with a yellow top face.
+  "yellow-top": {
+    label: "Yellow Top",
+    colors: {
+      top: "#FFFD00FF",
+      bottom: "#474747FF",
+      left: "#00AA00",
+      right: "#0066CC",
+      muted: "#818181FF",
+    },
+  },
+
+  // "yellow-bottom" — the default palette with just the bottom set yellow.
+  "yellow-bottom": {
+    label: "Yellow Bottom",
+    colors: {
+      bottom: "#FFFD00FF",
+      muted: "#818181FF",
     },
   },
 };
@@ -151,6 +195,159 @@ export const COLOR_PRESETS = {
 export const PRESETS = {
   ...Object.fromEntries(Object.entries(SETTINGS_PRESETS).map(([k, v]) => [k, v])),
 };
+
+// --------------------------------------------------------------------------
+// Formation presets (the "which sticker gets which color" section).
+//
+// A formation preset assigns palette color NAMES (muted, front, right, back,
+// ...) to specific sticker indices, overriding the classical default mapping.
+// It lives in the COLOR section and is activated via &pf=<key>; it combines
+// with ANY palette (cp= / c=) — the names only resolve once a palette is
+// active. It also supports computed color tokens for special cases:
+//
+//   lighten<pct>:name1,name2   → the per-channel average of name1 and name2,
+//                                then lightened toward white by <pct>%, as an
+//                                opaque #rrggbb fill (resolved at render time
+//                                against the active palette).
+//
+// Sticker indices 0..46 (see buildStickerIndex): edges 0-15 (inner+outer),
+// corners 16-39 (top,left,right), slices 40-46.
+// --------------------------------------------------------------------------
+function buildFormation(groups) {
+  // groups: { colorToken: "idx,idx,from-to,from-to" }
+  const out = {};
+  for (const [color, spec] of Object.entries(groups)) {
+    for (const part of String(spec).split(',')) {
+      const tok = part.trim();
+      if (tok === '') continue;
+      const dash = tok.split('-');
+      const a = parseInt(dash[0], 10);
+      if (dash.length === 1) { out[a] = color; continue; }
+      const b = parseInt(dash[1], 10);
+      for (let i = Math.min(a, b); i <= Math.max(a, b); i++) out[i] = color;
+    }
+  }
+  return out;
+}
+
+export const FORMATION_PRESETS = {
+  // CP — the whole outer rim (all 16 edge stickers) goes muted.
+  "cp": {
+    label: "CP",
+    formation: buildFormation({ muted: "0-15" }),
+  },
+  // SB — top corners + interleaved edges muted; bottom-front (8,9), bottom-left (12,13) stay default.
+  "sb": {
+    label: "SB",
+    formation: buildFormation({ muted: "0-7,10-11,14-27" }),
+  },
+  // RSB — same as SB but bottom-back edge (14,15) also stays default.
+  "rsb": {
+    label: "RSB",
+    formation: buildFormation({ muted: "0-7,10-11,16-27" }),
+  },
+  // ASP — RSB's mute set, then paints a few stickers with face colors.
+  "asp": {
+    label: "ASP",
+    formation: buildFormation({
+      muted: "0-7,10-11,16-27",
+      front: "9,30",
+      right: "29,33",
+      back: "32",
+    }),
+  },
+  // ASDP — like ASP but 9 & 15 get the average of front+back at 40% opacity.
+  "asdp": {
+    label: "ASDP",
+    formation: buildFormation({
+      muted: "0-7,10-11,16-27",
+      front: "30",
+      right: "29,33",
+      back: "32",
+      "lighten40:front,back": "9,15",
+    }),
+  },
+};
+
+function parseRGB(color) {
+  if (typeof color !== 'string') return null;
+  const hex = color.trim();
+  if (hex[0] === '#') {
+    let h = hex.slice(1);
+    if (h.length === 3 || h.length === 4) h = h.split('').map(c => c + c).join('');
+    const num = parseInt(h.slice(0, 6), 16);
+    if (Number.isNaN(num) || h.length < 6) return null;
+    return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+  }
+  const m = hex.match(/rgba?\(([^)]+)\)/);
+  if (m) {
+    const parts = m[1].split(',').map(s => Number.parseFloat(s.trim()));
+    return { r: parts[0] || 0, g: parts[1] || 0, b: parts[2] || 0 };
+  }
+  return null;
+}
+
+// Standard face colors for SAC2/Abid (identical in both). Used to resolve an
+// avg- token's source faces when the active palette doesn't override them —
+// e.g. ASDP averages front & back, but most palettes leave those at default.
+const DEFAULT_FACE_RGB = {
+  top:    { r: 77,  g: 77,  b: 77 },
+  bottom: { r: 255, g: 255, b: 255 },
+  front:  { r: 204, g: 0,   b: 0 },
+  right:  { r: 0,   g: 170, b: 0 },
+  back:   { r: 255, g: 140, b: 0 },
+  left:   { r: 0,   g: 102, b: 204 },
+};
+
+// Token like "lighten40:front,back" → average the source colors per channel,
+// then lighten toward white by the given percent, full opacity.
+//   newC = avgC × (100−p)/100 + 255 × p/100
+// Produces an opaque "#rrggbb" using the active palette (falling back to the
+// standard face defaults for any face the palette doesn't override).
+function computeAvgToken(token, scheme) {
+  const ci = token.indexOf(':');
+  const pct = Number.parseInt(token.slice(7, ci === -1 ? token.length : ci), 10);
+  const names = (ci === -1 ? token.slice(7) : token.slice(ci + 1)).split(',');
+  const vals = names
+    .map(n => parseRGB(scheme ? scheme[n] : null) || DEFAULT_FACE_RGB[n])
+    .filter(Boolean);
+  const p = Number.isFinite(pct) ? pct : 100;
+  const mix = i => {
+    const avg = vals.reduce((s, v) => s + [v.r, v.g, v.b][i], 0) / vals.length;
+    return Math.round(avg * ((100 - p) / 100) + 255 * (p / 100));
+  };
+  if (!vals.length) return token;
+  const hex = v => Math.min(255, Math.max(0, v)).toString(16).padStart(2, '0');
+  return `#${hex(mix(0))}${hex(mix(1))}${hex(mix(2))}`;
+}
+
+// Resolve a named formation preset into a full {edgeColors, cornerColors,
+// sliceColors} object (starting from the classical default mapping) using the
+// active color scheme to compute any avg tokens. Returns null on unknown key.
+export function resolveFormationPreset(presetKey, colorScheme) {
+  const preset = FORMATION_PRESETS[presetKey];
+  if (!preset) return null;
+  const pc = schemaDefaultPiecesColors();
+  const reverse = buildStickerIndexReverse();
+  for (const [idxStr, token] of Object.entries(preset.formation)) {
+    if (token === undefined) continue;
+    const key = reverse[parseInt(idxStr, 10)];
+    if (!key) continue;
+    const kind = key[0];
+    const rest = key.slice(2);
+    const color = token.indexOf('lighten') === 0 ? computeAvgToken(token, colorScheme) : token;
+    if (kind === 'e') {
+      const [p, side] = rest.split(':');
+      pc.edgeColors[p] = { ...pc.edgeColors[p], [side]: color };
+    } else if (kind === 'c') {
+      const [p, side] = rest.split(':');
+      pc.cornerColors[p] = { ...pc.cornerColors[p], [side]: color };
+    } else if (kind === 's') {
+      pc.sliceColors[rest] = color;
+    }
+  }
+  return pc;
+}
 
 // --------------------------------------------------------------------------
 // Pure helpers shared by client + server.
@@ -177,7 +374,7 @@ function parseIntParam(raw, fallback) {
 // Splitting them out keeps the two sections fully independent: a settings
 // preset can never leak into colors, and a color preset can never touch design,
 // no matter how they're stacked.
-const SETTINGS_FORBIDDEN = ['input', 'mode', 'fmt', 'p', 'cp', 'scheme', 'c', 'pc'];
+const SETTINGS_FORBIDDEN = ['input', 'mode', 'fmt', 'p', 'cp', 'scheme', 'c', 'pc', 'pf'];
 // Keys a COLOR preset may never set — the design/output section. A color
 // preset only ever produces palette colors.
 const COLOR_FORBIDDEN = ['input', 'mode', 'fmt', 'p', 'cp', 'pc', 'style', 'size', 'pad', 'gap', 'orient', 'layer', 'hideSlice', 'hideSides', 'layerRatio', 'strokeOuter', 'strokeSlice', 'strokeInner'];
@@ -527,9 +724,14 @@ export function resolveSettings(query = {}) {
   const exportPad = Math.round(sc * pad / 100);
 
   // ---- per-sticker recolor overrides ------------------------------------
-  // Optional base64url "color:idx,idx;color:idx" string (see encodePieceColors).
-  // Absent -> no per-sticker overrides (classical default mapping).
-  const piecesColors = merged.pc ? decodePieceColors(String(merged.pc)) : undefined;
+  // Either an explicit base64url pc= blob (see encodePieceColors) or a named
+  // &pf= formation preset that combines with the active palette above. An
+  // explicit pc= always wins over pf=. Absent -> classical default mapping.
+  const piecesColors = merged.pc
+    ? decodePieceColors(String(merged.pc))
+    : merged.pf
+      ? resolveFormationPreset(String(merged.pf), colorScheme)
+      : undefined;
 
   return {
     input,

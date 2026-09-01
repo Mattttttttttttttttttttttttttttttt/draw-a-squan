@@ -9,7 +9,7 @@ import {
     DALTON_3D_ORIENTATION_VERSION,
 } from './dalton3dRenderer.js';
 import { parseScramble } from './parseScramble.js';
-import { API_BASE_URL, SETTINGS_PRESETS, COLOR_PRESETS, PRESETS, buildQueryString, encodePieceColors, buildStickerIndex } from './apiConfig.js';
+import { API_BASE_URL, SETTINGS_PRESETS, COLOR_PRESETS, FORMATION_PRESETS, PRESETS, buildQueryString, encodePieceColors, buildStickerIndex, resolveFormationPreset } from './apiConfig.js';
 
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
 var schemePickrs = {};
@@ -2646,6 +2646,20 @@ function applyColorPreset(name, overrides) {
     return true;
 }
 
+// Console-only way to apply a FORMATION preset (which sticker gets which color):
+//   applyFormationPreset('asdp')   → applies the ASP/ASDP/... sticker mapping
+// It combines with whatever palette is currently active. See FORMATION_PRESETS.
+function applyFormationPreset(name) {
+    const pc = resolveFormationPreset(name, sq1vis.getColorScheme());
+    if (!pc) { console.warn(`No formation preset named "${name}". Available: ${Object.keys(FORMATION_PRESETS).join(', ') || '(none)'}`); return false; }
+    sq1vis.setPiecesColors(pc);
+    if (!isCustomMode) setSchemeMode(true, { redraw: false, persist: false });
+    draw();
+    saveSettings();
+    console.log(`Applied formation preset "${name}"`, pc);
+    return true;
+}
+
 function applySquanParam(key, value) {
     switch (key) {
         case 'mode': {
@@ -2757,6 +2771,7 @@ function setLinkedStrokeValue(controlId, value) {
 
 window.applySquanPreset = applySquanPreset;
 window.applyColorPreset = applyColorPreset;
+window.applyFormationPreset = applyFormationPreset;
 window.collectApiParams = collectApiParams;
 window.buildApiLink = buildApiLink;
 window.buildSheetsFormula = buildSheetsFormula;
