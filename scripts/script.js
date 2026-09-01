@@ -591,6 +591,7 @@ function setSchemeMode(isCustom, { redraw = true, persist = true } = {}) {
         customMuteActive = muteActive;
         if (fillModeActive) fillModeBtn.click();
         if (fillResetActive) unfillBtn.click();
+        if (pickColorActive) pickColorBtn.click();
         if (classicalSnapshot) {
             sq1vis.setPiecesColors(classicalSnapshot.piecesColors);
             muteActive = classicalSnapshot.mute;
@@ -675,12 +676,14 @@ document.addEventListener('keydown', e => {
 
 const sidebar = document.querySelector('.sidebar');
 const fillModeBtn = document.getElementById('fill-mode-btn');
+const pickColorBtn = document.getElementById('fill-pick-btn');
 const unfillBtn = document.getElementById('fill-unfill-btn');
 const resetBtn = document.getElementById('fill-reset-btn');
 const muteBtn = document.getElementById('fill-mute-btn');
 const fillColorInput = { value: '#CC0000', _transparent: false };
 
 let fillModeActive = false;
+let pickColorActive = false;
 let fillResetActive = false;
 let muteActive = false;
 
@@ -962,7 +965,9 @@ async function renderDalton3D(moves, muted = false) {
         dalton3DRenderer = new Dalton3DRenderer(stage, {
             onStickerClick: (pieceId) => {
                 if (!pieceId) return;
-                if (fillModeActive) {
+                if (pickColorActive) {
+                    applyPickedColor(pieceId);
+                } else if (fillModeActive) {
                     prepareCustomFillInteraction();
                     pushUndo();
                     sq1vis.setPieceColor(pieceId, fillColorInput.value || 'transparent');
@@ -1077,6 +1082,9 @@ function updateCanvasCursor() {
         viewportCanvas.style.cursor = encoded;
     } else if (fillResetActive) {
         const encoded = 'url("data:image/svg+xml,' + encodeURIComponent(window.CURSOR_SVG.unfill.replace(/\n\s*/g, '')) + '") 1 7, crosshair';
+        viewportCanvas.style.cursor = encoded;
+    } else if (pickColorActive) {
+        const encoded = 'url("data:image/svg+xml,' + encodeURIComponent(window.CURSOR_SVG.pick.replace(/\n\s*/g, '')) + '") 6 20, crosshair';
         viewportCanvas.style.cursor = encoded;
     } else {
         viewportCanvas.style.cursor = '';
@@ -1335,6 +1343,7 @@ loadSettings();
 window.CURSOR_SVG = {
     fill: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><g transform="scale(-1,1) translate(-24,0)"><path fill="#ffffff" stroke="#000000" stroke-width="3" paint-order="stroke" d="M20.911 14.216l-.411-.596-.411.596C19.74 14.72 18 17.3 18 18.5a2.5 2.5 0 0 0 5 0c0-1.2-1.74-3.78-2.089-4.284zM20.5 20a1.502 1.502 0 0 1-1.5-1.5 9.725 9.725 0 0 1 1.5-3.096A9.725 9.725 0 0 1 22 18.5a1.502 1.502 0 0 1-1.5 1.5zm-9-17.207L9.145 5.148a.476.476 0 0 0-.09-.023c-3.475-.17-5.962.425-6.743 1.59-.027.042-.07.077-.092.12a1.394 1.394 0 0 0 .118 1.522c.694.973 2.685 1.732 5.833 1.732a23.887 23.887 0 0 0 2.89-.192 1.494 1.494 0 1 0 .076-1.016c-4.77.618-7.418-.308-7.986-1.104-.812-1.14 3.1-1.71 5.044-1.679L6.32 7.973c.386.05.836.08 1.318.096L11.5 4.207l7.293 7.293-8.09 8.091a1.74 1.74 0 0 1-2.405 0l-4.889-4.888a1.702 1.702 0 0 1 0-2.405l1.514-1.514a9.152 9.152 0 0 1-1.101-.312l-1.12 1.12a2.703 2.703 0 0 0 0 3.818l4.889 4.888a2.7 2.7 0 0 0 3.818 0l8.798-8.798zM12 9.5a.5.5 0 1 1 .5.5.5.5 0 0 1-.5-.5z"/></g></svg>`,
 
+    pick: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><g transform="rotate(28 12 12)"><g fill="none" stroke="#ffffff" stroke-width="4.2" stroke-linejoin="round"><path d="M10.4 6.8 h3.2 v11 L12 23 L10.4 17.8 Z"/><path d="M9.4 6.8 L9.4 5.2 a1.7 1.7 0 0 1 1.7 -1.7 H12.9 a1.7 1.7 0 0 1 1.7 1.7 L14.6 6.8 Z"/></g><g fill="none" stroke="#000000" stroke-width="2.4" stroke-linejoin="round"><path d="M10.4 6.8 h3.2 v11 L12 23 L10.4 17.8 Z"/><path d="M9.4 6.8 L9.4 5.2 a1.7 1.7 0 0 1 1.7 -1.7 H12.9 a1.7 1.7 0 0 1 1.7 1.7 L14.6 6.8 Z"/></g></g></svg>`,
     unfill: `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="20" height="20" viewBox="0 0 488 488" xml:space="preserve">
 <g>
   <g>
@@ -1365,6 +1374,7 @@ window.encodeCursors = function () {
 
 function activateFill() {
     if (fillResetActive && !fillModeActive) unfillBtn.click();
+    if (pickColorActive) pickColorBtn.click();
 
     fillModeActive = !fillModeActive;
     fillModeBtn.classList.toggle('active', fillModeActive);
@@ -1379,12 +1389,51 @@ fillModeBtn.addEventListener('click', activateFill);
 
 unfillBtn.addEventListener('click', () => {
     if (fillModeActive && !fillResetActive) fillModeBtn.click();
+    if (pickColorActive) pickColorBtn.click();
 
     fillResetActive = !fillResetActive;
     unfillBtn.classList.toggle('active', fillResetActive);
 
     updateCanvasCursor();
 });
+
+pickColorBtn.addEventListener('click', () => {
+    if (fillModeActive) fillModeBtn.click();
+    if (fillResetActive) unfillBtn.click();
+
+    pickColorActive = !pickColorActive;
+    pickColorBtn.classList.toggle('active', pickColorActive);
+
+    updateCanvasCursor();
+});
+
+// Resolve the color currently displayed on a sticker with the given
+// "<piece> <surface>" id from the stored piece colors + color scheme.
+function resolveStickerColor(pieceId) {
+    const [piece, surface] = pieceId.split(' ');
+    const pc = sq1vis.getPiecesColors();
+    let current;
+    if (piece === 'slice') {
+        current = pc.sliceColors?.[surface];
+    } else if (parseInt(piece, 16) % 2 === 0) {
+        current = pc.edgeColors?.[piece]?.[surface];
+    } else {
+        current = pc.cornerColors?.[piece]?.[surface];
+    }
+    if (current == null) return '#CC0000';
+    return String(current).charAt(0) === '#' || String(current).startsWith('rgb') || current === 'transparent'
+        ? current
+        : (sq1vis.getColorScheme()[current] ?? current);
+}
+
+function applyPickedColor(pieceId) {
+    const color = resolveStickerColor(pieceId);
+    if (!color || color === 'transparent') return;
+    setFillColor(color);
+    document.querySelectorAll('.ctb-recent-slot').forEach(s => s.classList.remove('active-recent'));
+    if (!fillModeActive) activateFill();
+    updateCanvasCursor();
+}
 
 function updateLastUsed() {
     let value = fillColorInput.value;
@@ -1423,6 +1472,12 @@ function selectRecentColor(hex, slotEl) {
 }
 
 document.getElementById('canvas-inner').addEventListener('click', e => {
+    if (pickColorActive) {
+        const piece = e.target.closest('.sticker[id]');
+        if (!piece || !piece.id.trim()) return;
+        applyPickedColor(piece.id);
+        return;
+    }
     if (fillModeActive) {
         const piece = e.target.closest('.sticker[id]');
         if (!piece || !piece.id.trim()) return;
