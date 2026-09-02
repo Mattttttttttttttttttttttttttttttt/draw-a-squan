@@ -8,7 +8,6 @@ import {
     DALTON_3D_HERO_SLIDER_VALUES,
     DALTON_3D_ORIENTATION_VERSION,
 } from './dalton3dRenderer.js';
-import { parseScramble } from './parseScramble.js';
 import { API_BASE_URL, SETTINGS_PRESETS, COLOR_PRESETS, FORMATION_PRESETS, PRESETS, buildQueryString, encodePieceColors, buildStickerIndex, resolveFormationPreset } from './apiConfig.js';
 
 const PLACEHOLDER_HEX = '011233455677|998bbaddcffe';
@@ -915,10 +914,10 @@ function currentInputToHex({ placeholder = false } = {}) {
     if (mode === 'hex') {
         hex = input;
     } else if (mode === 'inverse') {
-        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(sq1vis.unkarnify(input)));
+        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(input));
         hex = `${tlHex}|${blHex}`;
     } else {
-        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
+        const { tlHex, blHex } = sq1vis.algToHex(input);
         hex = `${tlHex}|${blHex}`;
     }
     validateSquare1Hex(hex);
@@ -937,10 +936,10 @@ function currentInputToDaltonMoves() {
     currentInputToHex();
 
     const scramble = mode === 'inverse'
-        ? sq1vis.invertScramble(sq1vis.unkarnify(input))
+        ? sq1vis.invertScramble(input)
         : sq1vis.unkarnify(input);
 
-    return parseScramble(scramble);
+    return sq1vis.parseScramble(scramble);
 }
 
 function destroyDalton3DRenderer() {
@@ -1874,11 +1873,11 @@ function getExportSVGString(layer) {
         if (mode === 'hex') {
             hex = input;
         } else if (mode === 'inverse') {
-            const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(sq1vis.unkarnify(input)));
+            const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(input));
             hex = `${tlHex}|${blHex}`;
         } else {
             // mode = "scramble"
-            const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
+            const { tlHex, blHex } = sq1vis.algToHex(input);
             hex = `${tlHex}|${blHex}`;
         }
     }
@@ -2817,10 +2816,10 @@ window.buildSheetsFormula = buildSheetsFormula;
         if (!input) throw new Error('empty');
         if (s.mode === 'hex') return input;
         if (s.mode === 'inverse') {
-            const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(sq1vis.unkarnify(input)));
+            const { tlHex, blHex } = sq1vis.algToHex(sq1vis.invertScramble(input));
             return `${tlHex}|${blHex}`;
         }
-        const { tlHex, blHex } = sq1vis.algToHex(sq1vis.unkarnify(input));
+        const { tlHex, blHex } = sq1vis.algToHex(input);
         return `${tlHex}|${blHex}`;
     }
 

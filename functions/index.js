@@ -1,8 +1,10 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { Resvg } from "@resvg/resvg-js";
-import { algToHex, invertScramble, unkarnify } from "../scripts/parseScramble.js";
+import SquanLib from "../squanlib.js";
 import { renderSquare1SVG, renderSquare1LayerSVG } from "../scripts/drawScrambleCore.js";
 import { resolveSettings } from "../scripts/apiConfig.js";
+
+const squanLib = new SquanLib();
 
 const PLACEHOLDER_HEX = "011233455677|998bbaddcffe";
 const INVALID_MSG = "Invalid position. Double check your scramble!";
@@ -22,10 +24,10 @@ function stripWrappingQuotes(raw) {
 function inputToHex(input, mode) {
   if (mode === "hex") return input;
   if (mode === "inverse") {
-    const { tlHex, blHex } = algToHex(invertScramble(unkarnify(input)));
+    const { tlHex, blHex } = squanLib.algToHex(squanLib.invertScramble(input));
     return `${tlHex}|${blHex}`;
   }
-  const { tlHex, blHex } = algToHex(unkarnify(input));
+  const { tlHex, blHex } = squanLib.algToHex(input);
   return `${tlHex}|${blHex}`;
 }
 

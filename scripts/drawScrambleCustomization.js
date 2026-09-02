@@ -1,5 +1,7 @@
 import { createSquare1Core } from './drawScrambleCore.js';
-import { algToHex, invertScramble, unkarnify } from './parseScramble.js';
+import SquanLib from '../squanlib.js';
+
+const squanLib = new SquanLib();
 
 function clonePiecesColors(piecesColors) {
     return JSON.parse(JSON.stringify(piecesColors));
@@ -70,9 +72,10 @@ export function createSquare1Visualizer(initialState = {}) {
 
     return {
         ...core,
-        algToHex,
-        invertScramble,
-        unkarnify,
+        algToHex: (alg) => squanLib.algToHex(alg),
+        invertScramble: (alg) => squanLib.invertScramble(alg),
+        unkarnify: (alg) => squanLib.unkarnify(alg),
+        parseScramble: (alg) => squanLib.parseScramble(alg),
         setPieceColor,
         resetPieceColor,
         resetPiecesColors,

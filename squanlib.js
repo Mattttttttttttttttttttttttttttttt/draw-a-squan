@@ -1,8 +1,7 @@
 // =============================================================================
 // Squan unkarnify pipeline
 //
-// Trimmed from the full SquanLib toolkit down to just the karn → WCA
-// unkarnify pipeline (plus the helpers it depends on).
+// Trimmed from the full SquanLib.
 // =============================================================================
 
 export default class SquanLib {
@@ -217,7 +216,7 @@ export default class SquanLib {
      * isKarn: returns true if the string uses any letters, excluding A and a
      *
      * @param {string} str the alg
-     * @returns {boolean} whether the alg contains letters, excluding A and a
+     * @returns {boolean} whether the string contains letters, excluding A and a
      */
     isKarn(str) {
         return /[b-zB-Z]/.test(str);
@@ -392,5 +391,104 @@ export default class SquanLib {
 
         // unkarnify the shorthands that were replaced into the alg
         return this.unkarnifyHelp(alg);
+    }
+
+
+    // =========================================================================
+    // SECTION 5: SCRAMBLE / ALG UTILITIES
+    // =========================================================================
+
+    /**
+     * shift: cyclically rotates a hex/layer string. cw = positive.
+     *
+     * @param {string} a the string to rotate
+     * @param {number} amount the rotation amount
+     * @returns {string} the rotated string
+     */
+    shift(a, amount) {
+        amount = ((-amount % a.length) + a.length) % a.length;
+        return a.slice(amount) + a.slice(0, amount);
+    }
+
+    /**
+     * twist: does a slice on a hex position.
+     *
+     * @param {string} tlHex top layer hex, from UFL clockwise
+     * @param {string} blHex bottom layer hex, from DF clockwise
+     * @returns {{tlHex: string, blHex: string}} the position post-twist
+     */
+    twist(tlHex, blHex) {
+        return {
+            tlHex: tlHex.slice(0, 6) + blHex.slice(0, 6),
+            blHex: tlHex.slice(6) + blHex.slice(6),
+        };
+    }
+
+    /**
+     * parseScramble: tokenizes an already-unkarnified WCA squan scramble.
+     *
+     * @param {string} alg the WCA alg
+     * @returns {{type: string, top?: number, bottom?: number}[]} parsed moves
+     */
+    parseScramble(alg) {
+        const moves = [];
+        const parts = alg.replace(/[\/\\\|]/g, ' / ').trim().split(/\s+/).filter(Boolean);
+        for (let part of parts) {
+            if (part.startsWith("p"))
+                moves.push({ type: 'turn', top: 0, bottom: 0 });
+            else if (part === '/') {
+                moves.push({ type: 'twist' });
+            } else {
+                part = this.addCommas(part.replace(/[()]/g, ''));
+                if (!part.includes(",")) throw new Error(`parseScramble: move: ${part} is weird.`);
+                const [top, bottom] = part.split(',').map(n => parseInt(n.trim(), 10));
+                if (!isNaN(top) && !isNaN(bottom))
+                    moves.push({ type: 'turn', top, bottom });
+            }
+        }
+        return moves;
+    }
+
+    /**
+     * algToHex: get the hex position that an alg generates. karn accepted.
+     *
+     * @param {string} alg the alg
+     * @returns {{tlHex: string, blHex: string}} the resulting hex position
+     */
+    algToHex(alg) {
+        let tlHex = '011233455677';
+        let blHex = '998bbaddcffe';
+        for (const move of this.parseScramble(this.unkarnify(alg))) {
+            if (move.type === 'twist') {
+                ({ tlHex, blHex } = this.twist(tlHex, blHex));
+            } else {
+                tlHex = this.shift(tlHex, -move.top);
+                blHex = this.shift(blHex, -move.bottom);
+            }
+        }
+        return { tlHex, blHex };
+    }
+
+    /**
+     * invertScramble: reverses a scramble. karn accepted.
+     *
+     * @param {string} alg the alg
+     * @returns {string} the reversed alg, in WCA notation
+     */
+    invertScramble(alg) {
+        if (!alg) return alg;
+        const unkarnified = this.unkarnify(alg).trim().replaceAll(/[\\|]/g, "/");
+        return unkarnified.split('/').reverse().map(part => {
+            part = part.trim();
+            const src = part.includes('(')
+                ? part.match(/\(([^)]+)\)/)?.[1]
+                : part.includes(',') ? part : null;
+            if (!src) return part;
+            const inverted = src.split(',').map(v => {
+                const n = parseInt(v.trim(), 10);
+                return isNaN(n) ? v.trim() : String(-n);
+            }).join(',');
+            return part.includes('(') ? `(${inverted})` : inverted;
+        }).join('/');
     }
 }
