@@ -2477,9 +2477,9 @@ function collectApiParams() {
     // link short instead of always dumping every slot.
     const scheme = sq1vis.getColorScheme();
     const slots = sq1vis.getColorSlots();
-    const hasChangedSlot = slots.some(s => String(scheme[s.id]) !== String(s.default));
-    if (hasChangedSlot) {
-        params.c = slots.map(s => `${s.id}:${scheme[s.id]}`).join(',');
+    const changedSlots = slots.filter(s => String(scheme[s.id]) !== String(s.default));
+    if (changedSlots.length > 0) {
+        params.c = changedSlots.map(s => `${s.id}:${scheme[s.id]}`).join(',');
     }
 
     // Only emit per-sticker recolor overrides when they differ from the
@@ -2509,13 +2509,18 @@ function buildApiLink() {
 function buildSheetsFormula({ cell = true, cellRef = apiCellRef, inline = false } = {}) {
     const params = collectApiParams();
     if (!params) return null;
+    // IMAGE() errors out on non-image responses (e.g. our 400 text/plain
+    // errors); IMPORTXML(..., "//body") recovers that error text instead.
+    let urlExpr;
     if (!inline && cell) {
         const ref = String(cellRef || 'A1');
         const rest = buildQueryString(params);
-        return `=IMAGE("${API_BASE_URL}?input="&ENCODEURL(${ref})&"&${rest}")`;
+        urlExpr = `"${API_BASE_URL}?input="&ENCODEURL(${ref})&"&${rest}"`;
+    } else {
+        const full = buildQueryString({ input: currentInputText(), ...params });
+        urlExpr = `"${API_BASE_URL}?${full}"`;
     }
-    const full = buildQueryString({ input: currentInputText(), ...params });
-    return `=IMAGE("${API_BASE_URL}?${full}")`;
+    return `=IFERROR(IMAGE(${urlExpr}), IMPORTXML(${urlExpr}, "//body"))`;
 }
 
 function copyText(text, okMsg = 'Copied!') {
