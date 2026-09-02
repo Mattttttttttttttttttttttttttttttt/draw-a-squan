@@ -6,7 +6,7 @@
 // request parsing (server) always agree on param names, defaults and presets.
 // =============================================================================
 
-export const API_BASE_URL = 'https://squan-go.web.app/draw/api';
+export const API_BASE_URL = 'https://squan-go.web.app/draw/api/';
 
 // --------------------------------------------------------------------------
 // Parameter names & defaults.
