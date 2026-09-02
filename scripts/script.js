@@ -1449,6 +1449,8 @@ function updateLastUsed() {
         lastUsedColors.unshift(value);
     }
     renderRecentSlots();
+    document.querySelectorAll('.ctb-recent-slot').forEach(s => s.classList.remove('active-recent'));
+    document.getElementById(`ctb-recent-0`).classList.add('active-recent');
 }
 
 function renderRecentSlots() {
