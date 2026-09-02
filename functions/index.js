@@ -75,6 +75,23 @@ function combineLayers(html, sc, gap, isVert) {
     `<g transform="${g1shift}">${getInner(svg1)}</g></svg>`;
 }
 
+// Render an error message as a PNG image with a transparent background so
+// IMAGE() formulas can display the text instead of failing.
+function errorTextToImage(text) {
+  const lines = String(text).split(/\r?\n/);
+  const width = 560;
+  const lineHeight = 22;
+  const pad = 12;
+  const height = pad * 2 + lineHeight * lines.length + 8;
+  const body = lines.map((line, i) => {
+    const y = pad + lineHeight * i + 16;
+    const escaped = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `<text x="${pad}" y="${y}" font-family="Arial, sans-serif" font-size="14" fill="rgba(255,0,0,0.9)">${escaped}</text>`;
+  }).join("");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${body}</svg>`;
+  return new Resvg(svg, { fitTo: { mode: "original" }, background: "transparent" }).render().asPng();
+}
+
 // Take the first non-empty line of a multi-line input. Google Sheets passes a
 // whole cell (often several scrambles, one per line); the backend should only
 // render the first line instead of requiring the caller to SPLIT/index it.
@@ -148,8 +165,9 @@ export const drawApi = onRequest({ cors: true }, async (req, res) => {
       validatePosition(hex);
     } catch (err) {
       if (err.message === INVALID_MSG) {
-        res.set("Content-Type", "text/plain");
-        res.status(400).send(INVALID_MSG);
+        res.set("Content-Type", "image/png");
+        res.set("Cache-Control", "public, max-age=3600");
+        res.send(errorTextToImage(INVALID_MSG));
         return;
       }
       throw err;
@@ -194,6 +212,8 @@ export const drawApi = onRequest({ cors: true }, async (req, res) => {
     res.send(png);
   } catch (err) {
     console.error("drawApi error:", err);
-    res.status(400).send(String(err.message || err));
+    res.set("Content-Type", "image/png");
+    res.set("Cache-Control", "public, max-age=3600");
+    res.send(errorTextToImage(String(err.message || err)));
   }
 });

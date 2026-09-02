@@ -2510,8 +2510,6 @@ function buildApiLink() {
 function buildSheetsFormula({ cell = true, cellRef = apiCellRef, inline = false } = {}) {
     const params = collectApiParams();
     if (!params) return null;
-    // IMAGE() errors out on non-image responses (e.g. our 400 text/plain
-    // errors); IMPORTXML(..., "//body") recovers that error text instead.
     let urlExpr;
     if (!inline && cell) {
         const ref = String(cellRef || 'A1');
@@ -2521,7 +2519,7 @@ function buildSheetsFormula({ cell = true, cellRef = apiCellRef, inline = false 
         const full = buildQueryString({ input: currentInputText(), ...params });
         urlExpr = `"${API_BASE_URL}?${full}"`;
     }
-    return `=IFERROR(IMAGE(${urlExpr}), IMPORTXML(${urlExpr}, "//body"))`;
+    return `=IMAGE(${urlExpr})`;
 }
 
 function copyText(text, okMsg = 'Copied!') {
