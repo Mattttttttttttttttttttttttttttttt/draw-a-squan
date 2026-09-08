@@ -892,7 +892,11 @@ function rotateDalton3DAroundLocalAxis(controlId, deltaDegrees) {
 function validateSquare1Hex(hex) {
     const hasLoneCorner = (halfLayer) => {
         for (let c of ['1', '3', '5', '7', '9', 'b', 'd', 'f']) {
-            if (halfLayer.split(c).length % 2 !== 1) return true;
+            let splitLayer = halfLayer.split(c);
+            // prevent extra/singular corner pieces
+            if (![1, 3].includes(splitLayer.length)) return true;
+            // prevent disjoint corners
+            if (splitLayer.length === 3 && splitLayer[1].length !== 0) return true;
         }
         return false;
     };

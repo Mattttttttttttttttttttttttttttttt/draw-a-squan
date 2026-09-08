@@ -83,10 +83,12 @@ export default class SquanLib {
         "jn": "D4'", "nj": "U4",
         "jj": "U e' D", "bjj+e2": "U' e' U'",
         "-nn": "E' E",
-        "-jn": "D4", "-nj": "D4'",
+        "-jn": "D4", "-nj": "U4'",
         // ── alignment-dependent ───────────────────────────────────────────────
         "bpj10": "d m' U", "bpj0-1": "u' m D'",
         "fpj10": "u m' D", "fpj0-1": "d' m U'",
+        "e2bpj10": "d 44 D", "e2bpj0-1": "u' -4-4 U'",
+        "e2fpj10": "u 44 U", "e2fpj0-1": "d' -4-4 D'",
         "aa10": "u m' u T'", "aa0-1": "U m' U t'",
         "fadj10": "D M' d'", "dadj10": "D M' d'",
         "fadj0-1": "U' M u", "u'adj0-1": "U' M u",
@@ -99,10 +101,11 @@ export default class SquanLib {
         "fv10": "d4", "fv0-1": "d4'",
         "vf10": "u4", "vf0-1": "u4'",
         "y2fv10": "u d' u -5,4",
+        "pñ10": "E m u2'", "pñ0-1": "E m' d2",
         "jf10": "w D' u T'", "jf0-1": "w' D u' T",
         "fj10": "b U' d t", "fj0-1": "b' U d' t'",
-        "jr00": "e' w e", "jr10": "e' b e",
-        "jr0-1": "e' w' e", "jr1-1": "e' b' e",
+        "jr00": "e' w e", "jr10": "e' w e",
+        "jr0-1": "e' b' e", "jr1-1": "e' b' e",
         "rj00": "e b' e'", "rj10": "e w e'",
         "rj0-1": "e b' e'", "rj1-1": "e w e'",
         "jv10": "b D d d2'", "jv0-1": "b' D' d' d2",
@@ -199,30 +202,6 @@ export default class SquanLib {
     }
 
     /**
-     * addCommasPreservingSeparators: add commas to numeric shorthand without
-     * flattening slices/spaces into a single separator type.
-     *
-     * @param {string} alg the scramble
-     * @returns {string} the scramble with numeric shorthand normalized
-     */
-    addCommasPreservingSeparators(alg) {
-        return alg.split(/([/\\| ]+)/).map(part => {
-            if (!part || /^[/\\| ]+$/.test(part)) return part;
-            return this.addCommas(part);
-        }).join('');
-    }
-
-    /**
-     * isKarn: returns true if the string uses any letters, excluding A and a
-     *
-     * @param {string} str the alg
-     * @returns {boolean} whether the string contains letters, excluding A and a
-     */
-    isKarn(str) {
-        return /[b-zB-Z]/.test(str);
-    }
-
-    /**
      * getAlignmentMove: turns topA and bottomA into a starting move
      *
      * @param {boolean} topA top misalign?
@@ -250,8 +229,6 @@ export default class SquanLib {
         // " / " → "/"
         alg = alg.replaceAll(/ ([\/\\\|]) /g, "$1")
         if (/[\/\\\|]{2,}/.test(alg)) throw new Error("unkarnifyHelp: Two slices in a row.");
-
-        if (!this.isKarn(alg)) return this.addCommasPreservingSeparators(alg); // not karn at all
 
         // these can be "", if the alg starts/ends with a slice
         let firstMove, lastMove;
@@ -353,7 +330,7 @@ export default class SquanLib {
 
         // early out: no shorthands
         const allKnown = moves.every(m =>
-            !m || !this.isKarn(m) || (' ' + m + ' ' in SquanLib.karnToWCA)
+            !m || (' ' + m + ' ' in SquanLib.karnToWCA)
         );
         if (allKnown) return this.unkarnifyHelp(alg);
 
@@ -440,7 +417,7 @@ export default class SquanLib {
                 moves.push({ type: 'twist' });
             } else {
                 part = this.addCommas(part.replace(/[()]/g, ''));
-                if (!part.includes(",")) throw new Error(`parseScramble: move: ${part} is weird.`);
+                if (!part.includes(",")) throw new Error(`parseScramble: move: ${part} is weird.`)
                 const [top, bottom] = part.split(',').map(n => parseInt(n.trim(), 10));
                 if (!isNaN(top) && !isNaN(bottom))
                     moves.push({ type: 'turn', top, bottom });
