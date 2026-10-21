@@ -1,3 +1,5 @@
+import * as THREE from './three.module.min.js';
+
 const CORNERS = ['1', '3', '5', '7', '9', 'b', 'd', 'f'];
 const DEFAULT_HEX = '011233455677|998bbaddcffe';
 
@@ -255,37 +257,137 @@ function graphicsHelpText() {
     return 'WebGL did not start. Enable hardware or graphics acceleration in your browser settings, restart the browser, and try again.';
 }
 
-function ensureP5() {
-    return new Promise((resolve, reject) => {
-        if (window.p5) {
-            resolve(window.p5);
-            return;
-        }
+class ThreeImmediateAdapter {
+    constructor(renderer, scene, camera, picking, target) {
+        this.renderer = renderer;
+        this.scene = scene;
+        this.camera = camera;
+        this.picking = picking;
+        this.target = target;
+        this.width = 400;
+        this.height = 400;
+        this.stack = [];
+        this.matrix = new THREE.Matrix4();
+        this.vertices = [];
+        this.colors = [];
+        this.shapeVertices = [];
+        this.shapeMode = null;
+        this.QUADS = 'QUADS';
+        this.CLOSE = 'CLOSE';
+        this.currentColor = new THREE.Color();
+        this.strokeColor = new THREE.Color(0x000000);
+        this.strokeEnabled = true;
+        this.mesh = null;
+        this.lines = null;
+    }
 
-        const existing = document.querySelector('script[data-p5-loader]');
-        if (existing) {
-            existing.addEventListener('load', () => resolve(window.p5), { once: true });
-            existing.addEventListener('error', () => reject(new Error('Could not load p5.')), { once: true });
-            return;
-        }
+    clear() {
+        this.matrix.identity();
+        this.vertices = [];
+        this.colors = [];
+        this.shapeVertices = [];
+        this.stack = [];
+        this.removeOutput();
+    }
 
-        const isBuiltApp = [...document.scripts].some(script => /app\.bundle\.js(?:$|\?)/.test(script.src));
-        const paths = isBuiltApp ? ['./p5.min.js', './vendor/p5.min.js'] : ['./vendor/p5.min.js', './p5.min.js'];
-        let index = 0;
-        const loadNext = () => {
-            const script = document.createElement('script');
-            script.src = paths[index++];
-            script.dataset.p5Loader = 'true';
-            script.onload = () => resolve(window.p5);
-            script.onerror = () => {
-                script.remove();
-                if (index < paths.length) loadNext();
-                else reject(new Error('Could not load p5.'));
-            };
-            document.head.appendChild(script);
-        };
-        loadNext();
-    });
+    background() {}
+    push() { this.stack.push(this.matrix.clone()); }
+    pop() { this.matrix.copy(this.stack.pop() || new THREE.Matrix4()); }
+    translate(x, y, z) { this.matrix.multiply(new THREE.Matrix4().makeTranslation(x, y, z)); }
+    scale(value) { this.matrix.multiply(new THREE.Matrix4().makeScale(value, value, value)); }
+    rotate(angle, axis) {
+        this.matrix.multiply(new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(...axis), angle));
+    }
+    rotateX(angle) { this.matrix.multiply(new THREE.Matrix4().makeRotationX(angle)); }
+    rotateY(angle) { this.matrix.multiply(new THREE.Matrix4().makeRotationY(angle)); }
+    rotateZ(angle) { this.matrix.multiply(new THREE.Matrix4().makeRotationZ(angle)); }
+    fill(...args) {
+        if (this.picking) {
+            this.currentColor.setRGB((args[0] || 0) / 255, (args[1] || 0) / 255, (args[2] || 0) / 255);
+        } else {
+            this.currentColor.set(args[0]);
+        }
+    }
+    noFill() { this.currentColor.set(0x000000); }
+    stroke(color) { this.strokeColor.set(color); this.strokeEnabled = true; }
+    noStroke() { this.strokeEnabled = false; }
+    strokeWeight() {}
+    beginShape(mode) { this.shapeMode = mode; this.shapeVertices = []; }
+    vertex(x, y, z = 0) {
+        this.shapeVertices.push(new THREE.Vector3(x, y, z).applyMatrix4(this.matrix));
+    }
+    endShape(mode) {
+        if (this.shapeVertices.length < 3) return;
+        const verts = this.shapeVertices;
+        const triangles = mode === 'CLOSE' || this.shapeMode !== 'QUADS'
+            ? verts.slice(1, -1).flatMap((_, i) => [verts[0], verts[i + 1], verts[i + 2]])
+            : verts.flatMap((_, i) => i % 4 === 0
+                ? [verts[i], verts[i + 1], verts[i + 2], verts[i], verts[i + 2], verts[i + 3]]
+                : []);
+        for (const vertex of triangles) {
+            this.vertices.push(vertex.x, vertex.y, vertex.z);
+            this.colors.push(this.currentColor.r, this.currentColor.g, this.currentColor.b);
+        }
+        if (this.strokeEnabled && !this.picking) {
+            for (let i = 0; i < verts.length; i++) this.addLine(verts[i], verts[(i + 1) % verts.length]);
+        }
+    }
+    line(x1, y1, z1, x2, y2, z2) {
+        if (!this.picking && this.strokeEnabled) {
+            this.addLine(
+                new THREE.Vector3(x1, y1, z1).applyMatrix4(this.matrix),
+                new THREE.Vector3(x2, y2, z2).applyMatrix4(this.matrix),
+            );
+        }
+    }
+    addLine(start, end) {
+        if (!this.lineVertices) this.lineVertices = [];
+        this.lineVertices.push(start.x, start.y, start.z, end.x, end.y, end.z);
+    }
+    pickColor(id) {
+        const value = this.pickIds.get(id) || this.pickIds.size + 1;
+        this.pickIds.set(id, value);
+        return new THREE.Color((value & 255) / 255, ((value >> 8) & 255) / 255, ((value >> 16) & 255) / 255);
+    }
+    render() {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(this.vertices, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(this.colors, 3));
+        this.mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+            vertexColors: true,
+            side: THREE.DoubleSide,
+        }));
+        this.scene.add(this.mesh);
+        if (this.lineVertices?.length) {
+            const lineGeometry = new THREE.BufferGeometry();
+            lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(this.lineVertices, 3));
+            this.lines = new THREE.LineSegments(lineGeometry, new THREE.LineBasicMaterial({ color: this.strokeColor }));
+            this.scene.add(this.lines);
+        }
+        this.renderer.setRenderTarget(this.target);
+        this.renderer.render(this.scene, this.camera);
+        this.renderer.setRenderTarget(null);
+    }
+    get(x, y) {
+        const pixel = new Uint8Array(4);
+        this.renderer.readRenderTargetPixels(this.target, x, this.height - y, 1, 1, pixel);
+        return [pixel[0], pixel[1], pixel[2], pixel[3]];
+    }
+    removeOutput() {
+        if (this.mesh) {
+            this.scene.remove(this.mesh);
+            this.mesh.geometry.dispose();
+            this.mesh.material.dispose();
+        }
+        if (this.lines) {
+            this.scene.remove(this.lines);
+            this.lines.geometry.dispose();
+            this.lines.material.dispose();
+        }
+        this.mesh = null;
+        this.lines = null;
+        this.lineVertices = [];
+    }
 }
 
 export class Dalton3DRenderer {
@@ -296,6 +398,12 @@ export class Dalton3DRenderer {
         this.pickGraphics = null;
         this.pickIds = new Map();
         this.pickColors = new Map();
+        this.scene = null;
+        this.camera = null;
+        this.cameraRig = null;
+        this.threeRenderer = null;
+        this.pickTarget = null;
+        this.orbit = { dragging: false, moved: false, x: 0, y: 0, zone: 1 };
         this.ready = false;
         this.failed = false;
         this.lastOptions = null;
@@ -306,52 +414,125 @@ export class Dalton3DRenderer {
 
     async init() {
         if (this.ready || this.failed) return;
-        const P5 = await ensureP5();
-        await new Promise((resolve) => {
-            this.p5 = new P5((p) => this.sketch(p, resolve));
-        });
+        try {
+            this.threeRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+            this.threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            this.threeRenderer.setClearColor(0x000000, 0);
+            this.container.replaceChildren(this.threeRenderer.domElement);
+            this.threeRenderer.domElement.className = 'dalton-3d-canvas';
+            this.scene = new THREE.Scene();
+            this.camera = new THREE.PerspectiveCamera(45, 1, 1, 3000);
+            this.cameraRig = new THREE.Group();
+            this.scene.add(this.cameraRig);
+            this.cameraRig.add(this.camera);
+            this.camera.position.set(0, 720, 300);
+            this.camera.lookAt(0, 0, 0);
+            this.pickTarget = new THREE.WebGLRenderTarget(400, 400);
+            this.p5 = new ThreeImmediateAdapter(this.threeRenderer, this.scene, this.camera, false, null);
+            this.pickGraphics = new ThreeImmediateAdapter(this.threeRenderer, this.scene, this.camera, true, this.pickTarget);
+            this.edgeRadius = this.len / (2 * Math.cos(Math.PI / 12));
+            this.cornerRadius = this.len / 2 * Math.sqrt(2);
+            this.resize(400);
+            this.bindOrbit();
+            this.ready = true;
+        } catch (error) {
+            this.failed = true;
+            this.showFailure();
+            console.error(error);
+        }
     }
 
     destroy() {
-        if (this.p5) this.p5.remove();
+        this.threeRenderer?.dispose();
+        this.pickTarget?.dispose();
         this.p5 = null;
         this.pickGraphics = null;
+        this.scene = null;
+        this.camera = null;
+        this.cameraRig = null;
+        this.threeRenderer = null;
         this.ready = false;
     }
 
-    sketch(p, resolveReady) {
-        p.setup = () => {
-            try {
-                const canvas = p.createCanvas(400, 400, p.WEBGL);
-                canvas.parent(this.container);
-                canvas.elt.className = 'dalton-3d-canvas';
-                p.pixelDensity(1);
-                p.frameRate(30);
-                this.pickGraphics = p.createGraphics(400, 400, p.WEBGL);
-                this.pickGraphics.pixelDensity(1);
-                this.edgeRadius = this.len / (2 * Math.cos(Math.PI / 12));
-                this.cornerRadius = this.len / 2 * Math.sqrt(2);
-                this.ready = true;
-                resolveReady();
-            } catch (error) {
-                this.failed = true;
-                this.showFailure();
-                console.error(error);
-                resolveReady();
+    bindOrbit() {
+        const canvas = this.threeRenderer.domElement;
+        canvas.addEventListener('pointerdown', event => {
+            this.orbit.dragging = true;
+            this.orbit.moved = false;
+            this.orbit.x = event.clientX;
+            this.orbit.y = event.clientY;
+            this.orbit.zone = Math.hypot(event.offsetX - canvas.clientWidth / 2, event.offsetY - canvas.clientHeight / 2)
+                < Math.min(canvas.clientWidth, canvas.clientHeight) * 0.35 ? 1 : 2;
+            canvas.setPointerCapture(event.pointerId);
+        });
+        canvas.addEventListener('pointerup', event => {
+            this.orbit.dragging = false;
+            canvas.releasePointerCapture(event.pointerId);
+            if (!this.orbit.moved) {
+                const rect = canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                const id = this.pickSticker(x, y);
+                if (id && this.onStickerClick) this.onStickerClick(id, event);
             }
-        };
+        });
+        canvas.addEventListener('pointermove', event => {
+            if (!this.orbit.dragging) return;
+            const dx = event.clientX - this.orbit.x;
+            const dy = event.clientY - this.orbit.y;
+            this.orbit.moved = this.orbit.moved || Math.hypot(dx, dy) > 2;
+            const cameraQuaternion = new THREE.Quaternion();
+            this.camera.getWorldQuaternion(cameraQuaternion);
+            const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cameraQuaternion);
+            const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cameraQuaternion);
+            const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cameraQuaternion);
+            const q = new THREE.Quaternion();
+            const speed = 0.006;
 
-        p.draw = () => {
-            if (!this.ready || !this.lastOptions) return;
-            this.drawScene(p, this.lastOptions, false);
-        };
+            if (this.orbit.zone === 1) {
+                q.setFromAxisAngle(up, -dx * speed);
+                this.cameraRig.quaternion.premultiply(q);
+                q.setFromAxisAngle(right, -dy * speed);
+                this.cameraRig.quaternion.premultiply(q);
+            } else {
+                const cx = canvas.clientWidth / 2;
+                const cy = canvas.clientHeight / 2;
+                const vecX = this.orbit.x - canvas.getBoundingClientRect().left - cx;
+                const vecY = this.orbit.y - canvas.getBoundingClientRect().top - cy;
+                const length = Math.hypot(vecX, vecY);
 
-        p.mouseClicked = (event) => {
-            if (!this.ready || !this.lastOptions) return;
-            if (p.mouseX < 0 || p.mouseY < 0 || p.mouseX > p.width || p.mouseY > p.height) return;
-            const id = this.pickSticker(p.mouseX, p.mouseY);
-            if (id && this.onStickerClick) this.onStickerClick(id, event || {});
-        };
+                if (length > 0.001) {
+                    const radialX = vecX / length;
+                    const radialY = vecY / length;
+                    const tangentX = -radialY;
+                    const tangentY = radialX;
+                    const centralMagnitude = dx * radialX + dy * radialY;
+                    const centralX = centralMagnitude * radialX;
+                    const centralY = centralMagnitude * radialY;
+
+                    q.setFromAxisAngle(up, -centralX * speed);
+                    this.cameraRig.quaternion.premultiply(q);
+                    q.setFromAxisAngle(right, -centralY * speed);
+                    this.cameraRig.quaternion.premultiply(q);
+                    q.setFromAxisAngle(forward, -(dx * tangentX + dy * tangentY) * speed);
+                    this.cameraRig.quaternion.premultiply(q);
+                }
+            }
+            this.cameraRig.quaternion.normalize();
+            this.orbit.x = event.clientX;
+            this.orbit.y = event.clientY;
+            this.threeRenderer.render(this.scene, this.camera);
+        });
+        canvas.addEventListener('wheel', event => {
+            event.preventDefault();
+            const distance = THREE.MathUtils.clamp(
+                Math.abs(this.camera.position.z) * (event.deltaY > 0 ? 1.1 : 0.9),
+                320,
+                1300,
+            );
+            this.camera.position.z = Math.sign(this.camera.position.z || -1) * distance;
+            this.threeRenderer.render(this.scene, this.camera);
+        }, { passive: false });
     }
 
     showFailure() {
@@ -359,9 +540,16 @@ export class Dalton3DRenderer {
     }
 
     resize(size) {
-        if (!this.p5 || !this.ready) return;
-        this.p5.resizeCanvas(size, size);
-        this.pickGraphics.resizeCanvas(size, size);
+        if (!this.threeRenderer || !this.ready && !this.camera) return;
+        const dimension = Number(size) || 400;
+        this.threeRenderer.setSize(dimension, dimension, false);
+        this.camera.aspect = 1;
+        this.camera.updateProjectionMatrix();
+        this.pickTarget?.setSize(dimension, dimension);
+        this.p5.width = dimension;
+        this.p5.height = dimension;
+        this.pickGraphics.width = dimension;
+        this.pickGraphics.height = dimension;
     }
 
     render(rawHex, options) {
@@ -371,23 +559,27 @@ export class Dalton3DRenderer {
             orientation: normalizeQuaternion(options.orientation ?? DEFAULT_ORIENTATION),
         };
         this.resize(options.size);
-        if (this.p5 && this.ready) this.drawScene(this.p5, this.lastOptions, false);
+        if (this.p5 && this.ready) {
+            this.drawScene(this.p5, this.lastOptions, false);
+            this.p5.render();
+            this.threeRenderer.render(this.scene, this.camera);
+        }
     }
 
     getCanvas() {
-        return this.p5?.canvas ?? null;
+        return this.threeRenderer?.domElement ?? null;
     }
 
     getExportCanvas() {
         const source = this.getCanvas();
         if (!source || !this.p5 || !this.lastOptions) return null;
 
-        this.drawScene(this.p5, { ...this.lastOptions, showAbsoluteAxes: false }, false);
+        this.render(null, { ...this.lastOptions, showAbsoluteAxes: false });
         const canvas = document.createElement('canvas');
         canvas.width = source.width;
         canvas.height = source.height;
         canvas.getContext('2d').drawImage(source, 0, 0);
-        this.drawScene(this.p5, this.lastOptions, false);
+        this.render(null, this.lastOptions);
         return canvas;
     }
 
@@ -403,8 +595,15 @@ export class Dalton3DRenderer {
         if (!this.pickGraphics || !this.lastOptions) return '';
         this.pickIds.clear();
         this.pickColors.clear();
+        this.pickGraphics.clear();
+        if (this.p5.mesh) this.p5.mesh.visible = false;
+        if (this.p5.lines) this.p5.lines.visible = false;
         this.drawScene(this.pickGraphics, this.lastOptions, true);
+        this.pickGraphics.render();
+        if (this.p5.mesh) this.p5.mesh.visible = true;
+        if (this.p5.lines) this.p5.lines.visible = true;
         const [r, g, b] = this.pickGraphics.get(Math.round(x), Math.round(y));
+        this.pickGraphics.removeOutput();
         return this.pickColors.get(`${r},${g},${b}`) || '';
     }
 
@@ -517,10 +716,10 @@ export class Dalton3DRenderer {
     cshape(p, state, isTop, isRight, isInternal) {
         p.push();
         const startPosition = isRight ? 0 : 6;
-        if (isTop && !isInternal) p.translate(0, 0, this.len / 2);
-        else if (!isTop && !isInternal) p.translate(0, 0, -this.len / 2);
-        else if (isTop && isInternal) p.translate(0, 0, this.len / 6);
-        else p.translate(0, 0, -this.len / 6);
+        if (isTop && !isInternal) p.translate(0, 0, -this.len / 2);
+        else if (!isTop && !isInternal) p.translate(0, 0, this.len / 2);
+        else if (isTop && isInternal) p.translate(0, 0, -this.len / 6);
+        else p.translate(0, 0, this.len / 6);
 
         const layer = isTop ? state.upLayer : state.downLayer;
         if (isTop) {
@@ -597,16 +796,16 @@ export class Dalton3DRenderer {
                 p.rotateZ(i * Math.PI / 6);
                 if (Math.abs(value) < 1) {
                     this.fillSurface(p, state, getSideSurfaceColor(value, 'outer', state.piecesColors, state.scheme, state.muted), getPieceSurfaceId(value, 'outer'));
-                    p.translate(0, 0, this.len / 3);
+                    p.translate(0, 0, -this.len / 3);
                     this.eadj(p);
                 } else if (value >= 1) {
                     this.fillSurface(p, state, getSideSurfaceColor(value, 'right', state.piecesColors, state.scheme, state.muted), getPieceSurfaceId(value, 'right'));
-                    p.translate(0, 0, this.len / 3);
+                    p.translate(0, 0, -this.len / 3);
                     this.cadj(p);
                 } else {
                     this.fillSurface(p, state, getSideSurfaceColor(value, 'left', state.piecesColors, state.scheme, state.muted), getPieceSurfaceId(value, 'left'));
                     p.rotateZ(Math.PI / 3);
-                    p.translate(-this.cornerRadius * Math.cos(Math.PI / 6), this.edgeRadius - this.cornerRadius * Math.sin(Math.PI / 6), this.len / 3);
+                    p.translate(-this.cornerRadius * Math.cos(Math.PI / 6), this.edgeRadius - this.cornerRadius * Math.sin(Math.PI / 6), -this.len / 3);
                     this.cadj(p);
                 }
                 p.pop();
@@ -619,17 +818,17 @@ export class Dalton3DRenderer {
                 if (Math.abs(value) < 1) {
                     this.fillSurface(p, state, getSideSurfaceColor(value, 'outer', state.piecesColors, state.scheme, state.muted), getPieceSurfaceId(value, 'outer'));
                     p.rotateZ(-(i + 1) * Math.PI / 6);
-                    p.translate(0, 0, -this.len / 3);
+                    p.translate(0, 0, this.len / 3);
                     this.eadj(p);
                 } else if (value >= 1) {
                     this.fillSurface(p, state, getSideSurfaceColor(value, 'right', state.piecesColors, state.scheme, state.muted), getPieceSurfaceId(value, 'right'));
                     p.rotateZ(-(i - 1) * Math.PI / 6);
-                    p.translate(-this.cornerRadius * Math.cos(Math.PI / 6), this.edgeRadius - this.cornerRadius * Math.sin(Math.PI / 6), -this.len / 3);
+                    p.translate(-this.cornerRadius * Math.cos(Math.PI / 6), this.edgeRadius - this.cornerRadius * Math.sin(Math.PI / 6), this.len / 3);
                     this.cadj(p);
                 } else {
                     this.fillSurface(p, state, getSideSurfaceColor(value, 'left', state.piecesColors, state.scheme, state.muted), getPieceSurfaceId(value, 'left'));
                     p.rotateZ(-(i + 1) * Math.PI / 6);
-                    p.translate(0, 0, -this.len / 3);
+                    p.translate(0, 0, this.len / 3);
                     this.cadj(p);
                 }
                 p.pop();

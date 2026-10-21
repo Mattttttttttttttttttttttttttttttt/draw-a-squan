@@ -166,7 +166,8 @@ async function buildJS() {
     setup(build) {
       build.onLoad({ filter: /\.js$/ }, async (args) => {
         if (args.path.includes('node_modules')) return;
-        if (args.path.includes('pickr.js') || args.path.includes('jszip-lib') || args.path.includes('xlsx-min')) return;
+        if (args.path.includes('pickr.js') || args.path.includes('jszip-lib') || args.path.includes('xlsx-min')
+          || args.path.includes('three.core.js') || args.path.includes('three.module.min.js')) return;
         const source = readFileSync(args.path, 'utf-8');
         const transformed = await compressTemplateLiterals(source);
         if (transformed !== source) {
@@ -218,7 +219,6 @@ function copyAssets() {
 
   cp('favicon.ico', 'favicon.ico');
   cp('scripts/pickr.js', 'pickr.js');
-  cp('vendor/p5.min.js', 'p5.min.js');
   cp('manifest.webmanifest', 'manifest.webmanifest');
   cp('icon-192.png', 'icon-192.png');
   cp('icon-512.png', 'icon-512.png');
